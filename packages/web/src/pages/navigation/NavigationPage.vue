@@ -544,7 +544,11 @@ function onCategoryDragOver(_event: DragEvent, categoryId: string) {
 async function onLinkDrop(event: DragEvent, link: NavigationLink) {
   const element = event.currentTarget as HTMLElement | null;
   const rect = element?.getBoundingClientRect();
-  const after = rect ? event.clientY - rect.top > rect.height / 2 || event.clientX - rect.left > rect.width / 2 : dropPlacement.value === 'after';
+  const after = dropLinkId.value === link.id
+    ? dropPlacement.value === 'after'
+    : rect
+      ? event.clientX - rect.left > rect.width / 2
+      : false;
   await performLinkDrop(link.categoryId, link.id, after);
 }
 
@@ -906,6 +910,16 @@ async function moveCategoryDown(category: NavigationCategory) {
               @dragover.prevent="editMode && onLinkDragOver($event, link)"
               @drop.prevent="editMode && onLinkDrop($event, link)"
             >
+              <span
+                v-if="dropLinkId === link.id && dropPlacement === 'before'"
+                class="drop-indicator drop-indicator-before"
+                aria-hidden="true"
+              />
+              <span
+                v-if="dropLinkId === link.id && dropPlacement === 'after'"
+                class="drop-indicator drop-indicator-after"
+                aria-hidden="true"
+              />
               <div class="flex items-center gap-2 min-w-0">
                 <FaviconImage :url="link.url" :title="link.title" />
                 <div class="min-w-0">
@@ -1084,30 +1098,25 @@ async function moveCategoryDown(category: NavigationCategory) {
   transform: scale(1.02);
 }
 
-.nav-link-card.drop-before::before {
-  content: '';
+.drop-indicator {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
-  left: -10px;
+  top: 6px;
+  bottom: 6px;
   width: 8px;
   background: rgba(0, 0, 0, 0.1);
-  border-left: 4px dashed #000000;
+  pointer-events: none;
   border-radius: 4px;
-  z-index: 100;
+  z-index: 120;
 }
 
-.nav-link-card.drop-after::after {
-  content: '';
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  right: -10px;
-  width: 8px;
-  background: rgba(0, 0, 0, 0.1);
+.drop-indicator-before {
+  left: 6px;
+  border-left: 4px dashed #000000;
+}
+
+.drop-indicator-after {
+  right: 6px;
   border-right: 4px dashed #000000;
-  border-radius: 4px;
-  z-index: 100;
 }
 
 .nav-category-move-btn {
