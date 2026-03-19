@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deduplicateNodes, detectInputFormat, parseClashContent, parseContent, parseSubQuery, renderFormat } from '../src';
+import { deduplicateNodes, detectInputFormat, parseClashContent, parseContent, parseMixedInput, parseSubQuery, renderFormat } from '../src';
 
 describe('shared aggregation rules', () => {
   it('keeps nodes with same host and port but different identities', () => {
@@ -207,6 +207,20 @@ proxies:
       type: 'ss',
       server: '2001:db8::1',
       port: 8388
+    });
+  });
+
+  it('extracts urls and node uris from mixed inline text', () => {
+    const mixed = parseMixedInput(
+      '订阅A: https://8.8.8.8/sub, 备用节点: vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none&security=none#inline'
+    );
+
+    expect(mixed.urls).toEqual(['https://8.8.8.8/sub']);
+    expect(mixed.nodes).toHaveLength(1);
+    expect(mixed.nodes[0]).toMatchObject({
+      type: 'vless',
+      server: 'example.com',
+      port: 443
     });
   });
 });

@@ -16,6 +16,8 @@ import { isHttpUrl } from './utils';
 
 type ClashLikeProxy = Record<string, unknown>;
 type SingboxOutbound = Record<string, unknown>;
+const MIXED_TOKEN_PATTERN =
+  /(?:https?:\/\/[^\s"'<>]+|(?:vmess|vless|ss|trojan|hysteria2|hy2|tuic|wireguard):\/\/[^\s"'<>]+)/gi;
 
 function warning(code: AggregateWarning['code'], message: string, context?: string): AggregateWarning {
   return { code, message, context };
@@ -59,7 +61,7 @@ export function detectInputFormat(content: string): InputFormat {
   }
 
   const lines = trimmed.split('\n').map((line) => line.trim()).filter(Boolean);
-  if (lines.some((line) => isNodeUri(line))) {
+  if (lines.some((line) => extractInlineTokens(line).some((token) => isNodeUri(token)))) {
     return 'base64';
   }
 
@@ -76,25 +78,33 @@ export function parseMixedInput(content: string): {
   const warnings: AggregateWarning[] = [];
 
   for (const line of content.split('\n').map((value) => value.trim()).filter(Boolean)) {
-    if (isHttpUrl(line)) {
-      urls.push(line);
-      continue;
-    }
-
-    if (!isNodeUri(line)) {
+    const tokens = extractInlineTokens(line);
+    if (!tokens.length) {
       warnings.push(warning('parse-failed', `忽略无法识别的输入: ${line.slice(0, 40)}`, line));
       continue;
     }
 
-    const parsed = parseUri(line);
-    if (parsed) {
-      nodes.push(parsed);
-    } else {
-      warnings.push(warning('parse-failed', `无法解析节点 URI: ${line.slice(0, 40)}`, line));
+    for (const token of tokens) {
+      if (isHttpUrl(token)) {
+        urls.push(token);
+        continue;
+      }
+
+      if (!isNodeUri(token)) {
+        warnings.push(warning('parse-failed', `忽略无法识别的输入: ${token.slice(0, 40)}`, token));
+        continue;
+      }
+
+      const parsed = parseUri(token);
+      if (parsed) {
+        nodes.push(parsed);
+      } else {
+        warnings.push(warning('parse-failed', `无法解析节点 URI: ${token.slice(0, 40)}`, token));
+      }
     }
   }
 
-  return { urls, nodes, warnings };
+  return { urls: Array.from(new Set(urls)), nodes, warnings };
 }
 
 export function parseContent(content: string, format?: InputFormat): ParsedContent {
@@ -428,6 +438,19 @@ function parseServerEndpoint(input: string): { server: string; port: number } | 
     return null;
   }
   return { server, port };
+}
+
+function extractInlineTokens(line: string): string[] {
+  const matches = line.match(MIXED_TOKEN_PATTERN) ?? [];
+  return matches.map(sanitizeExtractedToken).filter(Boolean);
+}
+
+function sanitizeExtractedToken(token: string): string {
+  let value = token.trim();
+  while (/[，,；;]$/.test(value)) {
+    value = value.slice(0, -1);
+  }
+  return value;
 }
 
 function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {

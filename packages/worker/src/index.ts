@@ -90,6 +90,7 @@ type Bindings = { Bindings: Env };
 const app = new Hono<Bindings>();
 
 const MAX_REDIRECTS = 3;
+const MAX_SUBSCRIPTION_EXPANSION_DEPTH = 2;
 const MAX_IMAGE_SNIPPET_BYTES = 350 * 1024;
 const MAX_FAVICON_BYTES = 64 * 1024;
 const FAVICON_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -457,47 +458,15 @@ function enforceHttps(request: Request): Response | null {
 }
 
 async function validateContent(env: Env, content: string): Promise<ValidationSummary> {
-  const trimmed = content.trim();
-  
-  // 先尝试识别整段内容格式（与 expandSourceContent 保持一致）
-  const format = detectInputFormat(trimmed);
-  if (format !== 'unknown') {
-    const parsed = parseContent(trimmed, format);
-    const { nodes, duplicateCount } = deduplicateNodes(parsed.nodes);
-    return {
-      valid: nodes.length > 0,
-      urlCount: 0,
-      nodeCount: nodes.length,
-      totalCount: parsed.nodes.length,
-      duplicateCount,
-      warnings: parsed.warnings
-    };
-  }
-  
-  // 否则按混合输入处理
-  const { urls, nodes: directNodes, warnings: inputWarnings } = parseMixedInput(trimmed);
-  const resolvedNodes = [...directNodes];
-  const warnings = [...inputWarnings];
-
-  for (const rawUrl of urls) {
-    try {
-      const fetched = await fetchSubscription(env, rawUrl);
-      const parsed = parseContent(fetched.text, detectInputFormat(fetched.text));
-      resolvedNodes.push(...parsed.nodes);
-      warnings.push(...parsed.warnings);
-    } catch (error) {
-      warnings.push({ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl });
-    }
-  }
-
-  const { nodes, duplicateCount } = deduplicateNodes(resolvedNodes);
+  const resolved = await resolveNodesFromInput(env, content);
+  const { nodes, duplicateCount } = deduplicateNodes(resolved.nodes);
   return {
-    valid: urls.length > 0 || directNodes.length > 0,
-    urlCount: urls.length,
+    valid: resolved.urlCount > 0 || resolved.nodes.length > 0,
+    urlCount: resolved.urlCount,
     nodeCount: nodes.length,
-    totalCount: resolvedNodes.length,
+    totalCount: resolved.nodes.length,
     duplicateCount,
-    warnings
+    warnings: resolved.warnings
   };
 }
 
@@ -733,46 +702,77 @@ async function expandSourceContent(env: Env, content: string): Promise<{
   uniqueNodes: NormalizedNode[];
   warnings: AggregateWarning[];
 }> {
-  const trimmed = content.trim();
-  
-  // 先尝试识别整段内容格式（Base64/Clash/Singbox）
-  const format = detectInputFormat(trimmed);
-  if (format !== 'unknown') {
-    const parsed = parseContent(trimmed, format);
-    const deduped = deduplicateNodes(parsed.nodes);
-    return { uniqueNodes: deduped.nodes, warnings: parsed.warnings };
-  }
-  
-  // 否则按混合输入处理（URL + URI）
-  const { urls, nodes: directNodes, warnings } = parseMixedInput(trimmed);
-  const expandedNodes = [...directNodes];
-  const extraWarnings = [...warnings];
+  const resolved = await resolveNodesFromInput(env, content);
+  const deduped = deduplicateNodes(resolved.nodes);
+  return { uniqueNodes: deduped.nodes, warnings: resolved.warnings };
+}
 
-  // 并行拉取所有 URL，提高性能
-  const fetchResults = await Promise.allSettled(
-    urls.map(async (rawUrl) => {
-      try {
-        const fetched = await fetchSubscription(env, rawUrl);
-        const parsed = parseContent(fetched.text);
-        return { nodes: parsed.nodes, warnings: parsed.warnings, url: rawUrl };
-      } catch (error) {
-        throw { url: rawUrl, error };
+async function resolveNodesFromInput(
+  env: Env,
+  content: string,
+  depth = 0,
+  visitedUrls?: Set<string>
+): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return { nodes: [], warnings: [], urlCount: 0 };
+  }
+
+  const mixed = parseMixedInput(trimmed);
+  if (mixed.urls.length === 0 && mixed.nodes.length === 0) {
+    const format = detectInputFormat(trimmed);
+    const parsed = parseContent(trimmed, format);
+    return { nodes: parsed.nodes, warnings: parsed.warnings, urlCount: 0 };
+  }
+
+  const nodes = [...mixed.nodes];
+  const warnings = [...mixed.warnings];
+  let urlCount = mixed.urls.length;
+  const seen = visitedUrls ?? new Set<string>();
+
+  if (depth >= MAX_SUBSCRIPTION_EXPANSION_DEPTH) {
+    for (const rawUrl of mixed.urls) {
+      warnings.push({
+        code: 'fetch-failed',
+        message: `订阅嵌套层级超过限制（${MAX_SUBSCRIPTION_EXPANSION_DEPTH}）`,
+        context: rawUrl
+      });
+    }
+    return { nodes, warnings, urlCount };
+  }
+
+  const results = await Promise.all(
+    mixed.urls.map(
+      async (
+        rawUrl
+      ): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> => {
+        const normalizedUrl = fixUrl(rawUrl);
+        if (seen.has(normalizedUrl)) {
+          return { nodes: [], warnings: [], urlCount: 0 };
+        }
+
+        seen.add(normalizedUrl);
+        try {
+          const fetched = await fetchSubscription(env, normalizedUrl);
+          return await resolveNodesFromInput(env, fetched.text, depth + 1, seen);
+        } catch (error) {
+          return {
+            nodes: [],
+            warnings: [{ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl }],
+            urlCount: 0
+          };
+        }
       }
-    })
+    )
   );
 
-  for (const result of fetchResults) {
-    if (result.status === 'fulfilled') {
-      expandedNodes.push(...result.value.nodes);
-      extraWarnings.push(...result.value.warnings);
-    } else {
-      const { url, error } = result.reason as { url: string; error: unknown };
-      extraWarnings.push({ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: url });
-    }
+  for (const result of results) {
+    nodes.push(...result.nodes);
+    warnings.push(...result.warnings);
+    urlCount += result.urlCount;
   }
 
-  const deduped = deduplicateNodes(expandedNodes);
-  return { uniqueNodes: deduped.nodes, warnings: extraWarnings };
+  return { nodes, warnings, urlCount };
 }
 
 async function fetchSubscription(env: Env, rawUrl: string, depth = 0): Promise<{ text: string }> {

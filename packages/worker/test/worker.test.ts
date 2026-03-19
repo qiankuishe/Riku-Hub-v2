@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app, type Env } from '../src/index';
 
 class MemoryKv {
@@ -74,6 +74,10 @@ describe('worker behaviors', () => {
     };
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('redirects plain http requests to https', async () => {
     const response = await app.request('http://example.com/health', undefined, env);
     expect(response.status).toBe(308);
@@ -99,6 +103,95 @@ describe('worker behaviors', () => {
     const data = (await response.json()) as { formats: Array<{ url: string }> };
     expect(response.status).toBe(200);
     expect(data.formats.every((format) => format.url.startsWith('https://'))).toBe(true);
+  });
+
+  it('validates mixed content with both node uri and subscription url', async () => {
+    const cookie = await login(env);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === 'https://8.8.8.8/sub') {
+        return new Response('trojan://pass@example.org:443?security=tls&sni=example.org#remote', { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const response = await app.request(
+      'https://example.com/api/sources/validate',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          content: 'vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none&security=none#direct\nhttps://8.8.8.8/sub'
+        })
+      },
+      env
+    );
+    const data = (await response.json()) as {
+      valid: boolean;
+      urlCount: number;
+      nodeCount: number;
+      totalCount: number;
+      warnings: Array<{ code: string }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(data.valid).toBe(true);
+    expect(data.urlCount).toBe(1);
+    expect(data.nodeCount).toBe(2);
+    expect(data.totalCount).toBe(2);
+    expect(data.warnings.some((warning) => warning.code === 'fetch-failed')).toBe(false);
+  });
+
+  it('refresh keeps mixed source entries (direct nodes + subscription urls)', async () => {
+    const cookie = await login(env);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === 'https://8.8.8.8/sub') {
+        return new Response('trojan://pass@example.org:443?security=tls&sni=example.org#remote', { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const createResponse = await app.request(
+      'https://example.com/api/sources',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          name: 'mixed-source',
+          content: 'vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none&security=none#direct\nhttps://8.8.8.8/sub'
+        })
+      },
+      env
+    );
+    expect(createResponse.status).toBe(200);
+
+    const refreshResponse = await app.request(
+      'https://example.com/api/sources/refresh',
+      {
+        method: 'POST',
+        headers: { cookie }
+      },
+      env
+    );
+    expect(refreshResponse.status).toBe(200);
+
+    const subInfoResponse = await app.request(
+      'https://example.com/api/sub/info',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const subInfo = (await subInfoResponse.json()) as { totalNodes: number };
+    expect(subInfoResponse.status).toBe(200);
+    expect(subInfo.totalNodes).toBe(2);
   });
 
   it('reorders sources through the dedicated route', async () => {
