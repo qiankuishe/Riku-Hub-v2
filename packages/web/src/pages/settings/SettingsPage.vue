@@ -156,7 +156,11 @@ async function logout() {
 <template>
   <div class="grid gap-4">
     <section class="card" :id="dataSectionId">
-      <div class="mb-4 flex justify-end">
+      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-semibold text-gray-900">数据管理</h2>
+          <p class="text-sm text-gray-500">导出、导入和数据概览。</p>
+        </div>
         <ElButton :loading="loadingStats" @click="loadStats">
           <Icon icon="carbon:renew" class="mr-1" />
           {{ loadingStats ? '刷新中...' : '刷新统计' }}
@@ -191,6 +195,11 @@ async function logout() {
     </section>
 
     <section class="card" :id="dangerSectionId">
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">危险区域</h2>
+        <p class="text-sm text-gray-500">高风险操作，需要二次确认。</p>
+      </div>
+
       <div class="grid gap-3">
         <article
           v-for="action in dangerActions"
@@ -211,6 +220,11 @@ async function logout() {
     </section>
 
     <section class="card" :id="accountSectionId">
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">账户</h2>
+        <p class="text-sm text-gray-500">当前实例和登录状态。</p>
+      </div>
+
       <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
         <p class="text-xs text-gray-500">当前域名</p>
         <div class="mt-2 flex flex-wrap items-center gap-2">
