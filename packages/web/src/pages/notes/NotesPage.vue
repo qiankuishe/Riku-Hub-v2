@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { ElAlert, ElButton, ElInput, ElRadioButton, ElRadioGroup, ElTag } from 'element-plus';
+import { ElAlert, ElButton, ElInput, ElRadioButton, ElRadioGroup } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { NoteRecord } from '../../api';
 import { notesApi } from '../../api';
@@ -25,13 +25,6 @@ const viewMode = ref<ViewMode>('write');
 const renderedPreview = ref('');
 const deleteTarget = ref<NoteRecord | null>(null);
 const highlightedId = ref<string | null>(null);
-const NOTE_TITLE_MAX_UNITS_ZH = 28;
-const NOTE_TITLE_MAX_UNITS_EN = 26;
-const NOTE_TITLE_MAX_UNITS_MIXED = 27;
-const NOTE_EXCERPT_MAX_UNITS_ZH = 32;
-const NOTE_EXCERPT_MAX_UNITS_EN = 32;
-const NOTE_EXCERPT_MAX_UNITS_MIXED = 32;
-const ELLIPSIS_MARK = '···';
 
 let saveTimer = 0;
 let previewRunId = 0;
@@ -45,8 +38,7 @@ const filtered = computed(() => {
   }
   return notes.value.filter((note) => note.title.toLowerCase().includes(needle) || note.content.toLowerCase().includes(needle));
 });
-const pinnedNotes = computed(() => filtered.value.filter((note) => note.isPinned));
-const recentNotes = computed(() => filtered.value.filter((note) => !note.isPinned));
+
 const selectedNote = computed(() => notes.value.find((note) => note.id === selectedNoteId.value) ?? null);
 const characterCount = computed(() => editContent.value.trim().length);
 const lineCount = computed(() => (editContent.value ? editContent.value.split(/\r?\n/).length : 0));
@@ -205,233 +197,123 @@ async function renderMarkdown(content: string) {
   return markdownRenderer(content);
 }
 
-function noteExcerpt(content: string) {
+function getExcerpt(content: string) {
   const normalized = content.replace(/\s+/g, ' ').trim();
   if (!normalized) {
     return '空白笔记';
   }
-  return truncateByVisualUnits(normalized, getExcerptMaxUnits(normalized));
-}
-
-function getNoteDisplayTitle(title: string) {
-  const normalized = title?.trim() || '无标题';
-  return truncateByVisualUnits(normalized, getTitleMaxUnits(normalized));
-}
-
-function isHanCharacter(char: string) {
-  return /[\u3400-\u9FFF\uF900-\uFAFF]/.test(char);
-}
-
-function getTextMode(value: string): 'zh' | 'en' | 'mixed' {
-  let hanCount = 0;
-  let latinCount = 0;
-  for (const char of value) {
-    if (/\s/.test(char)) {
-      continue;
-    }
-    if (isHanCharacter(char)) {
-      hanCount += 1;
-      continue;
-    }
-    if (/[A-Za-z0-9]/.test(char)) {
-      latinCount += 1;
-    }
-  }
-  if (hanCount > 0 && latinCount === 0) {
-    return 'zh';
-  }
-  if (latinCount > 0 && hanCount === 0) {
-    return 'en';
-  }
-  return 'mixed';
-}
-
-function getTitleMaxUnits(value: string) {
-  const mode = getTextMode(value);
-  if (mode === 'zh') {
-    return NOTE_TITLE_MAX_UNITS_ZH;
-  }
-  if (mode === 'en') {
-    return NOTE_TITLE_MAX_UNITS_EN;
-  }
-  return NOTE_TITLE_MAX_UNITS_MIXED;
-}
-
-function getExcerptMaxUnits(value: string) {
-  const mode = getTextMode(value);
-  if (mode === 'zh') {
-    return NOTE_EXCERPT_MAX_UNITS_ZH;
-  }
-  if (mode === 'en') {
-    return NOTE_EXCERPT_MAX_UNITS_EN;
-  }
-  return NOTE_EXCERPT_MAX_UNITS_MIXED;
-}
-
-function getCharVisualUnits(char: string) {
-  return isHanCharacter(char) ? 2 : 1;
-}
-
-function truncateByVisualUnits(value: string, maxUnits: number) {
-  let units = 0;
-  let output = '';
-  for (const char of value) {
-    const nextUnits = units + getCharVisualUnits(char);
-    if (nextUnits > maxUnits) {
-      return `${output}${ELLIPSIS_MARK}`;
-    }
-    output += char;
-    units = nextUnits;
-  }
-  return output;
+  return normalized.slice(0, 50);
 }
 </script>
 
 <template>
-  <div class="grid gap-4">
+  <div class="notes-layout">
+    <!-- 左侧：编辑区 -->
     <section class="card">
-      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
-          <p class="text-sm text-gray-500">自动保存，支持 Markdown 预览。</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <ElButton type="primary" :disabled="saving" @click="createNote">
-            <Icon icon="carbon:add-alt" class="mr-1" />
-            新增笔记
-          </ElButton>
-          <ElButton :loading="loading" @click="loadAll">
-            <Icon icon="carbon:renew" class="mr-1" />
-            {{ loading ? '刷新中...' : '刷新' }}
-          </ElButton>
-        </div>
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
+        <ElButton type="primary" size="small" :disabled="saving" @click="createNote">
+          <Icon icon="carbon:add-alt" class="mr-1" />
+          新增
+        </ElButton>
       </div>
 
-      <ElInput v-model="searchQuery" clearable placeholder="按标题或内容搜索..." />
-    </section>
-
-    <section class="notes-layout">
-      <aside class="card">
-        <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
-          加载中...
+      <template v-if="selectedNote">
+        <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <ElRadioGroup v-model="viewMode" size="small">
+            <ElRadioButton label="write">写作</ElRadioButton>
+            <ElRadioButton label="preview">预览</ElRadioButton>
+            <ElRadioButton label="split">分栏</ElRadioButton>
+          </ElRadioGroup>
+          <div class="flex flex-wrap gap-2">
+            <ElButton size="small" @click="togglePin">
+              <Icon :icon="selectedNote.isPinned ? 'carbon:star-filled' : 'carbon:star'" class="mr-1" />
+              置顶
+            </ElButton>
+            <ElButton size="small" type="danger" @click="deleteTarget = selectedNote">
+              <Icon icon="carbon:trash-can" class="mr-1" />
+              删除
+            </ElButton>
+          </div>
         </div>
-        <ElAlert v-else-if="errorMessage" :closable="false" show-icon type="error" :title="errorMessage" />
-        <template v-else>
-          <div class="grid gap-2">
-            <div class="flex items-center justify-between">
-              <strong class="text-sm text-gray-900">置顶</strong>
-              <ElTag size="small">{{ pinnedNotes.length }}</ElTag>
-            </div>
-            <button
-              v-for="note in pinnedNotes"
-              :key="note.id"
-              type="button"
-              class="list-card w-full text-left"
-              :class="{
-                'list-card-active': selectedNoteId === note.id,
-                'notes-note-button-highlight': highlightedId === note.id
-              }"
-              @click="selectedNoteId = note.id"
-            >
-              <div class="min-w-0">
-                <strong class="block truncate text-sm text-gray-900">{{ getNoteDisplayTitle(note.title) }}</strong>
-                <p class="truncate text-xs text-gray-500">{{ noteExcerpt(note.content) }}</p>
-              </div>
-            </button>
+
+        <div class="grid gap-3">
+          <ElInput v-model="editTitle" placeholder="笔记标题" />
+          <p class="text-xs text-gray-500">
+            字数 {{ characterCount }} · 行数 {{ lineCount }} · 更新 {{ formatDateTime(selectedNote.updatedAt) }}
+          </p>
+
+          <div v-if="viewMode === 'write'" class="notes-editor">
+            <textarea v-model="editContent" class="notes-editor-textarea" />
           </div>
 
-          <div class="mt-3 grid gap-2">
-            <div class="flex items-center justify-between">
-              <strong class="text-sm text-gray-900">最近</strong>
-              <ElTag size="small" type="info">{{ recentNotes.length }}</ElTag>
-            </div>
-            <button
-              v-for="note in recentNotes"
-              :key="note.id"
-              type="button"
-              class="list-card w-full text-left"
-              :class="{
-                'list-card-active': selectedNoteId === note.id,
-                'notes-note-button-highlight': highlightedId === note.id
-              }"
-              @click="selectedNoteId = note.id"
-            >
-              <div class="min-w-0">
-                <strong class="block truncate text-sm text-gray-900">{{ getNoteDisplayTitle(note.title) }}</strong>
-                <p class="truncate text-xs text-gray-500">{{ noteExcerpt(note.content) }}</p>
-              </div>
-            </button>
-          </div>
-        </template>
-      </aside>
+          <div v-else-if="viewMode === 'preview'" class="notes-preview" v-html="renderedPreview"></div>
 
-      <section class="card">
-        <template v-if="selectedNote">
-          <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
-            <ElRadioGroup v-model="viewMode" size="small">
-              <ElRadioButton label="write">写作</ElRadioButton>
-              <ElRadioButton label="preview">预览</ElRadioButton>
-              <ElRadioButton label="split">分栏</ElRadioButton>
-            </ElRadioGroup>
-            <div class="flex flex-wrap gap-2">
-              <ElButton size="small" @click="togglePin">
-                <Icon :icon="selectedNote.isPinned ? 'carbon:star-filled' : 'carbon:star'" class="mr-1" />
-                {{ selectedNote.isPinned ? '取消置顶' : '置顶' }}
-              </ElButton>
-              <ElButton size="small" type="danger" @click="deleteTarget = selectedNote">
-                <Icon icon="carbon:trash-can" class="mr-1" />
-                删除
-              </ElButton>
-            </div>
-          </div>
-
-          <div class="grid gap-3">
-            <ElInput v-model="editTitle" placeholder="笔记标题" />
-            <p class="text-xs text-gray-500">
-              字数 {{ characterCount }} · 行数 {{ lineCount }} · 更新 {{ formatDateTime(selectedNote.updatedAt) }}
-            </p>
-
-            <div v-if="viewMode === 'write'" class="notes-editor">
+          <div v-else class="grid gap-3 md:grid-cols-2">
+            <div class="notes-editor">
               <textarea v-model="editContent" class="notes-editor-textarea" />
             </div>
-
-            <div v-else-if="viewMode === 'preview'" class="notes-preview" v-html="renderedPreview"></div>
-
-            <div v-else class="grid gap-3 md:grid-cols-2">
-              <div class="notes-editor">
-                <textarea v-model="editContent" class="notes-editor-textarea" />
-              </div>
-              <div class="notes-preview" v-html="renderedPreview"></div>
-            </div>
+            <div class="notes-preview" v-html="renderedPreview"></div>
           </div>
-        </template>
-
-        <div v-else class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
-          请选择一条笔记开始编辑。
         </div>
-      </section>
+      </template>
+
+      <div v-else class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
+        请选择或创建一条笔记开始编辑。
+      </div>
     </section>
 
-    <ConfirmModal
-      :open="Boolean(deleteTarget)"
-      title="删除笔记"
-      :message="`确认删除「${deleteTarget?.title || '无标题'}」？`"
-      confirm-text="删除"
-      @close="deleteTarget = null"
-      @confirm="confirmDelete"
-    />
+    <!-- 右侧：笔记列表 -->
+    <section class="card">
+      <div class="mb-4">
+        <ElInput v-model="searchQuery" clearable placeholder="搜索笔记..." />
+      </div>
+
+      <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
+        加载中...
+      </div>
+      <ElAlert v-else-if="errorMessage" :closable="false" show-icon type="error" :title="errorMessage" />
+      <div v-else-if="!filtered.length" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
+        暂无笔记
+      </div>
+      <div v-else class="notes-grid">
+        <button
+          v-for="note in filtered"
+          :key="note.id"
+          type="button"
+          class="note-card"
+          :class="{
+            'note-card-active': selectedNoteId === note.id,
+            'note-card-highlight': highlightedId === note.id
+          }"
+          @click="selectedNoteId = note.id"
+        >
+          <div class="note-card-header">
+            <Icon v-if="note.isPinned" icon="carbon:star-filled" class="note-card-star" />
+            <strong class="note-card-title">{{ note.title || '无标题' }}</strong>
+          </div>
+          <p class="note-card-excerpt">{{ getExcerpt(note.content) }}</p>
+          <p class="note-card-time">{{ formatDateTime(note.updatedAt) }}</p>
+        </button>
+      </div>
+    </section>
   </div>
+
+  <ConfirmModal
+    :open="Boolean(deleteTarget)"
+    title="删除笔记"
+    :message="`确认删除「${deleteTarget?.title || '无标题'}」？`"
+    confirm-text="删除"
+    @close="deleteTarget = null"
+    @confirm="confirmDelete"
+  />
 </template>
 
 <style scoped>
 .notes-layout {
   display: grid;
   gap: 16px;
-  grid-template-columns: 300px minmax(0, 1fr);
-}
-
-.notes-note-button-highlight {
-  box-shadow: 0 0 0 3px rgba(123, 68, 26, 0.15);
+  grid-template-columns: minmax(0, 1fr) 400px;
 }
 
 .notes-editor {
@@ -484,8 +366,87 @@ function truncateByVisualUnits(value: string, maxUnits: number) {
   color: #4b5563;
 }
 
+.notes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.note-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.note-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.note-card-active {
+  border-color: #7b441a;
+  background: rgba(123, 68, 26, 0.03);
+}
+
+.note-card-highlight {
+  box-shadow: 0 0 0 3px rgba(123, 68, 26, 0.15);
+}
+
+.note-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+
+.note-card-star {
+  flex-shrink: 0;
+  color: #f59e0b;
+  font-size: 14px;
+}
+
+.note-card-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-card-excerpt {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.note-card-time {
+  margin: 0;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
 @media (max-width: 1100px) {
   .notes-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .notes-grid {
     grid-template-columns: 1fr;
   }
 }
