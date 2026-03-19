@@ -19,10 +19,6 @@ const emit = defineEmits<{
         <Icon icon="carbon:menu" />
         菜单
       </ElButton>
-      <div>
-        <h1>{{ title }}</h1>
-        <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
-      </div>
     </div>
   </header>
 </template>

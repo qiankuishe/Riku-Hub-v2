@@ -526,14 +526,13 @@ function onLinkDragOver(event: DragEvent, link: NavigationLink) {
     return;
   }
 
-  const mouseY = event.clientY - rect.top;
   const mouseX = event.clientX - rect.left;
-  const centerY = rect.height / 2;
   const centerX = rect.width / 2;
-  const after = mouseY > centerY || (mouseY === centerY && mouseX > centerX);
+  const isLeft = mouseX < centerX;
+
   dropCategoryId.value = link.categoryId;
   dropLinkId.value = link.id;
-  dropPlacement.value = after ? 'after' : 'before';
+  dropPlacement.value = isLeft ? 'before' : 'after';
 }
 
 function onCategoryDragOver(_event: DragEvent, categoryId: string) {
@@ -1088,22 +1087,22 @@ async function moveCategoryDown(category: NavigationCategory) {
 .nav-link-card.drop-before::before {
   content: '';
   position: absolute;
-  top: -2px;
-  left: 0;
-  right: 0;
-  height: 4px;
-  border-top: 4px dashed #000000;
+  top: 0;
+  bottom: 0;
+  left: -6px;
+  width: 0;
+  border-left: 4px dashed #000000;
   z-index: 10;
 }
 
 .nav-link-card.drop-after::after {
   content: '';
   position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 4px;
-  border-bottom: 4px dashed #000000;
+  top: 0;
+  bottom: 0;
+  right: -6px;
+  width: 0;
+  border-right: 4px dashed #000000;
   z-index: 10;
 }
 
