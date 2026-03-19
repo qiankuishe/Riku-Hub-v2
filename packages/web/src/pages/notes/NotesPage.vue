@@ -197,6 +197,10 @@ async function renderMarkdown(content: string) {
   }
   return markdownRenderer(content);
 }
+
+function noteExcerpt(content: string) {
+  return content.replace(/\s+/g, ' ').trim().slice(0, 54) || '空白笔记';
+}
 </script>
 
 <template>
@@ -245,10 +249,8 @@ async function renderMarkdown(content: string) {
               }"
               @click="selectedNoteId = note.id"
             >
-              <div class="min-w-0">
-                <strong class="block truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
-                <p class="truncate text-xs text-gray-500">{{ note.content.replace(/\s+/g, ' ').trim() || '空白笔记' }}</p>
-              </div>
+              <strong class="truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
+              <p class="truncate text-xs text-gray-500">{{ noteExcerpt(note.content) }}</p>
             </button>
           </div>
 
@@ -268,10 +270,8 @@ async function renderMarkdown(content: string) {
               }"
               @click="selectedNoteId = note.id"
             >
-              <div class="min-w-0">
-                <strong class="block truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
-                <p class="truncate text-xs text-gray-500">{{ note.content.replace(/\s+/g, ' ').trim() || '空白笔记' }}</p>
-              </div>
+              <strong class="truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
+              <p class="truncate text-xs text-gray-500">{{ noteExcerpt(note.content) }}</p>
             </button>
           </div>
         </template>
