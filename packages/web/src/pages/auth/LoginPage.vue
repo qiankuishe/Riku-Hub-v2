@@ -343,7 +343,6 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
 }
 
 .login-modal-content {

@@ -93,7 +93,7 @@ function handleNodeSelect(node: LoginClipboardNode) {
         <div class="point-corner pc-br" />
         <button class="point-label" type="button" @click="handleNodeSelect(entry.node)">
           <span class="label-icon">★</span>
-          <span>{{ entry.node.nodeLabel }}</span>
+          <span class="label-text">{{ entry.node.title }}</span>
         </button>
       </div>
     </div>
@@ -170,6 +170,7 @@ function handleNodeSelect(node: LoginClipboardNode) {
   cursor: pointer;
   pointer-events: auto;
   transition: all 0.18s ease;
+  max-width: 150px;
 }
 
 .point-label:hover {
@@ -180,6 +181,13 @@ function handleNodeSelect(node: LoginClipboardNode) {
 
 .label-icon {
   font-size: 8px;
+  flex-shrink: 0;
+}
+
+.label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .point-corner {
