@@ -478,69 +478,76 @@ async function copySnippet(snippet: SnippetRecord) {
         </ElButton>
       </div>
 
-      <div class="grid gap-3">
-        <ElRadioGroup v-model="filterType" size="small">
-          <ElRadioButton label="all">全部</ElRadioButton>
-          <ElRadioButton v-for="option in typeOptions" :key="option.key" :label="option.key">
-            {{ option.label }}
-          </ElRadioButton>
-        </ElRadioGroup>
-
-        <ElInput v-model="searchQuery" clearable placeholder="按标题或内容筛选..." />
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="mb-3 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900">快速收集</h3>
-        <ElTag size="small" type="info">当前内容大小：{{ draftSizeText }}</ElTag>
-      </div>
-
-      <div class="grid gap-3 md:grid-cols-2">
-        <div class="grid gap-2">
-          <label class="text-sm text-gray-600">类型</label>
-          <ElSelect v-model="draftType">
-            <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
-          </ElSelect>
-        </div>
-        <div class="grid gap-2">
-          <label class="text-sm text-gray-600">标题</label>
-          <ElInput v-model="draftTitle" placeholder="可选，留空自动生成" />
-        </div>
-      </div>
-
-      <div class="mt-3 grid gap-2">
-        <label class="text-sm text-gray-600">内容</label>
-        <ElInput v-if="draftType !== 'image'" v-model="draftContent" type="textarea" :rows="7" placeholder="输入内容" />
-        <div v-else class="rounded-xl border border-gray-200 bg-white p-3">
-          <div v-if="draftContent" class="snippet-image-preview">
-            <img :src="draftContent" alt="draft" />
+      <!-- 搜索和快速收集：左右分布 -->
+      <div class="grid gap-4 lg:grid-cols-3">
+        <!-- 左侧：搜索功能（1/3宽度） -->
+        <div class="lg:col-span-1">
+          <h3 class="mb-3 text-lg font-semibold text-gray-900">搜索筛选</h3>
+          <div class="grid gap-3">
+            <ElRadioGroup v-model="filterType" size="small">
+              <ElRadioButton label="all">全部</ElRadioButton>
+              <ElRadioButton v-for="option in typeOptions" :key="option.key" :label="option.key">
+                {{ option.label }}
+              </ElRadioButton>
+            </ElRadioGroup>
+            <ElInput v-model="searchQuery" clearable placeholder="按标题或内容筛选..." />
           </div>
-          <p v-else class="text-sm text-gray-500">未选择图片，可读取剪贴板或上传图片。</p>
+        </div>
+
+        <!-- 右侧：快速收集（2/3宽度） -->
+        <div class="lg:col-span-2">
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">快速收集</h3>
+            <ElTag size="small" type="info">当前内容大小：{{ draftSizeText }}</ElTag>
+          </div>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="grid gap-2">
+              <label class="text-sm text-gray-600">类型</label>
+              <ElSelect v-model="draftType">
+                <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
+              </ElSelect>
+            </div>
+            <div class="grid gap-2">
+              <label class="text-sm text-gray-600">标题</label>
+              <ElInput v-model="draftTitle" placeholder="可选，留空自动生成" />
+            </div>
+          </div>
+
+          <div class="mt-3 grid gap-2">
+            <label class="text-sm text-gray-600">内容</label>
+            <ElInput v-if="draftType !== 'image'" v-model="draftContent" type="textarea" :rows="7" placeholder="输入内容" />
+            <div v-else class="rounded-xl border border-gray-200 bg-white p-3">
+              <div v-if="draftContent" class="snippet-image-preview">
+                <img :src="draftContent" alt="draft" />
+              </div>
+              <p v-else class="text-sm text-gray-500">未选择图片，可读取剪贴板或上传图片。</p>
+            </div>
+          </div>
+
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
+              <Icon icon="carbon:paste" class="mr-1" />
+              {{ clipboardBusy === 'text' ? '读取中...' : '读取文本' }}
+            </ElButton>
+            <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
+              <Icon icon="carbon:image-search" class="mr-1" />
+              {{ clipboardBusy === 'image' ? '读取中...' : '读取图片' }}
+            </ElButton>
+            <ElButton @click="triggerImageUpload">
+              <Icon icon="carbon:upload" class="mr-1" />
+              上传图片
+            </ElButton>
+            <ElButton type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
+              <Icon icon="carbon:save" class="mr-1" />
+              保存片段
+            </ElButton>
+          </div>
+
+          <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
+          <ElAlert v-if="draftError" class="mt-3" :closable="false" show-icon type="error" :title="draftError" />
         </div>
       </div>
-
-      <div class="mt-3 flex flex-wrap items-center gap-2">
-        <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
-          <Icon icon="carbon:paste" class="mr-1" />
-          {{ clipboardBusy === 'text' ? '读取中...' : '读取文本' }}
-        </ElButton>
-        <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
-          <Icon icon="carbon:image-search" class="mr-1" />
-          {{ clipboardBusy === 'image' ? '读取中...' : '读取图片' }}
-        </ElButton>
-        <ElButton @click="triggerImageUpload">
-          <Icon icon="carbon:upload" class="mr-1" />
-          上传图片
-        </ElButton>
-        <ElButton type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
-          <Icon icon="carbon:save" class="mr-1" />
-          保存片段
-        </ElButton>
-      </div>
-
-      <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
-      <ElAlert v-if="draftError" class="mt-3" :closable="false" show-icon type="error" :title="draftError" />
     </section>
 
     <section class="card">
