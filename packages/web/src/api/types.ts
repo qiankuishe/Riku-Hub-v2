@@ -86,6 +86,7 @@ export interface SnippetRecord {
   content: string;
   isPinned: boolean;
   isLoginMapped?: boolean;
+  loginNodeLabel?: string | null;
   createdAt: string;
   updatedAt: string;
 }

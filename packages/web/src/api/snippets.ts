@@ -30,5 +30,9 @@ export const snippetsApi = {
   getPublicClipboard: () =>
     request<{ items: PublicClipboardItem[] }>('/api/clipboard/public', {
       skipAuthRedirect: true
+    }),
+  getLoginMapped: () =>
+    request<{ snippets: SnippetRecord[] }>('/api/snippets/login-mapped', {
+      skipAuthRedirect: true
     })
 };

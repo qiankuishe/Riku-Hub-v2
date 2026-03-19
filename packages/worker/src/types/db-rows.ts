@@ -37,6 +37,8 @@ export interface SnippetRow {
   title: string;
   content: string;
   is_pinned: number;
+  is_login_mapped: number;
+  login_node_label: string | null;
   created_at: string;
   updated_at: string;
 }

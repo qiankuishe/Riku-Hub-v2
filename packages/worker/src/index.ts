@@ -161,6 +161,8 @@ const D1_SCHEMA_STATEMENTS = [
     title TEXT NOT NULL,
     content TEXT NOT NULL DEFAULT '',
     is_pinned INTEGER NOT NULL DEFAULT 0,
+    is_login_mapped INTEGER NOT NULL DEFAULT 0,
+    login_node_label TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
@@ -249,19 +251,14 @@ const authController = createAuthController((env, action, detail) => appendLog(e
 mountAuthRoutes(app, authController);
 
 app.get('/api/clipboard/public', async (c) => {
-  const snippets = await getAllSnippets(c.env);
-  const items: PublicClipboardItem[] = snippets
-    .filter((snippet) => Boolean(snippet.content))
-    .slice(0, PUBLIC_NODE_LABELS.length)
-    .map((snippet, index) => ({
-      id: snippet.id,
-      title: snippet.title || `节点 ${index + 1}`,
-      content: snippet.type === 'image' ? '[图片片段]' : snippet.content,
-      nodeLabel: PUBLIC_NODE_LABELS[index],
-      createdAt: snippet.createdAt
-    }));
-
+  const snippets = await getLoginMappedSnippets(c.env);
+  const items = mapPublicClipboardItems(snippets);
   return c.json({ items });
+});
+
+app.get('/api/snippets/login-mapped', async (c) => {
+  const snippets = await getLoginMappedSnippets(c.env);
+  return c.json({ snippets });
 });
 
 app.use('/api/*', createAuthMiddleware(authController as any));
@@ -1663,7 +1660,7 @@ async function saveSnippetIndex(env: Env, ids: string[]): Promise<void> {
 async function getSnippetRecord(env: Env, id: string): Promise<SnippetRecord | null> {
   if (hasD1(env)) {
     const row = await env.DB.prepare(
-      'SELECT id, type, title, content, is_pinned, created_at, updated_at FROM snippets WHERE id = ?'
+      'SELECT id, type, title, content, is_pinned, is_login_mapped, login_node_label, created_at, updated_at FROM snippets WHERE id = ?'
     )
       .bind(id)
       .first<SnippetRow>();
@@ -1671,19 +1668,36 @@ async function getSnippetRecord(env: Env, id: string): Promise<SnippetRecord | n
   }
 
   const snippet = await env.APP_KV.get(`snippet:${id}`, 'json');
-  return snippet as SnippetRecord | null;
+  if (!snippet || typeof snippet !== 'object') {
+    return null;
+  }
+
+  const record = snippet as Partial<SnippetRecord>;
+  return {
+    id: String(record.id ?? id),
+    type: record.type === 'code' || record.type === 'link' || record.type === 'image' ? record.type : 'text',
+    title: typeof record.title === 'string' ? record.title : '',
+    content: typeof record.content === 'string' ? record.content : '',
+    isPinned: Boolean(record.isPinned),
+    isLoginMapped: Boolean(record.isLoginMapped),
+    loginNodeLabel: typeof record.loginNodeLabel === 'string' ? record.loginNodeLabel : null,
+    createdAt: typeof record.createdAt === 'string' ? record.createdAt : new Date().toISOString(),
+    updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : new Date().toISOString()
+  };
 }
 
 async function saveSnippetRecord(env: Env, snippet: SnippetRecord): Promise<SnippetRecord> {
   if (hasD1(env)) {
     await env.DB.prepare(
-      `INSERT INTO snippets (id, type, title, content, is_pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO snippets (id, type, title, content, is_pinned, is_login_mapped, login_node_label, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          type = excluded.type,
          title = excluded.title,
          content = excluded.content,
          is_pinned = excluded.is_pinned,
+         is_login_mapped = excluded.is_login_mapped,
+         login_node_label = excluded.login_node_label,
          created_at = excluded.created_at,
          updated_at = excluded.updated_at`
     )
@@ -1693,6 +1707,8 @@ async function saveSnippetRecord(env: Env, snippet: SnippetRecord): Promise<Snip
         snippet.title,
         snippet.content,
         Number(snippet.isPinned),
+        Number(snippet.isLoginMapped),
+        snippet.loginNodeLabel,
         snippet.createdAt,
         snippet.updatedAt
       )
@@ -1715,6 +1731,8 @@ async function createSnippetRecord(
     title: payload.title,
     content: payload.content,
     isPinned: false,
+    isLoginMapped: false,
+    loginNodeLabel: null,
     createdAt: now,
     updatedAt: now
   };
@@ -1750,7 +1768,7 @@ async function getAllSnippets(
 ): Promise<SnippetRecord[]> {
   if (hasD1(env)) {
     let query =
-      'SELECT id, type, title, content, is_pinned, created_at, updated_at FROM snippets';
+      'SELECT id, type, title, content, is_pinned, is_login_mapped, login_node_label, created_at, updated_at FROM snippets';
     const conditions: string[] = [];
     const bindings: Array<string | number> = [];
 
@@ -1788,6 +1806,33 @@ async function getAllSnippets(
     }
     return true;
   });
+}
+
+async function getLoginMappedSnippets(env: Env): Promise<SnippetRecord[]> {
+  const snippets = await getAllSnippets(env);
+  return snippets
+    .filter((snippet) => snippet.isLoginMapped)
+    .sort((a, b) => {
+      const indexA = a.loginNodeLabel ? PUBLIC_NODE_LABELS.indexOf(a.loginNodeLabel as (typeof PUBLIC_NODE_LABELS)[number]) : -1;
+      const indexB = b.loginNodeLabel ? PUBLIC_NODE_LABELS.indexOf(b.loginNodeLabel as (typeof PUBLIC_NODE_LABELS)[number]) : -1;
+      const safeA = indexA >= 0 ? indexA : PUBLIC_NODE_LABELS.length;
+      const safeB = indexB >= 0 ? indexB : PUBLIC_NODE_LABELS.length;
+      if (safeA !== safeB) {
+        return safeA - safeB;
+      }
+      return b.updatedAt.localeCompare(a.updatedAt);
+    })
+    .slice(0, PUBLIC_NODE_LABELS.length);
+}
+
+function mapPublicClipboardItems(snippets: SnippetRecord[]): PublicClipboardItem[] {
+  return snippets.slice(0, PUBLIC_NODE_LABELS.length).map((snippet, index) => ({
+    id: snippet.id,
+    title: snippet.title || `节点 ${index + 1}`,
+    content: snippet.type === 'image' ? '[图片片段]' : snippet.content,
+    nodeLabel: snippet.loginNodeLabel || PUBLIC_NODE_LABELS[index],
+    createdAt: snippet.createdAt
+  }));
 }
 
 async function clearSubscriptionCache(env: Env): Promise<void> {
@@ -1937,6 +1982,11 @@ function normalizeSnippetBackup(records: SnippetRecord[] | undefined): SnippetRe
     const now = new Date().toISOString();
     const type: SnippetType =
       snippet?.type === 'code' || snippet?.type === 'link' || snippet?.type === 'image' ? snippet.type : 'text';
+    const normalizedLabel =
+      typeof snippet?.loginNodeLabel === 'string' && PUBLIC_NODE_LABELS.includes(snippet.loginNodeLabel as (typeof PUBLIC_NODE_LABELS)[number])
+        ? snippet.loginNodeLabel
+        : null;
+    const isLoginMapped = Boolean(snippet?.isLoginMapped && normalizedLabel);
 
     return {
       id: typeof snippet?.id === 'string' && snippet.id ? snippet.id : randomToken(8),
@@ -1944,6 +1994,8 @@ function normalizeSnippetBackup(records: SnippetRecord[] | undefined): SnippetRe
       title: typeof snippet?.title === 'string' ? snippet.title : `导入片段 ${index + 1}`,
       content: typeof snippet?.content === 'string' ? snippet.content : '',
       isPinned: Boolean(snippet?.isPinned),
+      isLoginMapped,
+      loginNodeLabel: isLoginMapped ? normalizedLabel : null,
       createdAt: typeof snippet?.createdAt === 'string' && snippet.createdAt ? snippet.createdAt : now,
       updatedAt: typeof snippet?.updatedAt === 'string' && snippet.updatedAt ? snippet.updatedAt : now
     };
@@ -2138,11 +2190,35 @@ async function ensureDatabaseSchema(env: Env): Promise<void> {
   if (!d1SchemaReady) {
     d1SchemaReady = db
       .batch(D1_SCHEMA_STATEMENTS.map((statement) => db.prepare(statement)))
-      .then(() => undefined)
+      .then(async () => {
+        await ensureSnippetSchemaColumns(env);
+      })
       .catch((error) => {
         d1SchemaReady = null;
         throw error;
       });
   }
   await d1SchemaReady;
+}
+
+async function ensureSnippetSchemaColumns(env: Env): Promise<void> {
+  if (!hasD1(env)) {
+    return;
+  }
+
+  const db = getDatabase(env);
+  const tableInfo = await db.prepare('PRAGMA table_info(snippets)').all<{ name: string }>();
+  const columns = new Set((tableInfo.results ?? []).map((row) => row.name));
+  const migrations: string[] = [];
+
+  if (!columns.has('is_login_mapped')) {
+    migrations.push('ALTER TABLE snippets ADD COLUMN is_login_mapped INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!columns.has('login_node_label')) {
+    migrations.push('ALTER TABLE snippets ADD COLUMN login_node_label TEXT');
+  }
+
+  for (const statement of migrations) {
+    await db.prepare(statement).run();
+  }
 }

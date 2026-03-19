@@ -6,6 +6,8 @@ export interface SnippetRecord {
   title: string;
   content: string;
   isPinned: boolean;
+  isLoginMapped: boolean;
+  loginNodeLabel: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +23,7 @@ export interface SnippetUpdateInput {
   title?: string;
   content?: string;
   isPinned?: boolean;
+  isLoginMapped?: boolean;
 }
 
 export interface SnippetListQuery {
@@ -48,4 +51,3 @@ export interface SnippetsRepositoryDeps<TEnv> {
   getByteLength: (value: string) => number;
   maxImageSnippetBytes: number;
 }
-

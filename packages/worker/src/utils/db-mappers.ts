@@ -57,6 +57,8 @@ export function mapSnippetRow(row: SnippetRow): SnippetRecord {
     title: row.title,
     content: row.content,
     isPinned: Boolean(row.is_pinned),
+    isLoginMapped: Boolean(row.is_login_mapped),
+    loginNodeLabel: row.login_node_label ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
