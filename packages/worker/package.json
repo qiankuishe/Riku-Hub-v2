@@ -1,0 +1,15 @@
+{
+  "name": "@riku-hub/worker",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@riku-hub/shared": "workspace:*",
+    "hono": "^4.6.19"
+  }
+}

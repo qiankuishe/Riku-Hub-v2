@@ -1,0 +1,9 @@
+node_modules
+.pnpm-store
+dist
+.wrangler
+.DS_Store
+coverage
+.vite
+*.tsbuildinfo
+packages/web/.cache

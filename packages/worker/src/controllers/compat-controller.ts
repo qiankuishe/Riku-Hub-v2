@@ -1,0 +1,161 @@
+import type { Context } from 'hono';
+import { CompatHttpError, CompatService } from '../services/compat-service';
+import { CompatRepository } from '../repositories/compat-repository';
+import type {
+  CompatBindings,
+  CompatClipboardCreateInput,
+  CompatClipboardListQuery,
+  CompatClipboardPinInput,
+  CompatRegisterInput,
+  CompatSettingsUpdateInput
+} from '../types/compat';
+
+const SESSION_TTL_SECONDS = 24 * 60 * 60;
+
+export class CompatController {
+  async register(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const body = await readJson<CompatRegisterInput>(c.req.raw);
+      const result = await service.register(body);
+
+      c.header('Set-Cookie', serializeSessionCookie(result.token));
+      return c.json({
+        success: true,
+        data: result
+      });
+    });
+  }
+
+  async me(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const token = getCookie(c.req.raw, 'session');
+      const user = await service.getCurrentUser(token);
+      return c.json({ success: true, data: user });
+    });
+  }
+
+  async listClipboard(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const query: CompatClipboardListQuery = {
+        page: c.req.query('page'),
+        limit: c.req.query('limit'),
+        type: c.req.query('type'),
+        q: c.req.query('q'),
+        tags: c.req.query('tags')
+      };
+      const data = await service.listClipboard(query);
+      return c.json({ success: true, data });
+    });
+  }
+
+  async createClipboard(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const body = await readJson<CompatClipboardCreateInput>(c.req.raw);
+      const item = await service.createClipboard(body);
+      return c.json({ success: true, data: item });
+    });
+  }
+
+  async deleteClipboard(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const id = c.req.param('id') ?? '';
+      await service.deleteClipboard(id);
+      return c.json({ success: true, message: '已删除' });
+    });
+  }
+
+  async updateClipboardPin(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const body = await readJson<CompatClipboardPinInput>(c.req.raw);
+      const id = c.req.param('id') ?? '';
+      const item = await service.updateClipboardPin(id, body);
+      return c.json({ success: true, data: item });
+    });
+  }
+
+  async getSettings(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const data = await service.getSettings();
+      return c.json({ success: true, data });
+    });
+  }
+
+  async updateSettings(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const body = await readJson<CompatSettingsUpdateInput>(c.req.raw);
+      const data = await service.updateSettings(body);
+      return c.json({ success: true, message: '设置已更新', data });
+    });
+  }
+
+  async getSettingsStats(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
+    return this.handle(c, async () => {
+      const service = this.serviceFor(c.env);
+      const data = await service.getSettingsStats();
+      return c.json({ success: true, data });
+    });
+  }
+
+  private serviceFor(env: CompatBindings): CompatService {
+    return new CompatService(new CompatRepository(env));
+  }
+
+  private async handle(c: Context<{ Bindings: CompatBindings }>, handler: () => Promise<Response>): Promise<Response> {
+    try {
+      return await handler();
+    } catch (error) {
+      if (error instanceof CompatHttpError) {
+        return new Response(JSON.stringify(error.body), {
+          status: error.status,
+          headers: {
+            'content-type': 'application/json; charset=UTF-8'
+          }
+        });
+      }
+      throw error;
+    }
+  }
+}
+
+async function readJson<T>(request: Request): Promise<T> {
+  try {
+    return (await request.json()) as T;
+  } catch {
+    return {} as T;
+  }
+}
+
+function getCookie(request: Request, name: string): string | null {
+  const cookieHeader = request.headers.get('cookie');
+  if (!cookieHeader) {
+    return null;
+  }
+
+  for (const pair of cookieHeader.split(';')) {
+    const [key, value] = pair.trim().split('=');
+    if (key === name) {
+      return decodeURIComponent(value || '');
+    }
+  }
+
+  return null;
+}
+
+function serializeSessionCookie(token: string): string {
+  return [
+    `session=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Strict',
+    'Secure',
+    `Max-Age=${SESSION_TTL_SECONDS}`
+  ].join('; ');
+}

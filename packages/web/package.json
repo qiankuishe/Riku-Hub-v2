@@ -1,0 +1,39 @@
+{
+  "name": "@riku-hub/web",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "vue-tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@iconify/vue": "^4.1.2",
+    "@vueuse/integrations": "^14.2.1",
+    "dayjs": "^1.11.10",
+    "dompurify": "^3.3.3",
+    "element-plus": "^2.8.0",
+    "marked": "^17.0.4",
+    "ofetch": "^1.3.3",
+    "pinia": "^2.3.1",
+    "pinia-plugin-persistedstate": "^3.2.1",
+    "qrcode": "^1.5.4",
+    "sortablejs": "^1.15.7",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@iconify-json/carbon": "^1.2.19",
+    "@types/qrcode": "^1.5.5",
+    "@types/sortablejs": "^1.15.9",
+    "@unocss/preset-attributify": "^66.6.7",
+    "@unocss/preset-icons": "^66.6.7",
+    "@unocss/vite": "^66.6.7",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "unocss": "^66.6.7",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.7",
+    "vue-tsc": "^2.2.4"
+  }
+}
