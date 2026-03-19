@@ -22,6 +22,8 @@ import {
 import type { CompatNavigationCategoryRecord, CompatNavigationLinkRecord } from '../types/compat-nav-sub';
 
 const MAX_REDIRECTS = 3;
+const FETCH_TIMEOUT_MS = 30_000;
+const MAX_SUBSCRIPTION_BYTES = 5 * 1024 * 1024;
 
 export class CompatNavSubHttpError extends Error {
   constructor(
@@ -391,7 +393,7 @@ export class CompatNavSubService {
     }
 
     return {
-      fetched_count: refresh.sources.length,
+      fetched_count: refresh.sources.filter((source) => source.enabled).length,
       new_articles: refresh.payload.nodes.length
     };
   }
@@ -460,15 +462,16 @@ export class CompatNavSubService {
     | { ok: false; error: string }
   > {
     const sources = await this.repository.getAllSources();
-    if (sources.length === 0) {
+    const enabledSources = sources.filter((source) => source.enabled);
+    if (enabledSources.length === 0) {
       await this.repository.saveAggregateMeta({
         cacheStatus: 'missing',
         totalNodes: 0,
         warningCount: 0,
         lastRefreshTime: '',
-        lastRefreshError: '没有配置订阅源'
+        lastRefreshError: '没有启用的订阅源'
       });
-      return { ok: false, error: '没有配置订阅源' };
+      return { ok: false, error: '没有启用的订阅源' };
     }
 
     try {
@@ -476,18 +479,25 @@ export class CompatNavSubService {
       const warnings: AggregateWarning[] = [];
       const updatedSources: SourceRecord[] = [];
 
-      for (const source of sources) {
+      for (const source of enabledSources) {
         const expanded = await expandSourceContent(this.repository, source.content);
         aggregated.push(...expanded.uniqueNodes);
         warnings.push(...expanded.warnings);
-        const updatedSource: SourceRecord = {
-          ...source,
-          nodeCount: expanded.uniqueNodes.length,
-          updatedAt: new Date().toISOString()
-        };
-        updatedSources.push(updatedSource);
-        await this.repository.saveSource(updatedSource);
+        if (expanded.uniqueNodes.length !== source.nodeCount) {
+          const updatedSource: SourceRecord = {
+            ...source,
+            nodeCount: expanded.uniqueNodes.length,
+            updatedAt: new Date().toISOString()
+          };
+          updatedSources.push(updatedSource);
+          await this.repository.saveSource(updatedSource);
+        } else {
+          updatedSources.push(source);
+        }
       }
+
+      const disabledSources = sources.filter((source) => !source.enabled);
+      const allSources = [...updatedSources, ...disabledSources].sort((left, right) => left.sortOrder - right.sortOrder);
 
       const deduped = deduplicateNodes(aggregated);
       const payload: CachedNodesPayload = {
@@ -517,7 +527,7 @@ export class CompatNavSubService {
         nextRefreshAfter: new Date(Date.now() + this.repository.getAggregateTtlSeconds() * 1000).toISOString()
       });
 
-      return { ok: true, payload, sources: updatedSources };
+      return { ok: true, payload, sources: allSources };
     } catch (error) {
       const oldCache = await this.repository.getCachedNodes();
       await this.repository.saveAggregateMeta({
@@ -574,7 +584,7 @@ function mapSourceApi(source: SourceRecord): {
     category: null,
     favicon_url: null,
     last_fetched_at: source.updatedAt,
-    is_active: true,
+    is_active: source.enabled,
     article_count: source.nodeCount
   };
 }
@@ -592,25 +602,49 @@ async function fetchSubscription(repository: CompatNavSubRepository, rawUrl: str
   const url = new URL(fixUrl(rawUrl));
   await assertSafeUrl(repository, url);
 
-  const response = await fetch(url.toString(), {
-    headers: { 'User-Agent': 'Riku-Hub/0.1' },
-    redirect: 'manual'
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-  if (response.status >= 300 && response.status < 400) {
-    const location = response.headers.get('location');
-    if (!location) {
-      throw new Error('上游返回重定向但缺少 Location');
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'Riku-Hub/0.1' },
+      redirect: 'manual',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) {
+        throw new Error('上游返回重定向但缺少 Location');
+      }
+      const redirected = new URL(location, url);
+      return fetchSubscription(repository, redirected.toString(), depth + 1);
     }
-    const redirected = new URL(location, url);
-    return fetchSubscription(repository, redirected.toString(), depth + 1);
-  }
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
 
-  return { text: await response.text() };
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && Number.parseInt(contentLength, 10) > MAX_SUBSCRIPTION_BYTES) {
+      throw new Error(`响应过大: ${contentLength} 字节（限制 ${MAX_SUBSCRIPTION_BYTES}）`);
+    }
+
+    const text = await response.text();
+    if (text.length > MAX_SUBSCRIPTION_BYTES) {
+      throw new Error(`响应过大: ${text.length} 字节（限制 ${MAX_SUBSCRIPTION_BYTES}）`);
+    }
+
+    return { text };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`请求超时（${FETCH_TIMEOUT_MS / 1000}秒）`);
+    }
+    throw error;
+  }
 }
 
 async function expandSourceContent(
@@ -684,17 +718,21 @@ async function resolveAddresses(repository: CompatNavSubRepository, hostname: st
 }
 
 async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<string[]> {
-  const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
-    headers: { Accept: 'application/dns-json' }
-  });
-  if (!response.ok) {
-    return [];
+  try {
+    const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
+      headers: { Accept: 'application/dns-json' }
+    });
+    if (!response.ok) {
+      throw new Error(`DNS 查询失败: HTTP ${response.status}`);
+    }
+    const data = (await response.json()) as { Answer?: Array<{ data?: string; type?: number }> };
+    return (data.Answer ?? [])
+      .filter((record) => Boolean(record.data))
+      .map((record) => String(record.data))
+      .filter((value) => (type === 'A' ? isIpv4(value) : isIpv6(value)));
+  } catch (error) {
+    throw new Error(`DNS 解析失败 (${hostname} ${type}): ${String(error)}`);
   }
-  const data = (await response.json()) as { Answer?: Array<{ data?: string; type?: number }> };
-  return (data.Answer ?? [])
-    .filter((record) => Boolean(record.data))
-    .map((record) => String(record.data))
-    .filter((value) => (type === 'A' ? isIpv4(value) : isIpv6(value)));
 }
 
 function isInternalHostname(hostname: string): boolean {

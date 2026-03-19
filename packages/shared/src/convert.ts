@@ -31,7 +31,7 @@ function renderBase64(nodes: NormalizedNode[]): FormatResult {
     .filter((value): value is string => Boolean(value));
   return {
     format: 'base64',
-    content: btoa(lines.join('\n')),
+    content: encodeBase64Utf8(lines.join('\n')),
     warnings
   };
 }
@@ -139,7 +139,7 @@ function renderSingbox(nodes: NormalizedNode[]): FormatResult {
 function serializeNodeUri(node: NormalizedNode, warnings: AggregateWarning[]): string | null {
   switch (node.type) {
     case 'vmess':
-      return `vmess://${btoa(
+      return `vmess://${encodeBase64Utf8(
         JSON.stringify({
           v: '2',
           ps: node.name,
@@ -172,7 +172,7 @@ function serializeNodeUri(node: NormalizedNode, warnings: AggregateWarning[]): s
       return `vless://${node.uuid}@${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
     }
     case 'ss':
-      return `ss://${btoa(`${node.cipher}:${node.password}`)}@${node.server}:${node.port}#${encodeURIComponent(node.name)}`;
+      return `ss://${encodeBase64Utf8(`${node.cipher}:${node.password}`)}@${node.server}:${node.port}#${encodeURIComponent(node.name)}`;
     case 'trojan': {
       const params = new URLSearchParams();
       if (node.sni) params.set('sni', node.sni);
@@ -204,6 +204,16 @@ function serializeNodeUri(node: NormalizedNode, warnings: AggregateWarning[]): s
       warnings.push(warning('unsupported-output', 'WireGuard 不导出到 base64/URI 订阅', node.name));
       return null;
   }
+}
+
+function encodeBase64Utf8(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
 }
 
 function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | null {

@@ -262,6 +262,7 @@ describe('worker behaviors', () => {
   });
 
   it('supports compat auth, nav, clipboard and settings routes', async () => {
+    env.COMPAT_ALLOW_REGISTER = 'true';
     const { cookie, data } = await register(env);
     expect(data.user.email).toBe('user@example.com');
 
@@ -407,6 +408,20 @@ describe('worker behaviors', () => {
     expect(clipAfterDeleteData.data.items).toHaveLength(0);
   });
 
+  it('blocks compat register by default', async () => {
+    const response = await app.request(
+      'https://example.com/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email: 'blocked@example.com', password: 'secret', username: 'Blocked' }),
+        headers: { 'content-type': 'application/json' }
+      },
+      env
+    );
+
+    expect(response.status).toBe(403);
+  });
+
   it('filters disabled sources from aggregation', async () => {
     const cookie = await login(env);
 
@@ -482,5 +497,113 @@ describe('worker behaviors', () => {
     );
     const subInfo = (await subInfoResponse.json()) as { totalNodes: number };
     expect(subInfo.totalNodes).toBe(1); // 只有一个启用的源
+  });
+
+  it('compat fetch does not re-aggregate disabled sources', async () => {
+    const cookie = await login(env);
+
+    const createSource = async (name: string, content: string) =>
+      app.request(
+        'https://example.com/api/sources',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            cookie
+          },
+          body: JSON.stringify({ name, content })
+        },
+        env
+      );
+
+    const enabledSource = await createSource(
+      'compat-enabled',
+      'vmess://eyJ2IjoiMiIsInBzIjoiRW5hYmxlZCIsImFkZCI6ImVuYWJsZWQuZXhhbXBsZS5jb20iLCJwb3J0IjoiNDQzIiwiaWQiOiJhYWFhYWFhYS1hYWFhLWFhYWEtYWFhYS1hYWFhYWFhYWFhYWEiLCJhaWQiOiIwIiwic2N5IjoiYXV0byJ9'
+    );
+    const disabledSource = await createSource(
+      'compat-disabled',
+      'vmess://eyJ2IjoiMiIsInBzIjoiRGlzYWJsZWQiLCJhZGQiOiJkaXNhYmxlZC5leGFtcGxlLmNvbSIsInBvcnQiOiI0NDMiLCJpZCI6ImJiYmJiYmJiLWJiYmItYmJiYi1iYmJiLWJiYmJiYmJiYmJiYiIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIn0='
+    );
+
+    const enabledData = (await enabledSource.json()) as { source: { id: string } };
+    const disabledData = (await disabledSource.json()) as { source: { id: string } };
+
+    const disableResponse = await app.request(
+      `https://example.com/api/sources/${disabledData.source.id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({ enabled: false })
+      },
+      env
+    );
+    expect(disableResponse.status).toBe(200);
+
+    const refreshResponse = await app.request(
+      'https://example.com/api/sub/fetch',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({})
+      },
+      env
+    );
+    expect(refreshResponse.status).toBe(200);
+
+    const infoResponse = await app.request(
+      'https://example.com/api/sub/info',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const infoData = (await infoResponse.json()) as { totalNodes: number };
+    expect(infoResponse.status).toBe(200);
+    expect(infoData.totalNodes).toBe(1);
+
+    const listResponse = await app.request(
+      'https://example.com/api/sub/sources',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const listData = (await listResponse.json()) as { success: boolean; data: Array<{ id: string; is_active: boolean }> };
+    expect(listResponse.status).toBe(200);
+    const enabledItem = listData.data.find((source) => source.id === enabledData.source.id);
+    const disabledItem = listData.data.find((source) => source.id === disabledData.source.id);
+    expect(enabledItem?.is_active).toBe(true);
+    expect(disabledItem?.is_active).toBe(false);
+  });
+
+  it('returns 503 instead of 500 when refresh lock is contended and cache is cold', async () => {
+    const cookie = await login(env);
+
+    await app.request(
+      'https://example.com/api/sources',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          name: 'cold-lock-source',
+          content: 'vmess://eyJ2IjoiMiIsInBzIjoiQ29sZCIsImFkZCI6ImNvbGQuZXhhbXBsZS5jb20iLCJwb3J0IjoiNDQzIiwiaWQiOiJjY2NjY2NjYy1jY2NjLWNjY2MtY2NjYy1jY2NjY2NjY2NjYyIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIn0='
+        })
+      },
+      env
+    );
+
+    await env.CACHE_KV.put('lock:refresh-aggregate', `test-lock-${Date.now()}`);
+
+    const subResponse = await app.request('https://example.com/sub?token=token-123&base64', undefined, env);
+    expect(subResponse.status).toBe(503);
   });
 });

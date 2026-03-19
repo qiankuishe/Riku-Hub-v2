@@ -82,6 +82,7 @@ export interface Env {
   SUB_TOKEN?: string;
   AGGREGATE_TTL_SECONDS?: string;
   MAX_LOG_ENTRIES?: string;
+  COMPAT_ALLOW_REGISTER?: string;
 }
 
 type Bindings = { Bindings: Env };
@@ -642,7 +643,7 @@ async function ensureAggregateCache(
       payload: { content: string; warnings: AggregateWarning[]; fromStaleCache: boolean };
       meta: AggregateMeta;
     }
-  | { ok: false; error: string }
+  | { ok: false; error: string; status?: number }
 > {
   const ttlSeconds = getAggregateTtlSeconds(env);
   const meta = await getAggregateMeta(env);
@@ -671,6 +672,14 @@ async function ensureAggregateCache(
     }
   }
 
+  if (!refreshed.ok && refreshed.error === '刷新正在进行中') {
+    const waited = await waitForFreshenedCache(env, format);
+    if (waited) {
+      return waited;
+    }
+    return { ok: false, error: '订阅缓存正在初始化中，请稍后重试', status: 503 };
+  }
+
   if (cachedFormat) {
     return {
       ok: true,
@@ -679,7 +688,45 @@ async function ensureAggregateCache(
     };
   }
 
-  return { ok: false, error: refreshed.ok ? '订阅缓存不可用' : refreshed.error };
+  return {
+    ok: false,
+    error: refreshed.ok ? '订阅缓存不可用' : refreshed.error,
+    status: refreshed.ok ? 500 : refreshed.error === '刷新正在进行中' ? 503 : 500
+  };
+}
+
+async function waitForFreshenedCache(
+  env: Env,
+  format: OutputFormat
+): Promise<
+  | {
+      ok: true;
+      payload: { content: string; warnings: AggregateWarning[]; fromStaleCache: boolean };
+      meta: AggregateMeta;
+    }
+  | null
+> {
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    await sleep(200);
+    const [cachedFormat, cachedNodes, meta] = await Promise.all([
+      getCachedFormat(env, format),
+      getCachedNodes(env),
+      getAggregateMeta(env)
+    ]);
+    if (cachedFormat && cachedNodes) {
+      return {
+        ok: true,
+        payload: { content: cachedFormat.content, warnings: cachedFormat.warnings, fromStaleCache: meta.cacheStatus === 'stale' },
+        meta
+      };
+    }
+  }
+  return null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function expandSourceContent(env: Env, content: string): Promise<{
@@ -2343,6 +2390,7 @@ async function ensureDatabaseSchema(env: Env): Promise<void> {
       .batch(D1_SCHEMA_STATEMENTS.map((statement) => db.prepare(statement)))
       .then(async () => {
         await ensureSnippetSchemaColumns(env);
+        await ensureSourceSchemaColumns(env);
       })
       .catch((error) => {
         d1SchemaReady = null;
@@ -2371,5 +2419,18 @@ async function ensureSnippetSchemaColumns(env: Env): Promise<void> {
 
   for (const statement of migrations) {
     await db.prepare(statement).run();
+  }
+}
+
+async function ensureSourceSchemaColumns(env: Env): Promise<void> {
+  if (!hasD1(env)) {
+    return;
+  }
+
+  const db = getDatabase(env);
+  const tableInfo = await db.prepare('PRAGMA table_info(sources)').all<{ name: string }>();
+  const columns = new Set((tableInfo.results ?? []).map((row) => row.name));
+  if (!columns.has('enabled')) {
+    await db.prepare('ALTER TABLE sources ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1').run();
   }
 }

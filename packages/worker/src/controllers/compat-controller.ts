@@ -15,6 +15,13 @@ const SESSION_TTL_SECONDS = 24 * 60 * 60;
 export class CompatController {
   async register(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
     return this.handle(c, async () => {
+      if (!isEnabledFlag(c.env.COMPAT_ALLOW_REGISTER)) {
+        throw new CompatHttpError(403, {
+          success: false,
+          error: '兼容注册接口默认关闭，请在环境变量中设置 COMPAT_ALLOW_REGISTER=true 后重试'
+        });
+      }
+
       const service = this.serviceFor(c.env);
       const body = await readJson<CompatRegisterInput>(c.req.raw);
       const result = await service.register(body);
@@ -158,4 +165,12 @@ function serializeSessionCookie(token: string): string {
     'Secure',
     `Max-Age=${SESSION_TTL_SECONDS}`
   ].join('; ');
+}
+
+function isEnabledFlag(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }

@@ -56,3 +56,4 @@ pnpm dev:worker
 - 页面主路径是 `/nav` 和 `/snippets`。
 - 页面兼容别名是 `/navigation -> /nav`，`/clipboard -> /snippets`。
 - 现在两套前缀都还在，前端入口按主路径工作，兼容路径只用于历史链接和旧调用。
+- 兼容注册接口 `/api/auth/register` 默认关闭，只有设置 `COMPAT_ALLOW_REGISTER=true` 才会开启。

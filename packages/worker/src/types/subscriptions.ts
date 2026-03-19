@@ -54,6 +54,7 @@ export type EnsureAggregateCacheResult =
   | {
       ok: false;
       error: string;
+      status?: number;
     };
 
 export interface SubscriptionsRepositoryDeps<TEnv> {

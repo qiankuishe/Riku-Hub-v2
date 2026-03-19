@@ -50,7 +50,7 @@ export function detectInputFormat(content: string): InputFormat {
   }
 
   try {
-    const decoded = atob(trimmed);
+    const decoded = decodeBase64Loose(trimmed);
     if (decoded.includes('://') || decoded.includes('proxies:') || decoded.includes('"outbounds"')) {
       return 'base64';
     }
@@ -114,7 +114,7 @@ export function parseContent(content: string, format?: InputFormat): ParsedConte
 export function parseBase64Content(content: string): ParsedContent {
   let decoded = content.trim();
   try {
-    decoded = atob(content.trim());
+    decoded = decodeBase64Loose(content.trim());
   } catch {
     decoded = content;
   }
@@ -203,7 +203,7 @@ export function parseUri(uri: string): NormalizedNode | null {
 }
 
 function parseVmessUri(uri: string): VmessNode {
-  const json = JSON.parse(atob(uri.slice(8))) as Record<string, string>;
+  const json = JSON.parse(decodeBase64Loose(uri.slice(8))) as Record<string, string>;
   return {
     type: 'vmess',
     name: json.ps || json.remarks || `VMess-${json.add}`,
@@ -257,43 +257,52 @@ function parseShadowsocksUri(uri: string): ShadowsocksNode | null {
       const atIndex = mainPart.lastIndexOf('@');
       const encoded = mainPart.slice(0, atIndex);
       const serverPart = mainPart.slice(atIndex + 1);
-      
-      // 支持 URL-safe base64
-      const decoded = atob(encoded.replace(/-/g, '+').replace(/_/g, '/'));
+
+      const decoded = decodeBase64Loose(encoded);
       const colonIndex = decoded.indexOf(':');
       if (colonIndex === -1) {
         return null;
       }
-      
+
       const cipher = decoded.slice(0, colonIndex);
       const password = decoded.slice(colonIndex + 1);
-      const [server, port] = serverPart.split(':');
-      
+      const parsedServer = parseServerEndpoint(serverPart);
+      if (!parsedServer) {
+        return null;
+      }
+
       return {
         type: 'ss',
-        name: name || `SS-${server}`,
-        server,
-        port: Number.parseInt(port, 10),
+        name: name || `SS-${parsedServer.server}`,
+        server: parsedServer.server,
+        port: parsedServer.port,
         cipher,
         password
       };
     }
 
     // 处理旧格式：ss://base64(method:password@server:port)
-    // 支持 URL-safe base64
-    const decoded = atob(mainPart.replace(/-/g, '+').replace(/_/g, '/'));
-    const match = decoded.match(/^(.+?):(.+)@(.+):(\d+)$/);
-    if (!match) {
+    const decoded = decodeBase64Loose(mainPart);
+    const colonIndex = decoded.indexOf(':');
+    const atIndex = decoded.lastIndexOf('@');
+    if (colonIndex === -1 || atIndex <= colonIndex) {
+      return null;
+    }
+
+    const cipher = decoded.slice(0, colonIndex);
+    const password = decoded.slice(colonIndex + 1, atIndex);
+    const parsedServer = parseServerEndpoint(decoded.slice(atIndex + 1));
+    if (!parsedServer) {
       return null;
     }
 
     return {
       type: 'ss',
-      name: name || `SS-${match[3]}`,
-      server: match[3],
-      port: Number.parseInt(match[4], 10),
-      cipher: match[1],
-      password: match[2]
+      name: name || `SS-${parsedServer.server}`,
+      server: parsedServer.server,
+      port: parsedServer.port,
+      cipher,
+      password
     };
   } catch {
     return null;
@@ -353,7 +362,7 @@ function parseTuicUri(uri: string): TuicNode {
 }
 
 function parseWireGuardUri(uri: string): WireGuardNode {
-  const decoded = JSON.parse(atob(uri.slice('wireguard://'.length))) as Record<string, unknown>;
+  const decoded = JSON.parse(decodeBase64Loose(uri.slice('wireguard://'.length))) as Record<string, unknown>;
   return {
     type: 'wireguard',
     name: String(decoded.name ?? 'WireGuard'),
@@ -368,6 +377,57 @@ function parseWireGuardUri(uri: string): WireGuardNode {
     reserved: Array.isArray(decoded.reserved) ? decoded.reserved.map((item) => Number(item)) : undefined,
     clientId: decoded.clientId ? String(decoded.clientId) : undefined
   };
+}
+
+function decodeBase64Loose(input: string): string {
+  const normalized = normalizeBase64Input(input);
+  const binary = atob(normalized);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function normalizeBase64Input(input: string): string {
+  const compact = input.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+  const remainder = compact.length % 4;
+  if (remainder === 0) {
+    return compact;
+  }
+  return compact.padEnd(compact.length + (4 - remainder), '=');
+}
+
+function parseServerEndpoint(input: string): { server: string; port: number } | null {
+  const endpoint = input.split('?', 1)[0]?.trim() ?? '';
+  if (!endpoint) {
+    return null;
+  }
+
+  if (endpoint.startsWith('[')) {
+    const endBracketIndex = endpoint.indexOf(']');
+    if (endBracketIndex === -1) {
+      return null;
+    }
+    const server = endpoint.slice(1, endBracketIndex);
+    const portPart = endpoint.slice(endBracketIndex + 1);
+    if (!portPart.startsWith(':')) {
+      return null;
+    }
+    const port = Number.parseInt(portPart.slice(1), 10);
+    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+      return null;
+    }
+    return { server, port };
+  }
+
+  const lastColonIndex = endpoint.lastIndexOf(':');
+  if (lastColonIndex === -1) {
+    return null;
+  }
+  const server = endpoint.slice(0, lastColonIndex);
+  const port = Number.parseInt(endpoint.slice(lastColonIndex + 1), 10);
+  if (!server || !Number.isFinite(port) || port <= 0 || port > 65535) {
+    return null;
+  }
+  return { server, port };
 }
 
 function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {

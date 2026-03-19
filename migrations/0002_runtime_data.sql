@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS sources (
   content TEXT NOT NULL,
   node_count INTEGER NOT NULL DEFAULT 0,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

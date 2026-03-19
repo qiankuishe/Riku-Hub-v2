@@ -161,7 +161,7 @@ export class SubscriptionsService<TEnv> {
     const format = queryFormat ?? this.repository.detectFormatFromUserAgent(userAgent);
     const cacheResult = await this.repository.ensureAggregateCache(format);
     if (!cacheResult.ok) {
-      throw new SubscriptionsHttpError(500, cacheResult.error);
+      throw new SubscriptionsHttpError(cacheResult.status ?? 500, cacheResult.error);
     }
 
     return {

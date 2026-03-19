@@ -53,6 +53,11 @@ pnpm dlx wrangler secret put ADMIN_PASSWORD_HASH
 pnpm dlx wrangler secret put SUB_TOKEN
 ```
 
+可选兼容开关：
+
+- `COMPAT_ALLOW_REGISTER` 默认关闭（未设置即关闭）。
+  只有在你明确需要旧版 `/api/auth/register` 行为时，才在 Worker 环境变量中设置为 `true`。
+
 5. 生成前端静态资源并部署。
 
 ```bash

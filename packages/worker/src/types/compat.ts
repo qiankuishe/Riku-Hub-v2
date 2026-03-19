@@ -1,6 +1,7 @@
 export interface CompatBindings {
   APP_KV: KVNamespace;
   DB?: D1Database;
+  COMPAT_ALLOW_REGISTER?: string;
 }
 
 export type CompatClipboardItemType = 'text' | 'code' | 'link' | 'image';

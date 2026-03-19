@@ -168,4 +168,45 @@ proxies:
     // Singbox 应该输出 JSON 格式
     expect(() => JSON.parse(singboxResult.content)).not.toThrow();
   });
+
+  it('handles vmess nodes with non-ASCII names', () => {
+    const rendered = renderFormat(
+      [
+        {
+          type: 'vmess',
+          name: '中文节点',
+          server: 'example.com',
+          port: 443,
+          uuid: '11111111-1111-1111-1111-111111111111',
+          alterId: 0,
+          cipher: 'auto'
+        }
+      ],
+      'base64'
+    );
+
+    const parsed = parseContent(rendered.content, 'base64');
+    expect(parsed.nodes).toHaveLength(1);
+    expect(parsed.nodes[0]?.name).toBe('中文节点');
+  });
+
+  it('detects and parses URL-safe base64 payloads', () => {
+    const raw = 'ss://YWVzLTEyOC1nY206cGFzcw==@example.com:8388#Test';
+    const encoded = btoa(raw).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    expect(detectInputFormat(encoded)).toBe('base64');
+
+    const parsed = parseContent(encoded);
+    expect(parsed.nodes).toHaveLength(1);
+    expect(parsed.nodes[0]?.type).toBe('ss');
+  });
+
+  it('parses SIP002 shadowsocks IPv6 endpoints', () => {
+    const parsed = parseContent('ss://YWVzLTEyOC1nY206cGFzcw==@[2001:db8::1]:8388#IPv6');
+    expect(parsed.nodes).toHaveLength(1);
+    expect(parsed.nodes[0]).toMatchObject({
+      type: 'ss',
+      server: '2001:db8::1',
+      port: 8388
+    });
+  });
 });
