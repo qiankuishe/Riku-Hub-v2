@@ -442,12 +442,12 @@ function getExcerpt(content: string) {
 }
 
 .note-card-active {
-  border-color: #7b441a;
-  background: rgba(123, 68, 26, 0.03);
+  border-color: #000000;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .note-card-highlight {
-  box-shadow: 0 0 0 3px rgba(123, 68, 26, 0.15);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15);
 }
 
 .note-card-header {
