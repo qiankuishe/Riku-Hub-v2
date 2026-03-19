@@ -910,16 +910,6 @@ async function moveCategoryDown(category: NavigationCategory) {
               @dragover.prevent="editMode && onLinkDragOver($event, link)"
               @drop.prevent="editMode && onLinkDrop($event, link)"
             >
-              <span
-                v-if="dropLinkId === link.id && dropPlacement === 'before'"
-                class="drop-indicator drop-indicator-before"
-                aria-hidden="true"
-              />
-              <span
-                v-if="dropLinkId === link.id && dropPlacement === 'after'"
-                class="drop-indicator drop-indicator-after"
-                aria-hidden="true"
-              />
               <div class="flex items-center gap-2 min-w-0">
                 <FaviconImage :url="link.url" :title="link.title" />
                 <div class="min-w-0">
@@ -1093,30 +1083,19 @@ async function moveCategoryDown(category: NavigationCategory) {
 
 .nav-link-card.is-drop-target {
   border: 2px solid #000000;
-  background: #f3f4f6;
+  background: #e5e7eb;
   box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1), 0 8px 22px rgba(0, 0, 0, 0.15);
   transform: scale(1.02);
 }
 
-.drop-indicator {
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  width: 8px;
-  background: rgba(0, 0, 0, 0.1);
-  pointer-events: none;
-  border-radius: 4px;
-  z-index: 120;
+.nav-link-card.drop-before {
+  border-left: 6px dashed #000000 !important;
+  background: #d1d5db !important;
 }
 
-.drop-indicator-before {
-  left: 6px;
-  border-left: 4px dashed #000000;
-}
-
-.drop-indicator-after {
-  right: 6px;
-  border-right: 4px dashed #000000;
+.nav-link-card.drop-after {
+  border-right: 6px dashed #000000 !important;
+  background: #d1d5db !important;
 }
 
 .nav-category-move-btn {
