@@ -460,21 +460,20 @@ export class CompatNavSubService {
 
     compatAggregateRefreshInFlight = true;
 
-    const sources = await this.repository.getAllSources();
-    const enabledSources = sources.filter((source) => source.enabled);
-    if (enabledSources.length === 0) {
-      await this.repository.saveAggregateMeta({
-        cacheStatus: 'missing',
-        totalNodes: 0,
-        warningCount: 0,
-        lastRefreshTime: '',
-        lastRefreshError: '没有启用的订阅源'
-      });
-      compatAggregateRefreshInFlight = false;
-      return { ok: false, error: '没有启用的订阅源' };
-    }
-
     try {
+      const sources = await this.repository.getAllSources();
+      const enabledSources = sources.filter((source) => source.enabled);
+      if (enabledSources.length === 0) {
+        await this.repository.saveAggregateMeta({
+          cacheStatus: 'missing',
+          totalNodes: 0,
+          warningCount: 0,
+          lastRefreshTime: '',
+          lastRefreshError: '没有启用的订阅源'
+        });
+        return { ok: false, error: '没有启用的订阅源' };
+      }
+
       const aggregated: NormalizedNode[] = [];
       const warnings: AggregateWarning[] = [];
       const updatedSources: SourceRecord[] = [];
@@ -538,6 +537,7 @@ export class CompatNavSubService {
         lastRefreshError: String(error)
       });
       if (!force && oldCache) {
+        const sources = await this.repository.getAllSources();
         return { ok: true, payload: oldCache, sources };
       }
       return { ok: false, error: `刷新聚合缓存失败: ${String(error)}` };

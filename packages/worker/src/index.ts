@@ -490,45 +490,47 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
   const lockKey = APP_KEYS.refreshLock;
   const lockValue = `${randomToken(8)}-${Date.now()}`;
   const lockTtl = 120; // 2分钟锁超时
-  
-  // 检查是否已有锁
-  const existingLock = await env.CACHE_KV.get(lockKey);
-  if (existingLock && !force) {
-    // 检查锁是否过期（防止死锁）
-    const lockParts = existingLock.split('-');
-    const lockTime = lockParts.length > 1 ? Number.parseInt(lockParts[1], 10) : 0;
-    const isExpired = Date.now() - lockTime > lockTtl * 1000;
-    
-    if (!isExpired) {
-      // 记录锁竞争日志
-      await appendLog(env, 'refresh_lock_contention', `检测到并发刷新请求，返回缓存（锁持有时间: ${Date.now() - lockTime}ms）`);
+  let lockAcquired = false;
+
+  try {
+    // 检查是否已有锁
+    const existingLock = await env.CACHE_KV.get(lockKey);
+    if (existingLock && !force) {
+      // 检查锁是否过期（防止死锁）
+      const lockParts = existingLock.split('-');
+      const lockTime = lockParts.length > 1 ? Number.parseInt(lockParts[1], 10) : 0;
+      const isExpired = Date.now() - lockTime > lockTtl * 1000;
       
-      // 已有其他进程在刷新，直接返回当前缓存
+      if (!isExpired) {
+        // 记录锁竞争日志
+        await appendLog(env, 'refresh_lock_contention', `检测到并发刷新请求，返回缓存（锁持有时间: ${Date.now() - lockTime}ms）`);
+        
+        // 已有其他进程在刷新，直接返回当前缓存
+        const cached = await getCachedNodes(env);
+        if (cached) {
+          const sources = await getAllSources(env);
+          return { ok: true, payload: cached, sources };
+        }
+        return { ok: false, error: '刷新正在进行中' };
+      } else {
+        // 记录锁过期日志
+        await appendLog(env, 'refresh_lock_expired', `检测到过期锁，强制获取（锁持有时间: ${Date.now() - lockTime}ms）`);
+      }
+    }
+    
+    // 获取锁（即使有竞争，也只是重复刷新，不会破坏数据）
+    await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtl });
+    lockAcquired = true;
+    const confirmedLock = await env.CACHE_KV.get(lockKey);
+    if (!force && confirmedLock !== lockValue) {
       const cached = await getCachedNodes(env);
       if (cached) {
         const sources = await getAllSources(env);
         return { ok: true, payload: cached, sources };
       }
       return { ok: false, error: '刷新正在进行中' };
-    } else {
-      // 记录锁过期日志
-      await appendLog(env, 'refresh_lock_expired', `检测到过期锁，强制获取（锁持有时间: ${Date.now() - lockTime}ms）`);
     }
-  }
-  
-  // 获取锁（即使有竞争，也只是重复刷新，不会破坏数据）
-  await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtl });
-  const confirmedLock = await env.CACHE_KV.get(lockKey);
-  if (!force && confirmedLock !== lockValue) {
-    const cached = await getCachedNodes(env);
-    if (cached) {
-      const sources = await getAllSources(env);
-      return { ok: true, payload: cached, sources };
-    }
-    return { ok: false, error: '刷新正在进行中' };
-  }
-  
-  try {
+
     const sources = await getAllSources(env);
     // 只聚合启用的订阅源
     const enabledSources = sources.filter(s => s.enabled);
@@ -617,10 +619,12 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
     return { ok: false, error: `刷新聚合缓存失败: ${String(error)}` };
   } finally {
     aggregateRefreshInFlight = false;
-    // 释放锁
-    const currentLock = await env.CACHE_KV.get(lockKey);
-    if (currentLock === lockValue) {
-      await env.CACHE_KV.delete(lockKey);
+    if (lockAcquired) {
+      // 释放锁
+      const currentLock = await env.CACHE_KV.get(lockKey);
+      if (currentLock === lockValue) {
+        await env.CACHE_KV.delete(lockKey);
+      }
     }
   }
 }
