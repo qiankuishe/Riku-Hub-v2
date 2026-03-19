@@ -132,7 +132,7 @@ p {
   max-width: var(--shell-main-max);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 0 22px 8px;
+  padding: 0 8px 8px;
 }
 
 .page-content {
@@ -242,7 +242,7 @@ p {
 
 .sidebar-nav-item:hover,
 .sidebar-link-button:hover {
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .sidebar-nav-item-active,
