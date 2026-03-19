@@ -211,7 +211,10 @@ function getExcerpt(content: string) {
     <!-- 左侧：编辑区 -->
     <section class="card notes-editor-section">
       <div class="mb-4 flex items-center justify-between">
-        <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
+        <div>
+          <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
+          <p class="text-sm text-gray-500">自动保存，支持 Markdown 预览。</p>
+        </div>
         <ElButton type="primary" size="small" :disabled="saving" @click="createNote">
           <Icon icon="carbon:add-alt" class="mr-1" />
           新增
