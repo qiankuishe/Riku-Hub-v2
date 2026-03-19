@@ -685,4 +685,91 @@ describe('worker behaviors', () => {
     expect(refreshData.warningCount).toBeGreaterThan(0);
     expect(refreshData.warnings.some((item) => item.code === 'fetch-failed')).toBe(true);
   });
+
+  it('keeps previous nodes when source fetch fails and exposes source warnings', async () => {
+    const cookie = await login(env);
+
+    const createResponse = await app.request(
+      'https://example.com/api/sources',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          name: 'keep-when-failed',
+          content:
+            'vmess://eyJ2IjoiMiIsInBzIjoiS2VlcCIsImFkZCI6ImtlZXAuZXhhbXBsZS5jb20iLCJwb3J0IjoiNDQzIiwiaWQiOiI3Nzc3Nzc3Ny03Nzc3LTc3NzctNzc3Ny03Nzc3Nzc3Nzc3NzciLCJhaWQiOiIwIiwic2N5IjoiYXV0byJ9'
+        })
+      },
+      env
+    );
+    const createData = (await createResponse.json()) as { source: { id: string } };
+    expect(createResponse.status).toBe(200);
+
+    const firstRefresh = await app.request(
+      'https://example.com/api/sources/refresh',
+      {
+        method: 'POST',
+        headers: { cookie }
+      },
+      env
+    );
+    expect(firstRefresh.status).toBe(200);
+
+    const updateResponse = await app.request(
+      `https://example.com/api/sources/${createData.source.id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({ content: 'http://127.0.0.1/sub' })
+      },
+      env
+    );
+    expect(updateResponse.status).toBe(200);
+
+    const secondRefresh = await app.request(
+      'https://example.com/api/sources/refresh',
+      {
+        method: 'POST',
+        headers: { cookie }
+      },
+      env
+    );
+    const secondRefreshData = (await secondRefresh.json()) as {
+      warningCount: number;
+      warnings: Array<{ code: string }>;
+    };
+    expect(secondRefresh.status).toBe(200);
+    expect(secondRefreshData.warningCount).toBeGreaterThan(0);
+    expect(secondRefreshData.warnings.some((item) => item.code === 'cache-stale')).toBe(true);
+
+    const subInfoResponse = await app.request(
+      'https://example.com/api/sub/info',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const subInfo = (await subInfoResponse.json()) as { totalNodes: number };
+    expect(subInfoResponse.status).toBe(200);
+    expect(subInfo.totalNodes).toBe(1);
+
+    const warningResponse = await app.request(
+      `https://example.com/api/sources/${createData.source.id}/warnings`,
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const warningData = (await warningResponse.json()) as {
+      warnings: Array<{ code: string; message: string }>;
+    };
+    expect(warningResponse.status).toBe(200);
+    expect(warningData.warnings.some((item) => item.code === 'fetch-failed')).toBe(true);
+  });
 });

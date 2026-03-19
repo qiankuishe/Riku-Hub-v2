@@ -1,11 +1,10 @@
-import type { ValidationSummary } from '@riku-hub/shared';
+import type { AggregateWarning, OutputFormat, ValidationSummary } from '@riku-hub/shared';
 import type {
   EnsureAggregateCacheResult,
   SourceRecord,
   SourceRefreshResult,
   SubscriptionsRepositoryDeps
 } from '../types/subscriptions';
-import type { OutputFormat } from '@riku-hub/shared';
 
 export class SubscriptionsRepository<TEnv> {
   constructor(
@@ -19,6 +18,10 @@ export class SubscriptionsRepository<TEnv> {
 
   getSource(id: string): Promise<SourceRecord | null> {
     return this.deps.getSource(this.env, id);
+  }
+
+  getSourceWarnings(id: string): Promise<AggregateWarning[]> {
+    return this.deps.getSourceWarnings(this.env, id);
   }
 
   validateContent(content: string): Promise<ValidationSummary> {

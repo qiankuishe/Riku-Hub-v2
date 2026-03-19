@@ -34,6 +34,17 @@ export class SubscriptionsService<TEnv> {
     return this.repository.validateContent(input.content ?? '');
   }
 
+  async getSourceWarnings(id: string): Promise<{ warnings: ValidationSummary['warnings'] }> {
+    const source = await this.repository.getSource(id);
+    if (!source) {
+      throw new SubscriptionsHttpError(404, '订阅源不存在');
+    }
+
+    return {
+      warnings: await this.repository.getSourceWarnings(id)
+    };
+  }
+
   async createSource(input: SourceCreateInput): Promise<{ source: SourceRecord; lastSaveTime: string }> {
     const name = input.name?.trim();
     const content = input.content?.trim();

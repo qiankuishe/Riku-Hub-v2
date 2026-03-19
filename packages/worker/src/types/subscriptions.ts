@@ -60,6 +60,7 @@ export type EnsureAggregateCacheResult =
 export interface SubscriptionsRepositoryDeps<TEnv> {
   getAllSources: (env: TEnv) => Promise<SourceRecord[]>;
   getSource: (env: TEnv, id: string) => Promise<SourceRecord | null>;
+  getSourceWarnings: (env: TEnv, id: string) => Promise<AggregateWarning[]>;
   validateContent: (env: TEnv, content: string) => Promise<ValidationSummary>;
   createSource: (env: TEnv, name: string, content: string, nodeCount: number) => Promise<SourceRecord>;
   saveSource: (env: TEnv, source: SourceRecord) => Promise<SourceRecord>;

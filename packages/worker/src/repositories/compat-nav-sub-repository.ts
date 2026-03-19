@@ -1,9 +1,11 @@
 import { NAVIGATION_SEED } from '../navigation-seed';
 import type {
+  AggregateWarning,
   AggregateMeta,
   CachedFormatPayload,
   CachedNodesPayload,
   LogRecord,
+  NormalizedNode,
   OutputFormat,
   SourceRecord
 } from '@riku-hub/shared';
@@ -25,7 +27,9 @@ const APP_KEYS = {
 
 const CACHE_KEYS = {
   nodes: 'cache:nodes',
-  format: (format: OutputFormat) => `cache:format:${format}`
+  format: (format: OutputFormat) => `cache:format:${format}`,
+  sourceNodes: (sourceId: string) => `cache:source:${sourceId}:nodes`,
+  sourceWarnings: (sourceId: string) => `cache:source:${sourceId}:warnings`
 } as const;
 
 export class CompatNavSubRepository {
@@ -367,6 +371,11 @@ export class CompatNavSubRepository {
   }
 
   async deleteSource(id: string): Promise<void> {
+    await Promise.all([
+      this.env.CACHE_KV.delete(CACHE_KEYS.sourceNodes(id)),
+      this.env.CACHE_KV.delete(CACHE_KEYS.sourceWarnings(id))
+    ]);
+
     if (this.hasD1()) {
       await this.getDb().prepare('DELETE FROM sources WHERE id = ?').bind(id).run();
       return;
@@ -433,6 +442,22 @@ export class CompatNavSubRepository {
 
   async saveCachedFormat(format: OutputFormat, payload: CachedFormatPayload): Promise<void> {
     await this.env.CACHE_KV.put(CACHE_KEYS.format(format), JSON.stringify(payload));
+  }
+
+  async getCachedSourceNodes(sourceId: string): Promise<NormalizedNode[] | null> {
+    const raw = await this.env.CACHE_KV.get(CACHE_KEYS.sourceNodes(sourceId), 'json');
+    if (!Array.isArray(raw)) {
+      return null;
+    }
+    return raw as NormalizedNode[];
+  }
+
+  async saveCachedSourceNodes(sourceId: string, nodes: NormalizedNode[]): Promise<void> {
+    await this.env.CACHE_KV.put(CACHE_KEYS.sourceNodes(sourceId), JSON.stringify(nodes));
+  }
+
+  async saveSourceWarnings(sourceId: string, warnings: AggregateWarning[]): Promise<void> {
+    await this.env.CACHE_KV.put(CACHE_KEYS.sourceWarnings(sourceId), JSON.stringify(warnings));
   }
 
   async getCachedDns(hostname: string, type: 'A' | 'AAAA'): Promise<string[] | null> {

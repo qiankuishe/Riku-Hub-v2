@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElDialog, ElInput, ElTag } from 'element-plus';
 import { Icon } from '@iconify/vue';
-import type { Source, SubInfo, ValidationResult } from '../../api';
+import type { Source, SubInfo, ValidationResult, WarningItem } from '../../api';
 import { sourcesApi, subApi } from '../../api';
 import { formatDateTime } from '../../utils/date';
 import { useUiStore } from '../../stores/ui';
@@ -23,6 +23,8 @@ const formName = ref('');
 const formContent = ref('');
 const validation = ref<ValidationResult | null>(null);
 const validating = ref(false);
+const sourceWarnings = ref<WarningItem[]>([]);
+const sourceWarningsLoading = ref(false);
 const qrDialogVisible = ref(false);
 const qrTitle = ref('');
 const qrDataUrl = ref('');
@@ -30,6 +32,7 @@ const deleteTarget = ref<Source | null>(null);
 
 let validateTimer = 0;
 let validateRunId = 0;
+let warningRunId = 0;
 
 const cacheStatusMeta = computed(() => {
   const status = subInfo.value?.cacheStatus ?? 'missing';
@@ -93,6 +96,8 @@ function openCreateDialog() {
   formName.value = '';
   formContent.value = '';
   validation.value = null;
+  sourceWarnings.value = [];
+  sourceWarningsLoading.value = false;
   errorMessage.value = '';
   editorOpen.value = true;
 }
@@ -102,8 +107,11 @@ function openEditDialog(source: Source) {
   formName.value = source.name;
   formContent.value = source.content;
   validation.value = null;
+  sourceWarnings.value = [];
+  sourceWarningsLoading.value = true;
   errorMessage.value = '';
   editorOpen.value = true;
+  void loadSourceWarnings(source.id);
 }
 
 function closeEditor() {
@@ -111,6 +119,8 @@ function closeEditor() {
   errorMessage.value = '';
   validation.value = null;
   validating.value = false;
+  sourceWarnings.value = [];
+  sourceWarningsLoading.value = false;
 }
 
 function closeDeleteDialog() {
@@ -141,6 +151,27 @@ async function runValidate() {
   } finally {
     if (runId === validateRunId) {
       validating.value = false;
+    }
+  }
+}
+
+async function loadSourceWarnings(sourceId: string) {
+  const runId = ++warningRunId;
+  sourceWarningsLoading.value = true;
+  try {
+    const data = await sourcesApi.getWarnings(sourceId);
+    if (runId !== warningRunId) {
+      return;
+    }
+    sourceWarnings.value = data.warnings;
+  } catch {
+    if (runId !== warningRunId) {
+      return;
+    }
+    sourceWarnings.value = [];
+  } finally {
+    if (runId === warningRunId) {
+      sourceWarningsLoading.value = false;
     }
   }
 }
@@ -380,6 +411,17 @@ async function openQr(name: string, url: string) {
         <p v-if="validation.warnings.length" class="mt-1 text-xs text-amber-700">
           警告 {{ validation.warnings.length }} 条：{{ validation.warnings[0].message }}
         </p>
+      </div>
+
+      <div v-if="editingSource" class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+        <p class="text-sm text-amber-900">最近刷新警告</p>
+        <p v-if="sourceWarningsLoading" class="mt-1 text-xs text-amber-700">加载中...</p>
+        <p v-else-if="!sourceWarnings.length" class="mt-1 text-xs text-amber-700">暂无警告</p>
+        <ul v-else class="mt-1 list-disc pl-4 text-xs text-amber-700">
+          <li v-for="(item, index) in sourceWarnings.slice(0, 5)" :key="`${item.code}-${index}`">
+            {{ item.message }}
+          </li>
+        </ul>
       </div>
 
       <ElAlert v-if="errorMessage" :closable="false" show-icon type="error" :title="errorMessage" />

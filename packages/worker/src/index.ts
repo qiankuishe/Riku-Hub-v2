@@ -110,6 +110,8 @@ const APP_KEYS = {
 const CACHE_KEYS = {
   nodes: 'cache:nodes',
   format: (format: OutputFormat) => `cache:format:${format}`,
+  sourceNodes: (sourceId: string) => `cache:source:${sourceId}:nodes`,
+  sourceWarnings: (sourceId: string) => `cache:source:${sourceId}:warnings`,
   dns: (host: string, type: string) => `dns:${host}:${type}`,
   favicon: (hostname: string) => `favicon:${hostname}`
 };
@@ -272,6 +274,7 @@ mountSubscriptionsRoutes<Env>(app, {
   deps: {
     getAllSources,
     getSource,
+    getSourceWarnings,
     validateContent,
     createSource,
     saveSource,
@@ -561,14 +564,38 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
 
     for (const source of enabledSources) {
       const expanded = await expandSourceContent(env, source.content);
-      aggregated.push(...expanded.uniqueNodes);
-      warnings.push(...expanded.warnings);
+      const sourceWarnings = [...expanded.warnings];
+      let sourceNodes = expanded.uniqueNodes;
+      const hasConnectivityFailure = sourceWarnings.some(
+        (item) => item.code === 'fetch-failed' || item.code === 'security-blocked'
+      );
+
+      if (hasConnectivityFailure) {
+        const fallbackNodes = await getCachedSourceNodes(env, source.id);
+        if (fallbackNodes?.length) {
+          const merged = deduplicateNodes([...sourceNodes, ...fallbackNodes]);
+          sourceNodes = merged.nodes;
+          sourceWarnings.push({
+            code: 'cache-stale',
+            message: `源 ${source.name} 拉取失败，已保留上次缓存节点 ${fallbackNodes.length} 条`,
+            context: source.id
+          });
+        }
+      }
+
+      if (sourceNodes.length) {
+        await saveCachedSourceNodes(env, source.id, sourceNodes);
+      }
+      await saveSourceWarnings(env, source.id, sourceWarnings);
+
+      aggregated.push(...sourceNodes);
+      warnings.push(...sourceWarnings);
       
       // 只在节点数变化时才更新 source 记录，避免写放大
-      if (expanded.uniqueNodes.length !== source.nodeCount) {
+      if (sourceNodes.length !== source.nodeCount) {
         const updatedSource: SourceRecord = {
           ...source,
-          nodeCount: expanded.uniqueNodes.length,
+          nodeCount: sourceNodes.length,
           updatedAt: new Date().toISOString()
         };
         updatedSources.push(updatedSource);
@@ -1044,6 +1071,10 @@ async function getSource(env: Env, id: string): Promise<SourceRecord | null> {
   return normalizeStoredSourceRecord(source, id);
 }
 
+async function getSourceWarnings(env: Env, id: string): Promise<AggregateWarning[]> {
+  return getCachedSourceWarnings(env, id);
+}
+
 async function getAllSources(env: Env): Promise<SourceRecord[]> {
   const ids = await getSourceIndex(env);
   const records = await Promise.all(ids.map((id) => getSource(env, id)));
@@ -1110,6 +1141,8 @@ async function saveSource(env: Env, source: SourceRecord): Promise<SourceRecord>
 }
 
 async function deleteSource(env: Env, id: string): Promise<void> {
+  await Promise.all([env.CACHE_KV.delete(CACHE_KEYS.sourceNodes(id)), env.CACHE_KV.delete(CACHE_KEYS.sourceWarnings(id))]);
+
   if (hasD1(env)) {
     await env.DB.prepare('DELETE FROM sources WHERE id = ?').bind(id).run();
     return;
@@ -1260,6 +1293,30 @@ async function getCachedNodes(env: Env): Promise<CachedNodesPayload | null> {
 
 async function getCachedFormat(env: Env, format: OutputFormat): Promise<CachedFormatPayload | null> {
   return env.CACHE_KV.get(CACHE_KEYS.format(format), 'json');
+}
+
+async function getCachedSourceNodes(env: Env, sourceId: string): Promise<NormalizedNode[] | null> {
+  const raw = await env.CACHE_KV.get(CACHE_KEYS.sourceNodes(sourceId), 'json');
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+  return raw as NormalizedNode[];
+}
+
+async function saveCachedSourceNodes(env: Env, sourceId: string, nodes: NormalizedNode[]): Promise<void> {
+  await env.CACHE_KV.put(CACHE_KEYS.sourceNodes(sourceId), JSON.stringify(nodes));
+}
+
+async function getCachedSourceWarnings(env: Env, sourceId: string): Promise<AggregateWarning[]> {
+  const raw = await env.CACHE_KV.get(CACHE_KEYS.sourceWarnings(sourceId), 'json');
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw as AggregateWarning[];
+}
+
+async function saveSourceWarnings(env: Env, sourceId: string, warnings: AggregateWarning[]): Promise<void> {
+  await env.CACHE_KV.put(CACHE_KEYS.sourceWarnings(sourceId), JSON.stringify(warnings));
 }
 
 async function invalidateCache(env: Env): Promise<void> {
@@ -2045,13 +2102,17 @@ async function clearSubscriptionCache(env: Env): Promise<void> {
 }
 
 async function clearAllSources(env: Env): Promise<void> {
+  const ids = await getSourceIndex(env);
+  await Promise.all(
+    ids.flatMap((id) => [env.CACHE_KV.delete(CACHE_KEYS.sourceNodes(id)), env.CACHE_KV.delete(CACHE_KEYS.sourceWarnings(id))])
+  );
+
   if (hasD1(env)) {
     await env.DB.prepare('DELETE FROM sources').run();
     await clearSubscriptionCache(env);
     return;
   }
 
-  const ids = await getSourceIndex(env);
   await Promise.all(ids.map((id) => env.APP_KV.delete(`source:${id}`)));
   await saveSourceIndex(env, []);
   await clearSubscriptionCache(env);
