@@ -65,6 +65,7 @@ const dropPlacement = ref<'' | 'before' | 'after'>('');
 const pendingDragChanges = ref(false);
 const dragChangeQueue = ref<Array<{ type: 'reorder' | 'move'; categoryId: string; linkIds: string[] }>>([]);
 const pendingMoveLinks = ref<Array<{ linkId: string; fromCategoryId: string; toCategoryId: string }>>([]);
+const exitEditConfirmVisible = ref(false);
 
 const overviewSectionId = 'nav-overview';
 const categoryListRef = ref<HTMLElement | null>(null);
@@ -546,9 +547,25 @@ function onLinkDragEnd() {
 }
 
 function onLinkDragOver(event: DragEvent, link: NavigationLink) {
+  event.preventDefault();
+
+  if (draggingLinkId.value === link.id) {
+    dropLinkId.value = '';
+    dropPlacement.value = '';
+    return;
+  }
+
   const element = event.currentTarget as HTMLElement | null;
   const rect = element?.getBoundingClientRect();
-  const after = rect ? event.clientY - rect.top > rect.height / 2 || event.clientX - rect.left > rect.width / 2 : false;
+  if (!rect) {
+    return;
+  }
+
+  const mouseY = event.clientY - rect.top;
+  const mouseX = event.clientX - rect.left;
+  const centerY = rect.height / 2;
+  const centerX = rect.width / 2;
+  const after = mouseY > centerY || (mouseY === centerY && mouseX > centerX);
   dropCategoryId.value = link.categoryId;
   dropLinkId.value = link.id;
   dropPlacement.value = after ? 'after' : 'before';
@@ -670,17 +687,31 @@ async function saveDragChanges() {
   }
 }
 
-async function handleEditModeToggle() {
+function handleEditModeToggle() {
   if (editMode.value && pendingDragChanges.value) {
-    const shouldSave = window.confirm('有未保存的排序更改，是否保存？');
-    if (shouldSave) {
-      await saveDragChanges();
-    } else {
-      resetPendingDragState();
-      await loadAll();
-    }
+    exitEditConfirmVisible.value = true;
+    return;
   }
   editMode.value = !editMode.value;
+}
+
+function confirmExitEdit(shouldSave: boolean) {
+  exitEditConfirmVisible.value = false;
+
+  if (shouldSave) {
+    void saveDragChanges().then(() => {
+      editMode.value = false;
+    });
+    return;
+  }
+
+  resetPendingDragState();
+  editMode.value = false;
+  void loadAll();
+}
+
+function cancelExitEdit() {
+  exitEditConfirmVisible.value = false;
 }
 </script>
 
@@ -693,6 +724,16 @@ async function handleEditModeToggle() {
           <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <ElButton
+            v-if="editMode"
+            type="primary"
+            :loading="saving"
+            :disabled="!pendingDragChanges || saving"
+            @click="saveDragChanges"
+          >
+            <Icon icon="carbon:save" class="mr-1" />
+            保存排序
+          </ElButton>
           <ElButton v-if="editMode" :disabled="loading || saving" @click="openCategoryDialog()">
             <Icon icon="carbon:folder-add" class="mr-1" />
             新增分类
@@ -700,16 +741,6 @@ async function handleEditModeToggle() {
           <ElButton v-if="editMode && hasCategories" type="primary" :disabled="loading || saving" @click="openLinkDialog()">
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增站点
-          </ElButton>
-          <ElButton
-            v-if="editMode && pendingDragChanges"
-            type="primary"
-            :loading="saving"
-            :disabled="saving || loading"
-            @click="saveDragChanges"
-          >
-            <Icon icon="carbon:save" class="mr-1" />
-            保存排序
           </ElButton>
           <ElButton :loading="loading" @click="loadAll">
             <Icon icon="carbon:renew" class="mr-1" />
@@ -968,6 +999,35 @@ async function handleEditModeToggle() {
       @close="deleteLinkTarget = null"
       @confirm="confirmDeleteLink"
     />
+
+    <ElDialog
+      v-model="exitEditConfirmVisible"
+      title="未保存的更改"
+      width="460px"
+      :close-on-click-modal="false"
+      align-center
+      @close="cancelExitEdit"
+    >
+      <div class="py-4">
+        <div class="mb-4 flex items-start gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+            <Icon icon="carbon:warning" class="text-xl text-amber-600" />
+          </div>
+          <div class="flex-1">
+            <p class="text-base font-medium text-gray-900">有未保存的排序更改</p>
+            <p class="mt-1 text-sm text-gray-600">您对链接顺序进行了调整，但尚未保存。是否要保存这些更改？</p>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <ElButton @click="cancelExitEdit">取消</ElButton>
+          <ElButton @click="confirmExitEdit(false)">放弃更改</ElButton>
+          <ElButton type="primary" @click="confirmExitEdit(true)">保存更改</ElButton>
+        </div>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -979,11 +1039,13 @@ async function handleEditModeToggle() {
 }
 
 .nav-link-card {
+  position: relative;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fff;
   padding: 10px;
   min-height: 72px;
+  overflow: visible;
   transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
@@ -997,16 +1059,34 @@ async function handleEditModeToggle() {
 }
 
 .nav-link-card.is-drop-target {
-  border-color: #111111;
-  background: rgba(0, 0, 0, 0.04);
+  border: 2px solid #000000;
+  background: #f3f4f6;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1), 0 8px 22px rgba(0, 0, 0, 0.15);
+  transform: scale(1.02);
 }
 
-.nav-link-card.drop-before {
-  box-shadow: inset 0 3px 0 #111111;
+.nav-link-card.drop-before::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #000000;
+  border-radius: 2px;
+  z-index: 10;
 }
 
-.nav-link-card.drop-after {
-  box-shadow: inset 0 -3px 0 #111111;
+.nav-link-card.drop-after::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #000000;
+  border-radius: 2px;
+  z-index: 10;
 }
 
 .nav-category-drag-handle {
@@ -1038,7 +1118,10 @@ async function handleEditModeToggle() {
 }
 
 .category-drop-zone {
-  border: 1px dashed rgba(0, 0, 0, 0.3);
+  background: #f9fafb;
+  border: 2px dashed #9ca3af;
+  border-radius: 12px;
+  padding: 8px;
 }
 
 @media (max-width: 1500px) {
