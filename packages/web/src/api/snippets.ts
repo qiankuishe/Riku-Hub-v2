@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { SnippetRecord, SnippetType } from './types';
+import type { PublicClipboardItem, SnippetRecord, SnippetType } from './types';
 
 export const snippetsApi = {
   getAll: (params?: { type?: SnippetType | 'all'; q?: string }) => {
@@ -26,5 +26,9 @@ export const snippetsApi = {
   delete: (id: string) =>
     request<{ success: boolean }>(`/api/snippets/${id}`, {
       method: 'DELETE'
+    }),
+  getPublicClipboard: () =>
+    request<{ items: PublicClipboardItem[] }>('/api/clipboard/public', {
+      skipAuthRedirect: true
     })
 };

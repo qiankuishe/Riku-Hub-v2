@@ -64,6 +64,14 @@ import {
   type ValidationSummary
 } from '@riku-hub/shared';
 
+interface PublicClipboardItem {
+  id: string;
+  title: string;
+  content: string;
+  nodeLabel: string;
+  createdAt: string;
+}
+
 export interface Env {
   APP_KV: KVNamespace;
   CACHE_KV: KVNamespace;
@@ -103,6 +111,18 @@ const CACHE_KEYS = {
   dns: (host: string, type: string) => `dns:${host}:${type}`,
   favicon: (hostname: string) => `favicon:${hostname}`
 };
+
+const PUBLIC_NODE_LABELS = [
+  'NODE_ALPHA_01',
+  'NODE_BETA_02',
+  'NODE_GAMMA_03',
+  'NODE_DELTA_04',
+  'NODE_EPSILON_05',
+  'NODE_ZETA_06',
+  'NODE_ETA_07',
+  'NODE_THETA_08',
+  'NODE_IOTA_09'
+] as const;
 
 const D1_SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS navigation_categories (
@@ -227,6 +247,23 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 
 const authController = createAuthController((env, action, detail) => appendLog(env as Env, action, detail));
 mountAuthRoutes(app, authController);
+
+app.get('/api/clipboard/public', async (c) => {
+  const snippets = await getAllSnippets(c.env);
+  const items: PublicClipboardItem[] = snippets
+    .filter((snippet) => Boolean(snippet.content))
+    .slice(0, PUBLIC_NODE_LABELS.length)
+    .map((snippet, index) => ({
+      id: snippet.id,
+      title: snippet.title || `节点 ${index + 1}`,
+      content: snippet.type === 'image' ? '[图片片段]' : snippet.content,
+      nodeLabel: PUBLIC_NODE_LABELS[index],
+      createdAt: snippet.createdAt
+    }));
+
+  return c.json({ items });
+});
+
 app.use('/api/*', createAuthMiddleware(authController as any));
 
 mountCompatRoutes(app);

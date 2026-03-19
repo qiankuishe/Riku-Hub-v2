@@ -89,6 +89,14 @@ export interface SnippetRecord {
   updatedAt: string;
 }
 
+export interface PublicClipboardItem {
+  id: string;
+  title: string;
+  content: string;
+  nodeLabel: string;
+  createdAt: string;
+}
+
 export interface SettingsExportStats {
   sources: number;
   navigationCategories: number;
