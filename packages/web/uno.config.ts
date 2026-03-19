@@ -46,8 +46,8 @@ export default defineConfig({
     'btn-lg': 'px-6 py-3 text-lg',
 
     // 卡片
-    'card': 'p-6 rounded-xl bg-white border border-gray-200 shadow-sm',
-    'card-hover': 'card hover:shadow-md transition-shadow duration-200',
+    'card': 'p-6 rounded-xl bg-white border border-gray-200 shadow-md',
+    'card-hover': 'card hover:shadow-lg transition-shadow duration-200',
     'list-card': 'border border-gray-200 rounded-xl bg-white p-3 transition-all duration-150 hover:border-gray-400 hover:bg-gray-50',
     'list-card-active': 'border-black bg-gray-100',
     'content-card': 'border border-gray-200 rounded-xl bg-white p-3 transition-all duration-150 hover:border-gray-400 hover:shadow-md',
