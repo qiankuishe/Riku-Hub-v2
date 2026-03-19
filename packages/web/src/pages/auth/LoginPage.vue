@@ -152,17 +152,7 @@ async function handleLogin() {
 }
 
 onMounted(async () => {
-  // 优先检查登录状态，如果已登录则直接跳转，避免加载3D资源
-  try {
-    await authApi.check();
-    // 已登录，直接跳转到后台
-    const redirect = new URLSearchParams(window.location.search).get('redirect');
-    window.location.replace(resolveAppRoute(redirect));
-    return; // 阻止后续代码执行，不加载3D场景
-  } catch {
-    // 未登录，继续正常流程
-  }
-
+  // 登录检查已在 mountLoginPage 中完成，这里直接加载资源
   await loadPublicClipboard();
 
   autoShowTimer = window.setTimeout(() => {
