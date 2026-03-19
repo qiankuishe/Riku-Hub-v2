@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue';
+import { nextTick, ref, watch, computed } from 'vue';
 import { useUiStore, type SecondaryNavItem } from '../../stores/ui';
 import { restartCurrentSection } from '../../utils/localCacheReset';
 import { APP_NAV_ITEMS, APP_REPO_URL, APP_VERSION } from './nav';
@@ -18,6 +18,10 @@ const emit = defineEmits<{
 
 const groupRefs = ref<Record<string, HTMLElement | null>>({});
 const navRef = ref<HTMLElement | null>(null);
+
+// 分离主导航和设置项
+const mainNavItems = computed(() => APP_NAV_ITEMS.filter(item => item.to !== '/settings'));
+const settingsItem = computed(() => APP_NAV_ITEMS.find(item => item.to === '/settings'));
 
 function isCurrent(itemTo: string) {
   return props.currentPath.startsWith(itemTo);
@@ -123,7 +127,7 @@ watch(
 
     <nav :ref="setNavRef" class="sidebar-nav" @wheel="handleNavWheel">
       <div
-        v-for="item in APP_NAV_ITEMS"
+        v-for="item in mainNavItems"
         :key="item.to"
         :ref="(element) => setGroupRef(item.to, element)"
         class="sidebar-group"
@@ -177,12 +181,31 @@ watch(
     </nav>
 
     <div class="sidebar-footer">
-      <a class="sidebar-repo-link" :href="APP_REPO_URL" target="_blank" rel="noreferrer" title="打开 GitHub 仓库">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 .5C5.65.5.5 5.65.5 12A11.5 11.5 0 0 0 8.36 22.92c.58.1.79-.25.79-.56l-.01-2.18c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.27-5.23-5.68 0-1.26.45-2.28 1.19-3.08-.12-.3-.52-1.5.11-3.12 0 0 .98-.31 3.2 1.18a11.1 11.1 0 0 1 5.82 0c2.22-1.49 3.19-1.18 3.19-1.18.64 1.62.24 2.82.12 3.12.74.8 1.19 1.82 1.19 3.08 0 4.42-2.68 5.39-5.24 5.67.41.36.77 1.08.77 2.17l-.01 3.22c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
-        </svg>
-      </a>
-      <span class="sidebar-version">版本 {{ APP_VERSION }}</span>
+      <!-- 系统设置按钮 -->
+      <button
+        v-if="settingsItem"
+        type="button"
+        class="sidebar-nav-item sidebar-settings-button"
+        :class="{ 'sidebar-nav-item-active': isCurrent(settingsItem.to) }"
+        :title="settingsItem.label"
+        @click="handlePrimaryClick(settingsItem.to)"
+      >
+        <span class="sidebar-nav-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path :d="settingsItem.icon" />
+          </svg>
+        </span>
+        <span class="sidebar-nav-label">{{ settingsItem.label }}</span>
+      </button>
+      
+      <div class="sidebar-footer-info">
+        <a class="sidebar-repo-link" :href="APP_REPO_URL" target="_blank" rel="noreferrer" title="打开 GitHub 仓库">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .5C5.65.5.5 5.65.5 12A11.5 11.5 0 0 0 8.36 22.92c.58.1.79-.25.79-.56l-.01-2.18c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.27-5.23-5.68 0-1.26.45-2.28 1.19-3.08-.12-.3-.52-1.5.11-3.12 0 0 .98-.31 3.2 1.18a11.1 11.1 0 0 1 5.82 0c2.22-1.49 3.19-1.18 3.19-1.18.64 1.62.24 2.82.12 3.12.74.8 1.19 1.82 1.19 3.08 0 4.42-2.68 5.39-5.24 5.67.41.36.77 1.08.77 2.17l-.01 3.22c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
+          </svg>
+        </a>
+        <span class="sidebar-version">版本 {{ APP_VERSION }}</span>
+      </div>
     </div>
   </aside>
 </template>
