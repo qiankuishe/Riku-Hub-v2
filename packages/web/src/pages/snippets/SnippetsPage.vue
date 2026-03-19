@@ -533,77 +533,69 @@ async function copySnippet(snippet: SnippetRecord) {
       </div>
     </section>
 
-    <!-- 结果列表和搜索筛选：左右分布 -->
+    <!-- 结果列表 -->
     <section class="card">
-      <div class="grid gap-4 lg:grid-cols-4">
-        <!-- 左侧：结果列表（3/4宽度） -->
-        <div class="lg:col-span-3">
-          <div class="mb-3 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">结果列表</h3>
-            <ElTag size="small">{{ filtered.length }} 条</ElTag>
-          </div>
-
-          <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-            加载中...
-          </div>
-          <ElAlert v-else-if="pageErrorMessage" :closable="false" show-icon type="error" :title="pageErrorMessage" />
-          <div v-else-if="!filtered.length" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-            暂无内容
-          </div>
-          <div v-else class="snippet-cards">
-            <article
-              v-for="snippet in filtered"
-              :key="snippet.id"
-              class="content-card"
-              :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
-              :data-snippet-id="snippet.id"
-            >
-              <div class="mb-2 flex items-start justify-between gap-3">
-                <div class="min-w-0 flex-1">
-                  <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
-                  <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
-                </div>
-                <div class="flex flex-shrink-0 gap-1">
-                  <ElButton size="small" text @click="togglePin(snippet)">
-                    <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
-                  </ElButton>
-                  <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
-                    <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
-                  </ElButton>
-                  <ElButton size="small" text @click="copySnippet(snippet)">
-                    <Icon icon="carbon:copy" />
-                  </ElButton>
-                  <ElButton size="small" text @click="openEditDialog(snippet)">
-                    <Icon icon="carbon:edit" />
-                  </ElButton>
-                  <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
-                    <Icon icon="carbon:trash-can" />
-                  </ElButton>
-                </div>
-              </div>
-
-              <div v-if="snippet.type === 'image'" class="snippet-image-preview">
-                <img :src="snippet.content" alt="snippet" />
-              </div>
-              <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
-              <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
-            </article>
-          </div>
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h3 class="text-lg font-semibold text-gray-900">结果列表</h3>
+        
+        <!-- 搜索筛选 -->
+        <div class="flex flex-wrap items-center gap-2">
+          <ElTag size="small">{{ filtered.length }} 条</ElTag>
+          <ElRadioGroup v-model="filterType" size="small">
+            <ElRadioButton label="all">全部</ElRadioButton>
+            <ElRadioButton v-for="option in typeOptions" :key="option.key" :label="option.key">
+              {{ option.label }}
+            </ElRadioButton>
+          </ElRadioGroup>
+          <ElInput v-model="searchQuery" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
         </div>
+      </div>
 
-        <!-- 右侧：搜索筛选（1/4宽度） -->
-        <div class="lg:col-span-1">
-          <h3 class="mb-3 text-lg font-semibold text-gray-900">搜索筛选</h3>
-          <div class="grid gap-3">
-            <ElRadioGroup v-model="filterType" size="small">
-              <ElRadioButton label="all">全部</ElRadioButton>
-              <ElRadioButton v-for="option in typeOptions" :key="option.key" :label="option.key">
-                {{ option.label }}
-              </ElRadioButton>
-            </ElRadioGroup>
-            <ElInput v-model="searchQuery" clearable placeholder="按标题或内容筛选..." />
+      <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        加载中...
+      </div>
+      <ElAlert v-else-if="pageErrorMessage" :closable="false" show-icon type="error" :title="pageErrorMessage" />
+      <div v-else-if="!filtered.length" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        暂无内容
+      </div>
+      <div v-else class="snippet-cards">
+        <article
+          v-for="snippet in filtered"
+          :key="snippet.id"
+          class="content-card"
+          :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
+          :data-snippet-id="snippet.id"
+        >
+          <div class="mb-2 flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
+              <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
+            </div>
+            <div class="flex flex-shrink-0 gap-1">
+              <ElButton size="small" text @click="togglePin(snippet)">
+                <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
+              </ElButton>
+              <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
+              </ElButton>
+              <ElButton size="small" text @click="copySnippet(snippet)">
+                <Icon icon="carbon:copy" />
+              </ElButton>
+              <ElButton size="small" text @click="openEditDialog(snippet)">
+                <Icon icon="carbon:edit" />
+              </ElButton>
+              <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
+                <Icon icon="carbon:trash-can" />
+              </ElButton>
+            </div>
           </div>
-        </div>
+
+          <div v-if="snippet.type === 'image'" class="snippet-image-preview">
+            <img :src="snippet.content" alt="snippet" />
+          </div>
+          <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
+          <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
+        </article>
       </div>
     </section>
 
