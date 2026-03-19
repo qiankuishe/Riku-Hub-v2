@@ -150,7 +150,7 @@ function queueSave() {
   }
   saveTimer = window.setTimeout(() => {
     void saveNow();
-  }, 600);
+  }, 2000);
 }
 
 async function togglePin() {
@@ -209,7 +209,7 @@ function getExcerpt(content: string) {
 <template>
   <div class="notes-layout">
     <!-- 左侧：编辑区 -->
-    <section class="card">
+    <section class="card notes-editor-section">
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
         <ElButton type="primary" size="small" :disabled="saving" @click="createNote">
@@ -237,7 +237,7 @@ function getExcerpt(content: string) {
           </div>
         </div>
 
-        <div class="grid gap-3">
+        <div class="notes-editor-content">
           <ElInput v-model="editTitle" placeholder="笔记标题" />
           <p class="text-xs text-gray-500">
             字数 {{ characterCount }} · 行数 {{ lineCount }} · 更新 {{ formatDateTime(selectedNote.updatedAt) }}
@@ -249,7 +249,7 @@ function getExcerpt(content: string) {
 
           <div v-else-if="viewMode === 'preview'" class="notes-preview" v-html="renderedPreview"></div>
 
-          <div v-else class="grid gap-3 md:grid-cols-2">
+          <div v-else class="notes-split-view">
             <div class="notes-editor">
               <textarea v-model="editContent" class="notes-editor-textarea" />
             </div>
@@ -258,43 +258,45 @@ function getExcerpt(content: string) {
         </div>
       </template>
 
-      <div v-else class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
+      <div v-else class="notes-empty-state">
         请选择或创建一条笔记开始编辑。
       </div>
     </section>
 
     <!-- 右侧：笔记列表 -->
-    <section class="card">
+    <section class="card notes-list-section">
       <div class="mb-4">
         <ElInput v-model="searchQuery" clearable placeholder="搜索笔记..." />
       </div>
 
-      <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
-        加载中...
-      </div>
-      <ElAlert v-else-if="errorMessage" :closable="false" show-icon type="error" :title="errorMessage" />
-      <div v-else-if="!filtered.length" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
-        暂无笔记
-      </div>
-      <div v-else class="notes-grid">
-        <button
-          v-for="note in filtered"
-          :key="note.id"
-          type="button"
-          class="note-card"
-          :class="{
-            'note-card-active': selectedNoteId === note.id,
-            'note-card-highlight': highlightedId === note.id
-          }"
-          @click="selectedNoteId = note.id"
-        >
-          <div class="note-card-header">
-            <Icon v-if="note.isPinned" icon="carbon:star-filled" class="note-card-star" />
-            <strong class="note-card-title">{{ note.title || '无标题' }}</strong>
-          </div>
-          <p class="note-card-excerpt">{{ getExcerpt(note.content) }}</p>
-          <p class="note-card-time">{{ formatDateTime(note.updatedAt) }}</p>
-        </button>
+      <div class="notes-list-scroll">
+        <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
+          加载中...
+        </div>
+        <ElAlert v-else-if="errorMessage" :closable="false" show-icon type="error" :title="errorMessage" />
+        <div v-else-if="!filtered.length" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
+          暂无笔记
+        </div>
+        <div v-else class="notes-grid">
+          <button
+            v-for="note in filtered"
+            :key="note.id"
+            type="button"
+            class="note-card"
+            :class="{
+              'note-card-active': selectedNoteId === note.id,
+              'note-card-highlight': highlightedId === note.id
+            }"
+            @click="selectedNoteId = note.id"
+          >
+            <div class="note-card-header">
+              <Icon v-if="note.isPinned" icon="carbon:star-filled" class="note-card-star" />
+              <strong class="note-card-title">{{ note.title || '无标题' }}</strong>
+            </div>
+            <p class="note-card-excerpt">{{ getExcerpt(note.content) }}</p>
+            <p class="note-card-time">{{ formatDateTime(note.updatedAt) }}</p>
+          </button>
+        </div>
       </div>
     </section>
   </div>
@@ -313,23 +315,52 @@ function getExcerpt(content: string) {
 .notes-layout {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+.notes-editor-section {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.notes-editor-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.notes-empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px dashed #d1d5db;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 14px;
 }
 
 .notes-editor {
+  flex: 1;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fff;
   overflow: hidden;
-  min-height: 320px;
+  min-height: 0;
 }
 
 .notes-editor-textarea {
   width: 100%;
-  min-height: 320px;
+  height: 100%;
   border: 0;
   outline: 0;
-  resize: vertical;
+  resize: none;
   padding: 12px;
   font-size: 14px;
   line-height: 1.6;
@@ -337,7 +368,7 @@ function getExcerpt(content: string) {
 }
 
 .notes-preview {
-  min-height: 320px;
+  flex: 1;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fff;
@@ -346,6 +377,15 @@ function getExcerpt(content: string) {
   color: #1f2937;
   line-height: 1.65;
   word-break: break-word;
+  min-height: 0;
+}
+
+.notes-split-view {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
 }
 
 .notes-preview :deep(pre) {
@@ -364,6 +404,18 @@ function getExcerpt(content: string) {
   border-left: 3px solid #d1d5db;
   padding-left: 10px;
   color: #4b5563;
+}
+
+.notes-list-section {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.notes-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .notes-grid {
@@ -444,6 +496,15 @@ function getExcerpt(content: string) {
 @media (max-width: 1100px) {
   .notes-layout {
     grid-template-columns: 1fr;
+    height: auto;
+  }
+  
+  .notes-editor-section {
+    height: auto;
+  }
+  
+  .notes-list-section {
+    height: 600px;
   }
   
   .notes-grid {
