@@ -1082,20 +1082,20 @@ async function moveCategoryDown(category: NavigationCategory) {
 }
 
 .nav-link-card.is-drop-target {
-  border: 2px solid #000000;
-  background: #e5e7eb;
-  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1), 0 8px 22px rgba(0, 0, 0, 0.15);
-  transform: scale(1.02);
+  border: 2px solid #111111;
+  background: #f9fafb;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: scale(1.008);
 }
 
 .nav-link-card.drop-before {
-  border-left: 6px dashed #000000 !important;
-  background: #d1d5db !important;
+  border-left: 3px dashed #111111 !important;
+  box-shadow: inset 8px 0 0 rgba(17, 17, 17, 0.05), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .nav-link-card.drop-after {
-  border-right: 6px dashed #000000 !important;
-  background: #d1d5db !important;
+  border-right: 3px dashed #111111 !important;
+  box-shadow: inset -8px 0 0 rgba(17, 17, 17, 0.05), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .nav-category-move-btn {
