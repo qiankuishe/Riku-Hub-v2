@@ -100,12 +100,25 @@ export interface PublicClipboardItem {
   createdAt: string;
 }
 
+export type ClipboardItemType = 'text' | 'code' | 'link' | 'image';
+
+export interface ClipboardItemRecord {
+  id: string;
+  type: ClipboardItemType;
+  content: string;
+  tags: string[];
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SettingsExportStats {
   sources: number;
   navigationCategories: number;
   navigationLinks: number;
   notes: number;
   snippets: number;
+  clipboardItems: number;
 }
 
 export interface SettingsBackupPayload {
@@ -117,5 +130,6 @@ export interface SettingsBackupPayload {
   categories?: NavigationCategory[];
   notes?: NoteRecord[];
   snippets?: SnippetRecord[];
-  clipboard_items?: SnippetRecord[];
+  clipboard?: ClipboardItemRecord[];
+  clipboard_items?: ClipboardItemRecord[];
 }

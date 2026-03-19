@@ -32,15 +32,16 @@ export class CompatRepository {
       token,
       username,
       createdAt,
-      expiresAt: createdAt + SESSION_TTL_SECONDS * 1000
+      expiresAt: createdAt + SESSION_TTL_SECONDS * 1000,
+      passwordHash: this.env.ADMIN_PASSWORD_HASH ?? ''
     };
 
     const db = this.getDb();
     if (db) {
       await db.prepare(
-        'INSERT INTO auth_sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)'
+        'INSERT INTO auth_sessions (token, username, created_at, expires_at, password_hash) VALUES (?, ?, ?, ?, ?)'
       )
-        .bind(session.token, session.username, session.createdAt, session.expiresAt)
+        .bind(session.token, session.username, session.createdAt, session.expiresAt, session.passwordHash)
         .run();
     } else {
       await this.env.APP_KV.put(
@@ -48,7 +49,8 @@ export class CompatRepository {
         JSON.stringify({
           username: session.username,
           createdAt: session.createdAt,
-          expiresAt: session.expiresAt
+          expiresAt: session.expiresAt,
+          passwordHash: session.passwordHash
         })
       );
     }
@@ -60,7 +62,7 @@ export class CompatRepository {
     const db = this.getDb();
     if (db) {
       const row = await db.prepare(
-        'SELECT token, username, created_at, expires_at FROM auth_sessions WHERE token = ?'
+        'SELECT token, username, created_at, expires_at, password_hash FROM auth_sessions WHERE token = ?'
       )
         .bind(token)
         .first<{
@@ -68,6 +70,7 @@ export class CompatRepository {
           username: string;
           created_at: number;
           expires_at: number;
+          password_hash: string;
         }>();
 
       if (!row) {
@@ -78,11 +81,19 @@ export class CompatRepository {
         return null;
       }
 
+      const expectedHash = this.env.ADMIN_PASSWORD_HASH ?? '';
+      const sessionHash = row.password_hash ?? '';
+      if (expectedHash && sessionHash !== expectedHash) {
+        await this.deleteSession(token);
+        return null;
+      }
+
       return {
         token: row.token,
         username: row.username,
         createdAt: row.created_at,
-        expiresAt: row.expires_at
+        expiresAt: row.expires_at,
+        passwordHash: row.password_hash ?? ''
       };
     }
 
@@ -97,11 +108,19 @@ export class CompatRepository {
       return null;
     }
 
+    const expectedHash = this.env.ADMIN_PASSWORD_HASH ?? '';
+    const sessionHash = typeof session.passwordHash === 'string' ? session.passwordHash : '';
+    if (expectedHash && sessionHash !== expectedHash) {
+      await this.deleteSession(token);
+      return null;
+    }
+
     return {
       token,
       username: typeof session.username === 'string' ? session.username : '',
       createdAt: typeof session.createdAt === 'number' ? session.createdAt : Date.now(),
-      expiresAt: session.expiresAt
+      expiresAt: session.expiresAt,
+      passwordHash: typeof session.passwordHash === 'string' ? session.passwordHash : ''
     };
   }
 

@@ -5,7 +5,7 @@ import { Icon } from '@iconify/vue';
 import { authApi, settingsApi, type SettingsBackupPayload, type SettingsExportStats } from '../../api';
 import { useUiStore } from '../../stores/ui';
 
-type DangerScope = 'sources' | 'navigation' | 'notes' | 'snippets' | 'all';
+type DangerScope = 'sources' | 'navigation' | 'notes' | 'snippets' | 'clipboard' | 'all';
 
 interface DangerAction {
   scope: DangerScope;
@@ -34,6 +34,7 @@ const dangerActions: DangerAction[] = [
   { scope: 'navigation', title: '清空导航', description: '删除全部分类与链接。' },
   { scope: 'notes', title: '清空笔记', description: '删除全部笔记内容。' },
   { scope: 'snippets', title: '清空片段', description: '删除全部片段数据。' },
+  { scope: 'clipboard', title: '清空剪贴板', description: '删除全部剪贴板条目。' },
   { scope: 'all', title: '全部清空', description: '删除所有业务数据。' }
 ];
 
@@ -44,7 +45,8 @@ const statsItems = computed(() => {
     { key: 'navigationCategories', label: '导航分类', value: current?.navigationCategories ?? (loadingStats.value ? -1 : 0), icon: 'carbon:categories' },
     { key: 'navigationLinks', label: '导航链接', value: current?.navigationLinks ?? (loadingStats.value ? -1 : 0), icon: 'carbon:link' },
     { key: 'notes', label: '笔记', value: current?.notes ?? (loadingStats.value ? -1 : 0), icon: 'carbon:notebook' },
-    { key: 'snippets', label: '片段', value: current?.snippets ?? (loadingStats.value ? -1 : 0), icon: 'carbon:code' }
+    { key: 'snippets', label: '片段', value: current?.snippets ?? (loadingStats.value ? -1 : 0), icon: 'carbon:code' },
+    { key: 'clipboardItems', label: '剪贴板', value: current?.clipboardItems ?? (loadingStats.value ? -1 : 0), icon: 'carbon:paste' }
   ];
 });
 

@@ -22,6 +22,22 @@ class MemoryKv {
   async delete(key: string) {
     this.store.delete(key);
   }
+
+  async list(options?: { prefix?: string; limit?: number; cursor?: string }) {
+    const prefix = options?.prefix ?? '';
+    const limit = options?.limit ?? 1000;
+    const keys = Array.from(this.store.keys())
+      .filter((key) => key.startsWith(prefix))
+      .sort();
+    const start = options?.cursor ? Number.parseInt(options.cursor, 10) || 0 : 0;
+    const slice = keys.slice(start, start + limit).map((name) => ({ name }));
+    const nextCursor = start + limit;
+    return {
+      keys: slice,
+      list_complete: nextCursor >= keys.length,
+      cursor: nextCursor >= keys.length ? '' : String(nextCursor)
+    };
+  }
 }
 
 async function sha256Hex(value: string): Promise<string> {
@@ -47,8 +63,11 @@ async function register(env: Env): Promise<{ cookie: string; data: { user: { ema
     'https://example.com/api/auth/register',
     {
       method: 'POST',
-      body: JSON.stringify({ email: 'user@example.com', password: 'secret', username: 'User' }),
-      headers: { 'content-type': 'application/json' }
+      body: JSON.stringify({ email: 'user@example.com', password: 'secret', username: 'User', register_key: 'test-register-key' }),
+      headers: {
+        'content-type': 'application/json',
+        'x-register-key': 'test-register-key'
+      }
     },
     env
   );
@@ -356,6 +375,7 @@ describe('worker behaviors', () => {
 
   it('supports compat auth, nav, clipboard and settings routes', async () => {
     env.COMPAT_ALLOW_REGISTER = 'true';
+    env.COMPAT_REGISTER_KEY = 'test-register-key';
     const { cookie, data } = await register(env);
     expect(data.user.email).toBe('user@example.com');
 
@@ -503,6 +523,7 @@ describe('worker behaviors', () => {
 
   it('compat source validation supports full clash content blocks', async () => {
     env.COMPAT_ALLOW_REGISTER = 'true';
+    env.COMPAT_REGISTER_KEY = 'test-register-key';
     const { cookie } = await register(env);
 
     const createResponse = await app.request(
@@ -537,6 +558,7 @@ proxies:
 
   it('compat fetch expands mixed source entries (direct nodes + subscription urls)', async () => {
     env.COMPAT_ALLOW_REGISTER = 'true';
+    env.COMPAT_REGISTER_KEY = 'test-register-key';
     const { cookie } = await register(env);
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
@@ -592,6 +614,22 @@ proxies:
   });
 
   it('blocks compat register by default', async () => {
+    const response = await app.request(
+      'https://example.com/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email: 'blocked@example.com', password: 'secret', username: 'Blocked' }),
+        headers: { 'content-type': 'application/json' }
+      },
+      env
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it('blocks compat register when register key is missing', async () => {
+    env.COMPAT_ALLOW_REGISTER = 'true';
+
     const response = await app.request(
       'https://example.com/api/auth/register',
       {
@@ -788,5 +826,56 @@ proxies:
 
     const subResponse = await app.request('https://example.com/sub?token=token-123&base64', undefined, env);
     expect(subResponse.status).toBe(503);
+  });
+
+  it('invalidates active session after clearing all data', async () => {
+    const cookie = await login(env);
+    expect(cookie).toBeTruthy();
+
+    const clearResponse = await app.request(
+      'https://example.com/api/settings/data/all',
+      {
+        method: 'DELETE',
+        headers: { cookie }
+      },
+      env
+    );
+    expect(clearResponse.status).toBe(200);
+
+    const listResponse = await app.request(
+      'https://example.com/api/sources',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    expect(listResponse.status).toBe(401);
+  });
+
+  it('invalidates active session after admin password hash rotation', async () => {
+    const cookie = await login(env);
+    expect(cookie).toBeTruthy();
+
+    env.ADMIN_PASSWORD_HASH = await sha256Hex('new-secret');
+
+    const checkResponse = await app.request(
+      'https://example.com/api/auth/check',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const checkData = (await checkResponse.json()) as { authenticated: boolean };
+    expect(checkResponse.status).toBe(200);
+    expect(checkData.authenticated).toBe(false);
+
+    const protectedResponse = await app.request(
+      'https://example.com/api/sources',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    expect(protectedResponse.status).toBe(401);
   });
 });

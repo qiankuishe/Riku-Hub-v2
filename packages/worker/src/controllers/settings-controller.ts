@@ -2,6 +2,8 @@ import type { Context } from 'hono';
 import { SettingsHttpError, SettingsService } from '../services/settings-service';
 import type { SettingsBackupPayload, SettingsExportStats } from '../types/settings';
 
+const MAX_IMPORT_REQUEST_BYTES = 100 * 1024 * 1024;
+
 type SettingsContext<TEnv extends object> = Context<{ Bindings: TEnv }>;
 type ServiceFactory<TEnv extends object> = (env: TEnv) => SettingsService<TEnv>;
 type AppendLog<TEnv extends object> = (env: TEnv, action: string, detail?: string) => Promise<void>;
@@ -35,7 +37,7 @@ export class SettingsController<TEnv extends object> {
 
   async importBackup(c: SettingsContext<TEnv>): Promise<Response> {
     return this.handle(c, async () => {
-      const body = await readJson<{ backup?: unknown }>(c.req.raw);
+      const body = await readJsonWithLimit<{ backup?: unknown }>(c.req.raw, MAX_IMPORT_REQUEST_BYTES);
       const data = await this.serviceFor(c.env).importBackup(body as { backup?: SettingsBackupPayload });
       await this.appendLog(c.env, 'settings_import', formatImportLog(data.imported));
       return c.json(data);
@@ -69,15 +71,64 @@ export class SettingsController<TEnv extends object> {
 }
 
 function formatImportLog(imported: SettingsExportStats): string {
-  return `导入数据：订阅源 ${imported.sources}，导航分类 ${imported.navigationCategories}，笔记 ${imported.notes}，片段 ${imported.snippets}`;
+  return `导入数据：订阅源 ${imported.sources}，导航分类 ${imported.navigationCategories}，笔记 ${imported.notes}，片段 ${imported.snippets}，剪贴板 ${imported.clipboardItems}`;
 }
 
-async function readJson<T>(request: Request): Promise<T> {
+async function readJsonWithLimit<T>(request: Request, maxBytes: number): Promise<T> {
   try {
-    return (await request.json()) as T;
-  } catch {
+    const text = await readTextWithLimit(request, maxBytes);
+    if (!text) {
+      return {} as T;
+    }
+    return JSON.parse(text) as T;
+  } catch (error) {
+    if (error instanceof SettingsHttpError) {
+      throw error;
+    }
     return {} as T;
   }
+}
+
+async function readTextWithLimit(request: Request, maxBytes: number): Promise<string> {
+  const contentLength = request.headers.get('content-length');
+  if (contentLength) {
+    const bytes = Number.parseInt(contentLength, 10);
+    if (Number.isFinite(bytes) && bytes > maxBytes) {
+      throw new SettingsHttpError(413, `导入请求过大，最大允许 ${maxBytes} 字节`);
+    }
+  }
+
+  if (!request.body) {
+    const text = await request.text();
+    const bytes = new TextEncoder().encode(text).byteLength;
+    if (bytes > maxBytes) {
+      throw new SettingsHttpError(413, `导入请求过大，最大允许 ${maxBytes} 字节`);
+    }
+    return text;
+  }
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let bytesRead = 0;
+  let text = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+    bytesRead += value.byteLength;
+    if (bytesRead > maxBytes) {
+      throw new SettingsHttpError(413, `导入请求过大，最大允许 ${maxBytes} 字节`);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+
+  text += decoder.decode();
+  return text;
 }
 
 function requireParam<TEnv extends object>(c: SettingsContext<TEnv>, name: string): string {

@@ -1,7 +1,9 @@
 export interface CompatBindings {
   APP_KV: KVNamespace;
   DB?: D1Database;
+  ADMIN_PASSWORD_HASH?: string;
   COMPAT_ALLOW_REGISTER?: string;
+  COMPAT_REGISTER_KEY?: string;
 }
 
 export type CompatClipboardItemType = 'text' | 'code' | 'link' | 'image';
@@ -11,6 +13,7 @@ export interface CompatSessionRecord {
   username: string;
   createdAt: number;
   expiresAt: number;
+  passwordHash: string;
 }
 
 export interface CompatAuthUserDTO {
@@ -56,6 +59,8 @@ export interface CompatRegisterInput {
   email?: string;
   password?: string;
   username?: string;
+  register_key?: string;
+  registerKey?: string;
 }
 
 export interface CompatClipboardCreateInput {

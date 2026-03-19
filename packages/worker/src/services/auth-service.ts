@@ -35,7 +35,7 @@ export class AuthService {
     const providedHash = await sha256Hex(password);
     if (username === expectedUser && expectedHash && safeEqual(providedHash, expectedHash)) {
       await this.repository.clearLoginAttempt(ip);
-      const session = await this.repository.createSession(username, SESSION_TTL_SECONDS);
+      const session = await this.repository.createSession(username, SESSION_TTL_SECONDS, expectedHash);
       return {
         ok: true,
         token: session.token,
@@ -71,7 +71,16 @@ export class AuthService {
     if (!token) {
       return null;
     }
-    return this.repository.getSession(token);
+    const session = await this.repository.getSession(token);
+    if (!session) {
+      return null;
+    }
+    const expectedHash = this.env.ADMIN_PASSWORD_HASH ?? '';
+    if (expectedHash && session.passwordHash !== expectedHash) {
+      await this.repository.deleteSession(session.token);
+      return null;
+    }
+    return session;
   }
 
   async isAuthenticated(request: Request): Promise<boolean> {
@@ -185,4 +194,3 @@ function safeEqual(a: string, b: string): boolean {
   }
   return result === 0;
 }
-

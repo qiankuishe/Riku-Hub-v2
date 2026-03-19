@@ -5,6 +5,7 @@ interface SessionRow {
   username: string;
   created_at: number;
   expires_at: number;
+  password_hash: string;
 }
 
 interface LoginAttemptRow {
@@ -38,12 +39,13 @@ export class AuthRepository {
         token,
         username: typeof session.username === 'string' ? session.username : '',
         createdAt: typeof session.createdAt === 'number' ? session.createdAt : Date.now(),
-        expiresAt: session.expiresAt
+        expiresAt: session.expiresAt,
+        passwordHash: typeof session.passwordHash === 'string' ? session.passwordHash : ''
       };
     }
 
     const row = await this.getDb()
-      .prepare('SELECT token, username, created_at, expires_at FROM auth_sessions WHERE token = ?')
+      .prepare('SELECT token, username, created_at, expires_at, password_hash FROM auth_sessions WHERE token = ?')
       .bind(token)
       .first<SessionRow>();
     if (!row) {
@@ -57,32 +59,34 @@ export class AuthRepository {
       token: row.token,
       username: row.username,
       createdAt: row.created_at,
-      expiresAt: row.expires_at
+      expiresAt: row.expires_at,
+      passwordHash: row.password_hash ?? ''
     };
   }
 
-  async createSession(username: string, ttlSeconds: number): Promise<AuthSession> {
+  async createSession(username: string, ttlSeconds: number, passwordHash: string): Promise<AuthSession> {
     const token = randomToken();
     const createdAt = Date.now();
     const expiresAt = createdAt + ttlSeconds * 1000;
-    const session: AuthSession = { token, username, createdAt, expiresAt };
+    const session: AuthSession = { token, username, createdAt, expiresAt, passwordHash };
 
     if (this.hasD1()) {
       await this.getDb()
-        .prepare('INSERT INTO auth_sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)')
-        .bind(session.token, session.username, session.createdAt, session.expiresAt)
+        .prepare('INSERT INTO auth_sessions (token, username, created_at, expires_at, password_hash) VALUES (?, ?, ?, ?, ?)')
+        .bind(session.token, session.username, session.createdAt, session.expiresAt, session.passwordHash)
         .run();
       return session;
     }
 
     await this.env.APP_KV.put(
       this.sessionKey(session.token),
-      JSON.stringify({
-        username: session.username,
-        createdAt: session.createdAt,
-        expiresAt: session.expiresAt
-      })
-    );
+        JSON.stringify({
+          username: session.username,
+          createdAt: session.createdAt,
+          expiresAt: session.expiresAt,
+          passwordHash: session.passwordHash
+        })
+      );
     return session;
   }
 

@@ -57,6 +57,10 @@ pnpm dlx wrangler secret put SUB_TOKEN
 
 - `COMPAT_ALLOW_REGISTER` 默认关闭（未设置即关闭）。
   只有在你明确需要旧版 `/api/auth/register` 行为时，才在 Worker 环境变量中设置为 `true`。
+- `COMPAT_REGISTER_KEY` 默认为空。
+  当开启 `COMPAT_ALLOW_REGISTER=true` 时，必须同时配置该密钥；客户端需在请求体 `register_key` 或请求头 `x-register-key` 传入。
+- `PUBLIC_CLIPBOARD_ENABLED` 默认关闭。
+  仅在你确认“登录页公开节点展示”场景时设置为 `true`。
 
 5. 生成前端静态资源并部署。
 
@@ -65,7 +69,7 @@ pnpm build:web
 pnpm deploy
 ```
 
-`pnpm deploy` 本身会先执行 `build:web`，所以日常部署直接跑 `pnpm deploy` 就够了。
+`pnpm deploy` 会先执行 `check + test + build:web`，然后再部署。
 
 ## 本地开发
 

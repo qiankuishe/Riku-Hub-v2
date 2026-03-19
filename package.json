@@ -8,7 +8,7 @@
     "dev:web": "corepack pnpm --filter @riku-hub/web dev",
     "build": "corepack pnpm -r run build",
     "build:web": "corepack pnpm --filter @riku-hub/web build",
-    "deploy": "corepack pnpm build:web && npx wrangler deploy",
+    "deploy": "corepack pnpm check && corepack pnpm test && corepack pnpm build:web && npx wrangler deploy",
     "check": "corepack pnpm -r run check",
     "test": "corepack pnpm -r run test"
   },

@@ -10,6 +10,7 @@ export interface AuthSession {
   username: string;
   createdAt: number;
   expiresAt: number;
+  passwordHash: string;
 }
 
 export interface LoginAttemptState {
@@ -36,4 +37,3 @@ export type AuthLoginResult =
       status: 401 | 429;
       error: string;
     };
-

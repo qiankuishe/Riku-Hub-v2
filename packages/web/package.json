@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "check": "vue-tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
     "@iconify/vue": "^4.1.2",

@@ -1,4 +1,8 @@
 import { NAVIGATION_SEED } from '../navigation-seed';
+import {
+  getAggregateTtlSeconds as getAggregateTtlSecondsFromEnv,
+  getMaxLogEntries as getMaxLogEntriesFromEnv
+} from '../utils/runtime';
 import type {
   AggregateMeta,
   CachedFormatPayload,
@@ -435,6 +439,18 @@ export class CompatNavSubRepository {
     await this.env.CACHE_KV.put(CACHE_KEYS.format(format), JSON.stringify(payload));
   }
 
+  async invalidateCache(): Promise<void> {
+    const formats: OutputFormat[] = ['base64', 'clash', 'stash', 'surge', 'loon', 'qx', 'singbox'];
+    await Promise.all([this.env.CACHE_KV.delete(CACHE_KEYS.nodes), ...formats.map((format) => this.env.CACHE_KV.delete(CACHE_KEYS.format(format)))]);
+    await this.saveAggregateMeta({
+      cacheStatus: 'missing',
+      totalNodes: 0,
+      warningCount: 0,
+      lastRefreshTime: '',
+      lastRefreshError: ''
+    });
+  }
+
   async getCachedDns(hostname: string, type: 'A' | 'AAAA'): Promise<string[] | null> {
     return this.env.CACHE_KV.get(`dns:${hostname}:${type}`, 'json');
   }
@@ -444,7 +460,7 @@ export class CompatNavSubRepository {
   }
 
   getAggregateTtlSeconds(): number {
-    return Number.parseInt(this.env.AGGREGATE_TTL_SECONDS ?? '3600', 10);
+    return getAggregateTtlSecondsFromEnv(this.env);
   }
 
   async appendLog(action: string, detail?: string): Promise<void> {
@@ -701,7 +717,7 @@ export class CompatNavSubRepository {
   }
 
   private getMaxLogEntries(): number {
-    return Number.parseInt(this.env.MAX_LOG_ENTRIES ?? '200', 10);
+    return getMaxLogEntriesFromEnv(this.env);
   }
 
   private getDb(): D1Database {

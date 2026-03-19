@@ -10,6 +10,8 @@
 - `POST /api/auth/register`（兼容）
 
 以上无需已有会话，其余 `/api/*` 需要携带 `session` Cookie。
+其中 `POST /api/auth/register` 仅在 `COMPAT_ALLOW_REGISTER=true` 且配置了 `COMPAT_REGISTER_KEY` 时可用。
+请求体 `register_key` 或请求头 `x-register-key` 必须匹配该密钥。
 
 ## 健康与基础
 
@@ -54,7 +56,7 @@
 - `PUT /api/sources/reorder`
   - body: `{ ids: string[] }`
 - `PUT /api/sources/:id`
-  - body: `{ name?, content? }`
+  - body: `{ name?, content?, enabled? }`
 - `DELETE /api/sources/:id`
 - `POST /api/sources/refresh`
 
@@ -130,4 +132,3 @@
 - `GET /api/settings`
 - `PUT /api/settings`
 - `GET /api/settings/stats`
-

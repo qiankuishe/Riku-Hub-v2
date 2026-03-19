@@ -2,6 +2,10 @@ import { SettingsRepository } from '../repositories/settings-repository';
 import type { SettingsBackupPayload, SettingsDangerScope, SettingsExportStats } from '../types/settings';
 
 const SETTINGS_DANGER_SCOPES: SettingsDangerScope[] = ['sources', 'navigation', 'notes', 'snippets', 'clipboard', 'all'];
+const MAX_BACKUP_BYTES = 100 * 1024 * 1024;
+const MAX_BACKUP_ITEMS_PER_SECTION = 2_000;
+const MAX_BACKUP_TOTAL_NAV_LINKS = 6_000;
+const MAX_BACKUP_TEXT_LENGTH = 120_000;
 
 export class SettingsHttpError extends Error {
   constructor(
@@ -72,6 +76,7 @@ export class SettingsService<TEnv> {
     if (!backup || typeof backup !== 'object') {
       throw new SettingsHttpError(400, '导入文件内容无效');
     }
+    validateBackupPayload(backup);
 
     try {
       const imported = await this.repository.importSettingsBackup(backup);
@@ -81,7 +86,9 @@ export class SettingsService<TEnv> {
         imported
       };
     } catch (error) {
-      throw new SettingsHttpError(400, error instanceof Error ? error.message : '导入失败');
+      const status = typeof (error as { status?: unknown })?.status === 'number' ? Number((error as { status: number }).status) : 400;
+      const normalizedStatus = status >= 400 && status < 500 ? status : 400;
+      throw new SettingsHttpError(normalizedStatus, error instanceof Error ? error.message : '导入失败');
     }
   }
 
@@ -99,3 +106,57 @@ export class SettingsService<TEnv> {
   }
 }
 
+function validateBackupPayload(backup: SettingsBackupPayload): void {
+  const payloadBytes = new TextEncoder().encode(JSON.stringify(backup)).byteLength;
+  if (payloadBytes > MAX_BACKUP_BYTES) {
+    throw new SettingsHttpError(413, `导入文件过大，最大允许 ${MAX_BACKUP_BYTES} 字节`);
+  }
+
+  const sources = Array.isArray(backup.sources) ? backup.sources : [];
+  const navigation = Array.isArray(backup.navigation) ? backup.navigation : Array.isArray(backup.categories) ? backup.categories : [];
+  const notes = Array.isArray(backup.notes) ? backup.notes : [];
+  const snippets = Array.isArray(backup.snippets) ? backup.snippets : [];
+  const clipboard = Array.isArray(backup.clipboard) ? backup.clipboard : Array.isArray(backup.clipboard_items) ? backup.clipboard_items : [];
+
+  if (sources.length > MAX_BACKUP_ITEMS_PER_SECTION) {
+    throw new SettingsHttpError(400, `订阅源数量超过限制（${MAX_BACKUP_ITEMS_PER_SECTION}）`);
+  }
+  if (navigation.length > MAX_BACKUP_ITEMS_PER_SECTION) {
+    throw new SettingsHttpError(400, `导航分类数量超过限制（${MAX_BACKUP_ITEMS_PER_SECTION}）`);
+  }
+  if (notes.length > MAX_BACKUP_ITEMS_PER_SECTION) {
+    throw new SettingsHttpError(400, `笔记数量超过限制（${MAX_BACKUP_ITEMS_PER_SECTION}）`);
+  }
+  if (snippets.length > MAX_BACKUP_ITEMS_PER_SECTION) {
+    throw new SettingsHttpError(400, `片段数量超过限制（${MAX_BACKUP_ITEMS_PER_SECTION}）`);
+  }
+  if (clipboard.length > MAX_BACKUP_ITEMS_PER_SECTION) {
+    throw new SettingsHttpError(400, `剪贴板条目数量超过限制（${MAX_BACKUP_ITEMS_PER_SECTION}）`);
+  }
+
+  const totalNavLinks = navigation.reduce((sum, category) => sum + (Array.isArray(category?.links) ? category.links.length : 0), 0);
+  if (totalNavLinks > MAX_BACKUP_TOTAL_NAV_LINKS) {
+    throw new SettingsHttpError(400, `导航链接数量超过限制（${MAX_BACKUP_TOTAL_NAV_LINKS}）`);
+  }
+
+  for (const source of sources) {
+    if (typeof source.content === 'string' && source.content.length > MAX_BACKUP_TEXT_LENGTH) {
+      throw new SettingsHttpError(400, `订阅源内容超长，单条最大 ${MAX_BACKUP_TEXT_LENGTH} 字符`);
+    }
+  }
+  for (const note of notes) {
+    if (typeof note.content === 'string' && note.content.length > MAX_BACKUP_TEXT_LENGTH) {
+      throw new SettingsHttpError(400, `笔记内容超长，单条最大 ${MAX_BACKUP_TEXT_LENGTH} 字符`);
+    }
+  }
+  for (const snippet of snippets) {
+    if (typeof snippet.content === 'string' && snippet.content.length > MAX_BACKUP_TEXT_LENGTH) {
+      throw new SettingsHttpError(400, `片段内容超长，单条最大 ${MAX_BACKUP_TEXT_LENGTH} 字符`);
+    }
+  }
+  for (const item of clipboard) {
+    if (typeof item.content === 'string' && item.content.length > MAX_BACKUP_TEXT_LENGTH) {
+      throw new SettingsHttpError(400, `剪贴板内容超长，单条最大 ${MAX_BACKUP_TEXT_LENGTH} 字符`);
+    }
+  }
+}

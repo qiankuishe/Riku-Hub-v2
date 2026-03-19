@@ -25,6 +25,8 @@ const MAX_REDIRECTS = 3;
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_SUBSCRIPTION_BYTES = 5 * 1024 * 1024;
 const MAX_SUBSCRIPTION_EXPANSION_DEPTH = 2;
+const MAX_SUBSCRIPTION_FETCH_CONCURRENCY = 8;
+const MAX_SUBSCRIPTION_URLS_PER_SOURCE = 64;
 let compatAggregateRefreshInFlight = false;
 
 export class CompatNavSubHttpError extends Error {
@@ -345,6 +347,7 @@ export class CompatNavSubService {
 
     const validation = await this.validateContent(content);
     const source = await this.repository.createSource(name, content, validation.nodeCount);
+    await this.repository.invalidateCache();
     await this.repository.appendLog('source_create', `创建订阅源: ${source.name}`);
     return mapSourceApi(source);
   }
@@ -449,7 +452,17 @@ export class CompatNavSubService {
     | { ok: true; payload: CachedNodesPayload; sources: SourceRecord[] }
     | { ok: false; error: string }
   > {
-    if (!force && compatAggregateRefreshInFlight) {
+    if (compatAggregateRefreshInFlight) {
+      if (force) {
+        const baseline = await this.repository.getCachedNodes();
+        const waited = await this.waitForNodesCache(6000, baseline?.refreshedAt ?? null);
+        if (waited) {
+          const sources = await this.repository.getAllSources();
+          return { ok: true, payload: waited, sources };
+        }
+        return { ok: false, error: '刷新正在进行中' };
+      }
+
       const cached = await this.repository.getCachedNodes();
       if (cached) {
         const sources = await this.repository.getAllSources();
@@ -483,13 +496,8 @@ export class CompatNavSubService {
         aggregated.push(...expanded.uniqueNodes);
         warnings.push(...expanded.warnings);
         if (expanded.uniqueNodes.length !== source.nodeCount) {
-          const updatedSource: SourceRecord = {
-            ...source,
-            nodeCount: expanded.uniqueNodes.length,
-            updatedAt: new Date().toISOString()
-          };
+          const updatedSource = await this.saveSourceNodeCount(source, expanded.uniqueNodes.length);
           updatedSources.push(updatedSource);
-          await this.repository.saveSource(updatedSource);
         } else {
           updatedSources.push(source);
         }
@@ -544,6 +552,45 @@ export class CompatNavSubService {
     } finally {
       compatAggregateRefreshInFlight = false;
     }
+  }
+
+  private async waitForNodesCache(timeoutMs: number, baselineRefreshedAt: string | null): Promise<CachedNodesPayload | null> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const cached = await this.repository.getCachedNodes();
+      if (cached && (!baselineRefreshedAt || cached.refreshedAt !== baselineRefreshedAt)) {
+        return cached;
+      }
+      await sleep(200);
+    }
+    return null;
+  }
+
+  private async saveSourceNodeCount(source: SourceRecord, nodeCount: number): Promise<SourceRecord> {
+    const latest = await this.repository.getSource(source.id);
+    const now = new Date().toISOString();
+
+    if (!latest) {
+      const fallback: SourceRecord = {
+        ...source,
+        nodeCount,
+        updatedAt: now
+      };
+      await this.repository.saveSource(fallback);
+      return fallback;
+    }
+
+    if (latest.nodeCount === nodeCount) {
+      return latest;
+    }
+
+    const updated: SourceRecord = {
+      ...latest,
+      nodeCount,
+      updatedAt: now
+    };
+    await this.repository.saveSource(updated);
+    return updated;
   }
 }
 
@@ -634,10 +681,7 @@ async function fetchSubscription(repository: CompatNavSubRepository, rawUrl: str
       throw new Error(`响应过大: ${contentLength} 字节（限制 ${MAX_SUBSCRIPTION_BYTES}）`);
     }
 
-    const text = await response.text();
-    if (text.length > MAX_SUBSCRIPTION_BYTES) {
-      throw new Error(`响应过大: ${text.length} 字节（限制 ${MAX_SUBSCRIPTION_BYTES}）`);
-    }
+    const text = await readResponseTextWithLimit(response, MAX_SUBSCRIPTION_BYTES, controller);
 
     return { text };
   } catch (error) {
@@ -681,11 +725,19 @@ async function resolveNodesFromInput(
 
   const nodes = [...mixed.nodes];
   const warnings = [...mixed.warnings];
-  let urlCount = mixed.urls.length;
+  const urlsToProcess = mixed.urls.slice(0, MAX_SUBSCRIPTION_URLS_PER_SOURCE);
+  if (mixed.urls.length > MAX_SUBSCRIPTION_URLS_PER_SOURCE) {
+    warnings.push({
+      code: 'fetch-failed',
+      message: `订阅链接数量超过限制（${MAX_SUBSCRIPTION_URLS_PER_SOURCE}），已忽略多余链接`,
+      context: String(mixed.urls.length)
+    });
+  }
+  let urlCount = urlsToProcess.length;
   const seen = visitedUrls ?? new Set<string>();
 
   if (depth >= MAX_SUBSCRIPTION_EXPANSION_DEPTH) {
-    for (const rawUrl of mixed.urls) {
+    for (const rawUrl of urlsToProcess) {
       warnings.push({
         code: 'fetch-failed',
         message: `订阅嵌套层级超过限制（${MAX_SUBSCRIPTION_EXPANSION_DEPTH}）`,
@@ -695,29 +747,27 @@ async function resolveNodesFromInput(
     return { nodes, warnings, urlCount };
   }
 
-  const results = await Promise.all(
-    mixed.urls.map(
-      async (
-        rawUrl
-      ): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> => {
-        const normalizedUrl = fixUrl(rawUrl);
-        if (seen.has(normalizedUrl)) {
-          return { nodes: [], warnings: [], urlCount: 0 };
-        }
-
-        seen.add(normalizedUrl);
-        try {
-          const fetched = await fetchSubscription(repository, normalizedUrl);
-          return await resolveNodesFromInput(repository, fetched.text, depth + 1, seen);
-        } catch (error) {
-          return {
-            nodes: [],
-            warnings: [{ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl }],
-            urlCount: 0
-          };
-        }
+  const results = await mapWithConcurrency(
+    urlsToProcess,
+    MAX_SUBSCRIPTION_FETCH_CONCURRENCY,
+    async (rawUrl): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> => {
+      const normalizedUrl = fixUrl(rawUrl);
+      if (seen.has(normalizedUrl)) {
+        return { nodes: [], warnings: [], urlCount: 0 };
       }
-    )
+
+      seen.add(normalizedUrl);
+      try {
+        const fetched = await fetchSubscription(repository, normalizedUrl);
+        return await resolveNodesFromInput(repository, fetched.text, depth + 1, seen);
+      } catch (error) {
+        return {
+          nodes: [],
+          warnings: [{ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl }],
+          urlCount: 0
+        };
+      }
+    }
   );
 
   for (const result of results) {
@@ -729,7 +779,74 @@ async function resolveNodesFromInput(
   return { nodes, warnings, urlCount };
 }
 
-async function assertSafeUrl(repository: CompatNavSubRepository, url: URL): Promise<void> {
+async function mapWithConcurrency<TInput, TOutput>(
+  inputs: TInput[],
+  concurrency: number,
+  mapper: (input: TInput, index: number) => Promise<TOutput>
+): Promise<TOutput[]> {
+  if (inputs.length === 0) {
+    return [];
+  }
+  const limit = Math.max(1, Math.min(concurrency, inputs.length));
+  const results = new Array<TOutput>(inputs.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: limit }, async () => {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      if (currentIndex >= inputs.length) {
+        return;
+      }
+      results[currentIndex] = await mapper(inputs[currentIndex], currentIndex);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+async function readResponseTextWithLimit(
+  response: Response,
+  maxBytes: number,
+  controller?: AbortController
+): Promise<string> {
+  if (!response.body) {
+    const text = await response.text();
+    const bytes = new TextEncoder().encode(text).byteLength;
+    if (bytes > maxBytes) {
+      controller?.abort();
+      throw new Error(`响应过大: ${bytes} 字节（限制 ${maxBytes}）`);
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let bytesRead = 0;
+  let text = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+    bytesRead += value.byteLength;
+    if (bytesRead > maxBytes) {
+      controller?.abort();
+      throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+
+  text += decoder.decode();
+  return text;
+}
+
+async function assertSafeUrl(_repository: CompatNavSubRepository, url: URL): Promise<void> {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error(`禁止协议: ${url.protocol}`);
   }
@@ -750,7 +867,7 @@ async function assertSafeUrl(repository: CompatNavSubRepository, url: URL): Prom
     return;
   }
 
-  const addresses = await resolveAddresses(repository, hostname);
+  const addresses = await resolveAddresses(hostname);
   for (const address of addresses) {
     if (isBlockedIp(address)) {
       throw new Error(`域名解析命中保留地址: ${hostname} -> ${address}`);
@@ -758,18 +875,8 @@ async function assertSafeUrl(repository: CompatNavSubRepository, url: URL): Prom
   }
 }
 
-async function resolveAddresses(repository: CompatNavSubRepository, hostname: string): Promise<string[]> {
-  const cachedA = await repository.getCachedDns(hostname, 'A');
-  const cachedAAAA = await repository.getCachedDns(hostname, 'AAAA');
-  if (cachedA || cachedAAAA) {
-    return [...(cachedA ?? []), ...(cachedAAAA ?? [])];
-  }
-
+async function resolveAddresses(hostname: string): Promise<string[]> {
   const [aRecords, aaaaRecords] = await Promise.all([resolveDnsType(hostname, 'A'), resolveDnsType(hostname, 'AAAA')]);
-  await Promise.all([
-    repository.saveCachedDns(hostname, 'A', aRecords),
-    repository.saveCachedDns(hostname, 'AAAA', aaaaRecords)
-  ]);
   return [...aRecords, ...aaaaRecords];
 }
 
@@ -836,4 +943,8 @@ function isBlockedIp(value: string): boolean {
     normalized.startsWith('fe80:') ||
     normalized.startsWith('::ffff:127.')
   );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

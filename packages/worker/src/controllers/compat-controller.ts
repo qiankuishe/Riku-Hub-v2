@@ -24,12 +24,28 @@ export class CompatController {
 
       const service = this.serviceFor(c.env);
       const body = await readJson<CompatRegisterInput>(c.req.raw);
+      const requiredRegisterKey = c.env.COMPAT_REGISTER_KEY?.trim();
+      if (!requiredRegisterKey) {
+        throw new CompatHttpError(403, {
+          success: false,
+          error: '兼容注册需要设置 COMPAT_REGISTER_KEY，未配置时禁止开放注册'
+        });
+      }
+      const providedRegisterKey = body.register_key?.trim() || body.registerKey?.trim() || c.req.header('x-register-key')?.trim() || '';
+      if (providedRegisterKey !== requiredRegisterKey) {
+        throw new CompatHttpError(403, {
+          success: false,
+          error: '注册密钥无效，请在请求体 register_key 或请求头 x-register-key 中提供正确密钥'
+        });
+      }
       const result = await service.register(body);
 
       c.header('Set-Cookie', serializeSessionCookie(result.token));
       return c.json({
         success: true,
-        data: result
+        data: {
+          user: result.user
+        }
       });
     });
   }

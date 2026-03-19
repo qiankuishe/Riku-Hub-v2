@@ -12,11 +12,11 @@ type MetaEnv = D1Env & {
 };
 
 export function getMaxLogEntries(env: NumberEnv): number {
-  return Number.parseInt(env.MAX_LOG_ENTRIES ?? '200', 10);
+  return parseBoundedInteger(env.MAX_LOG_ENTRIES, 200, 10, 5_000);
 }
 
 export function getAggregateTtlSeconds(env: NumberEnv): number {
-  return Number.parseInt(env.AGGREGATE_TTL_SECONDS ?? '3600', 10);
+  return parseBoundedInteger(env.AGGREGATE_TTL_SECONDS, 3_600, 60, 86_400);
 }
 
 export function randomToken(byteLength = 24): string {
@@ -25,7 +25,7 @@ export function randomToken(byteLength = 24): string {
 }
 
 export function hasD1<T extends D1Env>(env: T): env is T & { DB: D1Database } {
-  return typeof env.DB !== 'undefined';
+  return Boolean(env.DB);
 }
 
 export function getDatabase(env: D1Env): D1Database {
@@ -58,4 +58,26 @@ export async function setAppMetaValue(env: MetaEnv, key: string, value: string):
     )
     .bind(key, value, new Date().toISOString())
     .run();
+}
+
+function parseBoundedInteger(
+  value: string | undefined,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  if (parsed < min) {
+    return min;
+  }
+  if (parsed > max) {
+    return max;
+  }
+  return parsed;
 }

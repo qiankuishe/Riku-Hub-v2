@@ -72,6 +72,14 @@ interface PublicClipboardItem {
   createdAt: string;
 }
 
+interface SettingsImportSnapshot {
+  sources: SourceRecord[];
+  navigation: NavigationCategoryPayload[];
+  notes: NoteRecord[];
+  snippets: SnippetRecord[];
+  clipboardItems: ClipboardItemRecord[];
+}
+
 export interface Env {
   APP_KV: KVNamespace;
   CACHE_KV: KVNamespace;
@@ -83,6 +91,8 @@ export interface Env {
   AGGREGATE_TTL_SECONDS?: string;
   MAX_LOG_ENTRIES?: string;
   COMPAT_ALLOW_REGISTER?: string;
+  COMPAT_REGISTER_KEY?: string;
+  PUBLIC_CLIPBOARD_ENABLED?: string;
 }
 
 type Bindings = { Bindings: Env };
@@ -91,6 +101,10 @@ const app = new Hono<Bindings>();
 
 const MAX_REDIRECTS = 3;
 const MAX_SUBSCRIPTION_EXPANSION_DEPTH = 2;
+const MAX_SUBSCRIPTION_FETCH_CONCURRENCY = 8;
+const MAX_SUBSCRIPTION_URLS_PER_SOURCE = 64;
+const MAX_SUBSCRIPTION_BYTES = 5 * 1024 * 1024;
+const MAX_IMPORT_WRITE_CONCURRENCY = 16;
 const MAX_IMAGE_SNIPPET_BYTES = 350 * 1024;
 const MAX_FAVICON_BYTES = 64 * 1024;
 const FAVICON_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -105,13 +119,13 @@ const APP_KEYS = {
   noteIndex: 'note:index',
   snippetIndex: 'snippet:index',
   clipboardIndex: 'clipboard:index',
-  refreshLock: 'lock:refresh-aggregate'
+  refreshLock: 'lock:refresh-aggregate',
+  settingsImportLock: 'lock:settings-import'
 };
 
 const CACHE_KEYS = {
   nodes: 'cache:nodes',
   format: (format: OutputFormat) => `cache:format:${format}`,
-  dns: (host: string, type: string) => `dns:${host}:${type}`,
   favicon: (hostname: string) => `favicon:${hostname}`
 };
 
@@ -201,7 +215,8 @@ const D1_SCHEMA_STATEMENTS = [
     token TEXT PRIMARY KEY,
     username TEXT NOT NULL,
     created_at INTEGER NOT NULL,
-    expires_at INTEGER NOT NULL
+    expires_at INTEGER NOT NULL,
+    password_hash TEXT NOT NULL DEFAULT ''
   )`,
   'CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)',
   `CREATE TABLE IF NOT EXISTS login_attempts (
@@ -230,7 +245,14 @@ let d1SchemaReady: Promise<void> | null = null;
 let aggregateRefreshInFlight = false;
 
 app.onError((error, c) => {
-  return c.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, 500);
+  const status = getErrorStatusCode(error);
+  if (status && status >= 400 && status < 500) {
+    return new Response(JSON.stringify({ error: formatError(error) }), {
+      status,
+      headers: { 'content-type': 'application/json; charset=UTF-8' }
+    });
+  }
+  return c.json({ error: 'Internal Server Error' }, 500);
 });
 
 app.use('*', async (c, next) => {
@@ -256,17 +278,20 @@ const authController = createAuthController((env, action, detail) => appendLog(e
 mountAuthRoutes(app, authController);
 
 app.get('/api/clipboard/public', async (c) => {
+  if (!isEnabledFlag(c.env.PUBLIC_CLIPBOARD_ENABLED)) {
+    return c.json({ items: [] });
+  }
   const snippets = await getLoginMappedSnippets(c.env);
   const items = mapPublicClipboardItems(snippets);
   return c.json({ items });
 });
 
+app.use('/api/*', createAuthMiddleware(authController as any));
+
 app.get('/api/snippets/login-mapped', async (c) => {
   const snippets = await getLoginMappedSnippets(c.env);
   return c.json({ snippets });
 });
-
-app.use('/api/*', createAuthMiddleware(authController as any));
 
 mountCompatRoutes(app);
 
@@ -397,11 +422,39 @@ export default {
   fetch: app.fetch,
   scheduled: async (_controller: ScheduledController, env: Env, _ctx: ExecutionContext) => {
     await ensureDatabaseSchema(env);
-    await refreshAggregateCache(env, false);
+    try {
+      const refreshed = await refreshAggregateCache(env, false);
+      if (!refreshed.ok && refreshed.error !== '刷新正在进行中') {
+        await appendLog(env, 'aggregate_refresh_failed', `定时刷新失败: ${refreshed.error}`);
+      }
+    } catch (error) {
+      await appendLog(env, 'aggregate_refresh_failed', `定时刷新异常: ${formatError(error)}`);
+      throw error;
+    }
   }
 };
 
 export { app };
+
+function getErrorStatusCode(error: unknown): number | null {
+  const status = (error as { status?: unknown })?.status;
+  if (typeof status !== 'number' || !Number.isFinite(status)) {
+    return null;
+  }
+  return status;
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isEnabledFlag(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
 
 function resolvePageAssetPath(request: Request): string | null {
   if (request.method !== 'GET') {
@@ -475,7 +528,17 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
   | { ok: true; payload: CachedNodesPayload; sources: SourceRecord[] }
   | { ok: false; error: string }
 > {
-  if (!force && aggregateRefreshInFlight) {
+  if (aggregateRefreshInFlight) {
+    if (force) {
+      const baseline = await getCachedNodes(env);
+      const waited = await waitForNodesCache(env, 6000, baseline?.refreshedAt ?? null);
+      if (waited) {
+        const sources = await getAllSources(env);
+        return { ok: true, payload: waited, sources };
+      }
+      return { ok: false, error: '刷新正在进行中' };
+    }
+
     const cached = await getCachedNodes(env);
     if (cached) {
       const sources = await getAllSources(env);
@@ -495,13 +558,23 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
   try {
     // 检查是否已有锁
     const existingLock = await env.CACHE_KV.get(lockKey);
-    if (existingLock && !force) {
+    if (existingLock) {
       // 检查锁是否过期（防止死锁）
       const lockParts = existingLock.split('-');
       const lockTime = lockParts.length > 1 ? Number.parseInt(lockParts[1], 10) : 0;
       const isExpired = Date.now() - lockTime > lockTtl * 1000;
       
       if (!isExpired) {
+        if (force) {
+          const baseline = await getCachedNodes(env);
+          const waited = await waitForNodesCache(env, 6000, baseline?.refreshedAt ?? null);
+          if (waited) {
+            const sources = await getAllSources(env);
+            return { ok: true, payload: waited, sources };
+          }
+          return { ok: false, error: '刷新正在进行中' };
+        }
+
         // 记录锁竞争日志
         await appendLog(env, 'refresh_lock_contention', `检测到并发刷新请求，返回缓存（锁持有时间: ${Date.now() - lockTime}ms）`);
         
@@ -522,7 +595,17 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
     await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtl });
     lockAcquired = true;
     const confirmedLock = await env.CACHE_KV.get(lockKey);
-    if (!force && confirmedLock !== lockValue) {
+    if (confirmedLock !== lockValue) {
+      if (force) {
+        const baseline = await getCachedNodes(env);
+        const waited = await waitForNodesCache(env, 6000, baseline?.refreshedAt ?? null);
+        if (waited) {
+          const sources = await getAllSources(env);
+          return { ok: true, payload: waited, sources };
+        }
+        return { ok: false, error: '刷新正在进行中' };
+      }
+
       const cached = await getCachedNodes(env);
       if (cached) {
         const sources = await getAllSources(env);
@@ -558,13 +641,8 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
       
       // 只在节点数变化时才更新 source 记录，避免写放大
       if (expanded.uniqueNodes.length !== source.nodeCount) {
-        const updatedSource: SourceRecord = {
-          ...source,
-          nodeCount: expanded.uniqueNodes.length,
-          updatedAt: new Date().toISOString()
-        };
+        const updatedSource = await saveSourceNodeCount(env, source, expanded.uniqueNodes.length);
         updatedSources.push(updatedSource);
-        await saveSource(env, updatedSource);
       } else {
         updatedSources.push(source);
       }
@@ -645,8 +723,9 @@ async function ensureAggregateCache(
   const cachedFormat = await getCachedFormat(env, format);
   const cachedNodes = await getCachedNodes(env);
   const isFresh = cachedNodes ? Date.now() - Date.parse(cachedNodes.refreshedAt) < ttlSeconds * 1000 : false;
+  const hasConsistentPair = isCachePairConsistent(cachedNodes, cachedFormat);
 
-  if (cachedFormat && cachedNodes && isFresh) {
+  if (hasConsistentPair && isFresh && cachedFormat) {
     return {
       ok: true,
       payload: { content: cachedFormat.content, warnings: cachedFormat.warnings, fromStaleCache: false },
@@ -656,9 +735,9 @@ async function ensureAggregateCache(
 
   const refreshed = await refreshAggregateCache(env, false);
   if (refreshed.ok) {
-    const latest = await getCachedFormat(env, format);
+    const [latest, latestNodes] = await Promise.all([getCachedFormat(env, format), getCachedNodes(env)]);
     const nextMeta = await getAggregateMeta(env);
-    if (latest) {
+    if (latest && latestNodes && isCachePairConsistent(latestNodes, latest)) {
       return {
         ok: true,
         payload: { content: latest.content, warnings: latest.warnings, fromStaleCache: nextMeta.cacheStatus === 'stale' },
@@ -675,7 +754,7 @@ async function ensureAggregateCache(
     return { ok: false, error: '订阅缓存正在初始化中，请稍后重试', status: 503 };
   }
 
-  if (cachedFormat) {
+  if (hasConsistentPair && cachedFormat) {
     return {
       ok: true,
       payload: { content: cachedFormat.content, warnings: cachedFormat.warnings, fromStaleCache: true },
@@ -688,6 +767,22 @@ async function ensureAggregateCache(
     error: refreshed.ok ? '订阅缓存不可用' : refreshed.error,
     status: refreshed.ok ? 500 : refreshed.error === '刷新正在进行中' ? 503 : 500
   };
+}
+
+async function waitForNodesCache(
+  env: Env,
+  timeoutMs: number,
+  baselineRefreshedAt: string | null
+): Promise<CachedNodesPayload | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const cached = await getCachedNodes(env);
+    if (cached && (!baselineRefreshedAt || cached.refreshedAt !== baselineRefreshedAt)) {
+      return cached;
+    }
+    await sleep(200);
+  }
+  return null;
 }
 
 async function waitForFreshenedCache(
@@ -709,7 +804,7 @@ async function waitForFreshenedCache(
       getCachedNodes(env),
       getAggregateMeta(env)
     ]);
-    if (cachedFormat && cachedNodes) {
+    if (cachedFormat && cachedNodes && isCachePairConsistent(cachedNodes, cachedFormat)) {
       return {
         ok: true,
         payload: { content: cachedFormat.content, warnings: cachedFormat.warnings, fromStaleCache: meta.cacheStatus === 'stale' },
@@ -722,6 +817,123 @@ async function waitForFreshenedCache(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isCachePairConsistent(nodes: CachedNodesPayload | null, format: CachedFormatPayload | null): boolean {
+  if (!nodes || !format) {
+    return false;
+  }
+  return nodes.refreshedAt === format.refreshedAt;
+}
+
+async function mapWithConcurrency<TInput, TOutput>(
+  inputs: TInput[],
+  concurrency: number,
+  mapper: (input: TInput, index: number) => Promise<TOutput>
+): Promise<TOutput[]> {
+  if (inputs.length === 0) {
+    return [];
+  }
+  const limit = Math.max(1, Math.min(concurrency, inputs.length));
+  const results = new Array<TOutput>(inputs.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: limit }, async () => {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      if (currentIndex >= inputs.length) {
+        return;
+      }
+      results[currentIndex] = await mapper(inputs[currentIndex], currentIndex);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+async function readResponseTextWithLimit(
+  response: Response,
+  maxBytes: number,
+  controller?: AbortController
+): Promise<string> {
+  if (!response.body) {
+    const text = await response.text();
+    const bytes = getByteLength(text);
+    if (bytes > maxBytes) {
+      controller?.abort();
+      throw new Error(`响应过大: ${bytes} 字节（限制 ${maxBytes}）`);
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let bytesRead = 0;
+  let text = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+    bytesRead += value.byteLength;
+    if (bytesRead > maxBytes) {
+      controller?.abort();
+      throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+
+  text += decoder.decode();
+  return text;
+}
+
+async function readResponseBytesWithLimit(
+  response: Response,
+  maxBytes: number,
+  controller?: AbortController
+): Promise<Uint8Array> {
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > maxBytes) {
+      controller?.abort();
+      throw new Error(`响应过大: ${bytes.byteLength} 字节（限制 ${maxBytes}）`);
+    }
+    return bytes;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytesRead = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+    bytesRead += value.byteLength;
+    if (bytesRead > maxBytes) {
+      controller?.abort();
+      throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(bytesRead);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
 
 async function expandSourceContent(env: Env, content: string): Promise<{
@@ -753,11 +965,19 @@ async function resolveNodesFromInput(
 
   const nodes = [...mixed.nodes];
   const warnings = [...mixed.warnings];
-  let urlCount = mixed.urls.length;
+  const urlsToProcess = mixed.urls.slice(0, MAX_SUBSCRIPTION_URLS_PER_SOURCE);
+  if (mixed.urls.length > MAX_SUBSCRIPTION_URLS_PER_SOURCE) {
+    warnings.push({
+      code: 'fetch-failed',
+      message: `订阅链接数量超过限制（${MAX_SUBSCRIPTION_URLS_PER_SOURCE}），已忽略多余链接`,
+      context: String(mixed.urls.length)
+    });
+  }
+  let urlCount = urlsToProcess.length;
   const seen = visitedUrls ?? new Set<string>();
 
   if (depth >= MAX_SUBSCRIPTION_EXPANSION_DEPTH) {
-    for (const rawUrl of mixed.urls) {
+    for (const rawUrl of urlsToProcess) {
       warnings.push({
         code: 'fetch-failed',
         message: `订阅嵌套层级超过限制（${MAX_SUBSCRIPTION_EXPANSION_DEPTH}）`,
@@ -767,29 +987,27 @@ async function resolveNodesFromInput(
     return { nodes, warnings, urlCount };
   }
 
-  const results = await Promise.all(
-    mixed.urls.map(
-      async (
-        rawUrl
-      ): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> => {
-        const normalizedUrl = fixUrl(rawUrl);
-        if (seen.has(normalizedUrl)) {
-          return { nodes: [], warnings: [], urlCount: 0 };
-        }
-
-        seen.add(normalizedUrl);
-        try {
-          const fetched = await fetchSubscription(env, normalizedUrl);
-          return await resolveNodesFromInput(env, fetched.text, depth + 1, seen);
-        } catch (error) {
-          return {
-            nodes: [],
-            warnings: [{ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl }],
-            urlCount: 0
-          };
-        }
+  const results = await mapWithConcurrency(
+    urlsToProcess,
+    MAX_SUBSCRIPTION_FETCH_CONCURRENCY,
+    async (rawUrl): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> => {
+      const normalizedUrl = fixUrl(rawUrl);
+      if (seen.has(normalizedUrl)) {
+        return { nodes: [], warnings: [], urlCount: 0 };
       }
-    )
+
+      seen.add(normalizedUrl);
+      try {
+        const fetched = await fetchSubscription(env, normalizedUrl);
+        return await resolveNodesFromInput(env, fetched.text, depth + 1, seen);
+      } catch (error) {
+        return {
+          nodes: [],
+          warnings: [{ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl }],
+          urlCount: 0
+        };
+      }
+    }
   );
 
   for (const result of results) {
@@ -837,16 +1055,11 @@ async function fetchSubscription(env: Env, rawUrl: string, depth = 0): Promise<{
 
     // 检查响应大小，限制为 5MB
     const contentLength = response.headers.get('content-length');
-    if (contentLength && Number.parseInt(contentLength, 10) > 5 * 1024 * 1024) {
-      throw new Error(`响应过大: ${contentLength} 字节（限制 5MB）`);
+    if (contentLength && Number.parseInt(contentLength, 10) > MAX_SUBSCRIPTION_BYTES) {
+      throw new Error(`响应过大: ${contentLength} 字节（限制 ${MAX_SUBSCRIPTION_BYTES}）`);
     }
 
-    const text = await response.text();
-    
-    // 再次检查实际大小
-    if (text.length > 5 * 1024 * 1024) {
-      throw new Error(`响应过大: ${text.length} 字节（限制 5MB）`);
-    }
+    const text = await readResponseTextWithLimit(response, MAX_SUBSCRIPTION_BYTES, controller);
 
     return { text };
   } catch (error) {
@@ -861,8 +1074,7 @@ async function fetchSubscription(env: Env, rawUrl: string, depth = 0): Promise<{
 async function fetchAndCacheFavicon(env: Env, hostname: string): Promise<string | null> {
   const faviconSources = [
     `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(hostname)}`,
-    `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(`https://${hostname}`)}&size=64`,
-    `https://${hostname}/favicon.ico`
+    `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(`https://${hostname}`)}&size=64`
   ];
 
   for (const source of faviconSources) {
@@ -889,8 +1101,12 @@ async function fetchFaviconSource(env: Env, rawUrl: string): Promise<{ dataUrl: 
 
   const response = await fetch(url.toString(), {
     headers: { 'User-Agent': 'Riku-Hub/0.1' },
-    redirect: 'follow'
+    redirect: 'manual'
   });
+
+  if (response.status >= 300 && response.status < 400) {
+    return null;
+  }
 
   if (!response.ok) {
     return null;
@@ -901,7 +1117,12 @@ async function fetchFaviconSource(env: Env, rawUrl: string): Promise<{ dataUrl: 
     return null;
   }
 
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && Number.parseInt(contentLength, 10) > MAX_FAVICON_BYTES) {
+    return null;
+  }
+
+  const bytes = await readResponseBytesWithLimit(response, MAX_FAVICON_BYTES);
   if (!bytes.byteLength || bytes.byteLength > MAX_FAVICON_BYTES) {
     return null;
   }
@@ -942,7 +1163,7 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-async function assertSafeUrl(env: Env, url: URL): Promise<void> {
+async function assertSafeUrl(_env: Env, url: URL): Promise<void> {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error(`禁止协议: ${url.protocol}`);
   }
@@ -963,7 +1184,7 @@ async function assertSafeUrl(env: Env, url: URL): Promise<void> {
     return;
   }
 
-  const addresses = await resolveAddresses(env, hostname);
+  const addresses = await resolveAddresses(hostname);
   for (const address of addresses) {
     if (isBlockedIp(address)) {
       throw new Error(`域名解析命中保留地址: ${hostname} -> ${address}`);
@@ -971,23 +1192,9 @@ async function assertSafeUrl(env: Env, url: URL): Promise<void> {
   }
 }
 
-async function resolveAddresses(env: Env, hostname: string): Promise<string[]> {
-  const cachedA = await getCachedDns(env, hostname, 'A');
-  const cachedAAAA = await getCachedDns(env, hostname, 'AAAA');
-  if (cachedA || cachedAAAA) {
-    return [...(cachedA ?? []), ...(cachedAAAA ?? [])];
-  }
-
+async function resolveAddresses(hostname: string): Promise<string[]> {
   const [aRecords, aaaaRecords] = await Promise.all([resolveDnsType(hostname, 'A'), resolveDnsType(hostname, 'AAAA')]);
-  await Promise.all([
-    env.CACHE_KV.put(CACHE_KEYS.dns(hostname, 'A'), JSON.stringify(aRecords), { expirationTtl: 300 }),
-    env.CACHE_KV.put(CACHE_KEYS.dns(hostname, 'AAAA'), JSON.stringify(aaaaRecords), { expirationTtl: 300 })
-  ]);
   return [...aRecords, ...aaaaRecords];
-}
-
-async function getCachedDns(env: Env, hostname: string, type: 'A' | 'AAAA'): Promise<string[] | null> {
-  return env.CACHE_KV.get(CACHE_KEYS.dns(hostname, type), 'json');
 }
 
 async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<string[]> {
@@ -1135,6 +1342,39 @@ async function saveSource(env: Env, source: SourceRecord): Promise<SourceRecord>
   return source;
 }
 
+async function saveSourceNodeCount(env: Env, source: SourceRecord, nodeCount: number): Promise<SourceRecord> {
+  const now = new Date().toISOString();
+
+  if (hasD1(env)) {
+    await env.DB.prepare('UPDATE sources SET node_count = ?, updated_at = ? WHERE id = ? AND node_count = ?')
+      .bind(nodeCount, now, source.id, source.nodeCount)
+      .run();
+  }
+
+  const latest = await getSource(env, source.id);
+  if (!latest) {
+    const fallback: SourceRecord = {
+      ...source,
+      nodeCount,
+      updatedAt: now
+    };
+    await saveSource(env, fallback);
+    return fallback;
+  }
+
+  if (latest.nodeCount === nodeCount) {
+    return latest;
+  }
+
+  const updated: SourceRecord = {
+    ...latest,
+    nodeCount,
+    updatedAt: now
+  };
+  await saveSource(env, updated);
+  return updated;
+}
+
 async function deleteSource(env: Env, id: string): Promise<void> {
   if (hasD1(env)) {
     await env.DB.prepare('DELETE FROM sources WHERE id = ?').bind(id).run();
@@ -1195,9 +1435,88 @@ async function clearSettingsScope(env: Env, scope: SettingsDangerScope): Promise
         clearAllNavigation(env),
         clearAllNotes(env),
         clearAllSnippets(env),
-        clearAllClipboard(env)
+        clearAllClipboard(env),
+        clearAllAuthSessions(env)
       ]);
       return;
+  }
+}
+
+function createStatusError(status: number, message: string): Error & { status: number } {
+  const error = new Error(message) as Error & { status: number };
+  error.status = status;
+  return error;
+}
+
+async function withSettingsImportLock<T>(env: Env, handler: () => Promise<T>): Promise<T> {
+  const lockKey = APP_KEYS.settingsImportLock;
+  const lockValue = `${randomToken(8)}-${Date.now()}`;
+  const lockTtlSeconds = 180;
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
+  const existingLock = await env.CACHE_KV.get(lockKey);
+  if (existingLock) {
+    const lockParts = existingLock.split('-');
+    const lockTime = lockParts.length > 1 ? Number.parseInt(lockParts[1], 10) : 0;
+    const isExpired = Date.now() - lockTime > lockTtlSeconds * 1000;
+    if (!isExpired) {
+      throw createStatusError(409, '设置导入正在进行中，请稍后重试');
+    }
+  }
+
+  await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtlSeconds });
+  const confirmed = await env.CACHE_KV.get(lockKey);
+  if (confirmed !== lockValue) {
+    throw createStatusError(409, '设置导入正在进行中，请稍后重试');
+  }
+
+  heartbeat = setInterval(() => {
+    void env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtlSeconds }).catch(() => {
+      // 锁续租失败时，最终由主流程释放锁；这里避免中断导入主流程
+    });
+  }, Math.max(30_000, Math.floor((lockTtlSeconds * 1000) / 3)));
+
+  try {
+    return await handler();
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
+    const currentLock = await env.CACHE_KV.get(lockKey);
+    if (currentLock === lockValue) {
+      await env.CACHE_KV.delete(lockKey);
+    }
+  }
+}
+
+async function captureSettingsImportSnapshot(env: Env): Promise<SettingsImportSnapshot> {
+  const [sources, navigation, notes, snippets, clipboardItems] = await Promise.all([
+    getAllSources(env),
+    getNavigationTree(env),
+    getAllNotes(env),
+    getAllSnippets(env),
+    getAllClipboardItems(env)
+  ]);
+  return { sources, navigation, notes, snippets, clipboardItems };
+}
+
+async function restoreSettingsImportSnapshot(env: Env, snapshot: SettingsImportSnapshot): Promise<void> {
+  await clearSettingsScope(env, 'all');
+
+  if (snapshot.sources.length) {
+    await replaceSources(env, snapshot.sources);
+  }
+  if (snapshot.navigation.length) {
+    await replaceNavigation(env, snapshot.navigation);
+  }
+  if (snapshot.notes.length) {
+    await replaceNotes(env, snapshot.notes);
+  }
+  if (snapshot.snippets.length) {
+    await replaceSnippets(env, snapshot.snippets);
+  }
+  if (snapshot.clipboardItems.length) {
+    await replaceClipboardItems(env, snapshot.clipboardItems);
   }
 }
 
@@ -1207,37 +1526,55 @@ async function importSettingsBackup(env: Env, backup: SettingsBackupPayload): Pr
   const notes = normalizeNoteBackup(backup.notes);
   const snippets = normalizeSnippetBackup(backup.snippets);
   const clipboardItems = normalizeClipboardBackup(backup.clipboard ?? backup.clipboard_items);
+  return withSettingsImportLock(env, async () => {
+    const snapshot = await captureSettingsImportSnapshot(env);
 
-  await clearSettingsScope(env, 'all');
+    try {
+      await clearSettingsScope(env, 'all');
 
-  if (sources.length) {
-    await replaceSources(env, sources);
-  }
+      if (sources.length) {
+        await replaceSources(env, sources);
+      }
 
-  if (navigation.length) {
-    await replaceNavigation(env, navigation);
-  }
+      if (navigation.length) {
+        await replaceNavigation(env, navigation);
+      }
 
-  if (notes.length) {
-    await replaceNotes(env, notes);
-  }
+      if (notes.length) {
+        await replaceNotes(env, notes);
+      }
 
-  if (snippets.length) {
-    await replaceSnippets(env, snippets);
-  }
+      if (snippets.length) {
+        await replaceSnippets(env, snippets);
+      }
 
-  if (clipboardItems.length) {
-    await replaceClipboardItems(env, clipboardItems);
-  }
+      if (clipboardItems.length) {
+        await replaceClipboardItems(env, clipboardItems);
+      }
 
-  return {
-    sources: sources.length,
-    navigationCategories: navigation.length,
-    navigationLinks: navigation.reduce((sum, category) => sum + category.links.length, 0),
-    notes: notes.length,
-    snippets: snippets.length,
-    clipboardItems: clipboardItems.length
-  };
+      return {
+        sources: sources.length,
+        navigationCategories: navigation.length,
+        navigationLinks: navigation.reduce((sum, category) => sum + category.links.length, 0),
+        notes: notes.length,
+        snippets: snippets.length,
+        clipboardItems: clipboardItems.length
+      };
+    } catch (error) {
+      try {
+        await restoreSettingsImportSnapshot(env, snapshot);
+        await appendLog(env, 'settings_import_rollback', `导入失败，已自动回滚: ${formatError(error)}`);
+      } catch (rollbackError) {
+        await appendLog(
+          env,
+          'settings_import_rollback_failed',
+          `导入失败且回滚失败: import=${formatError(error)}; rollback=${formatError(rollbackError)}`
+        );
+        throw new Error(`设置导入失败且回滚失败: ${formatError(error)}`);
+      }
+      throw new Error(`设置导入失败，已自动回滚: ${formatError(error)}`);
+    }
+  });
 }
 
 async function getSubToken(env: Env): Promise<string> {
@@ -2070,6 +2407,34 @@ async function clearSubscriptionCache(env: Env): Promise<void> {
   });
 }
 
+async function clearAllAuthSessions(env: Env): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM auth_sessions').run();
+    return;
+  }
+
+  const kvWithList = env.APP_KV as KVNamespace & {
+    list?: (options?: { prefix?: string; limit?: number; cursor?: string }) => Promise<{
+      keys: Array<{ name: string }>;
+      list_complete: boolean;
+      cursor?: string;
+    }>;
+  };
+
+  if (typeof kvWithList.list !== 'function') {
+    return;
+  }
+
+  let cursor: string | undefined;
+  do {
+    const listed = await kvWithList.list({ prefix: 'session:', limit: 1000, cursor });
+    if (listed.keys.length > 0) {
+      await Promise.all(listed.keys.map((item) => env.APP_KV.delete(item.name)));
+    }
+    cursor = listed.list_complete ? undefined : listed.cursor;
+  } while (cursor);
+}
+
 async function clearAllSources(env: Env): Promise<void> {
   if (hasD1(env)) {
     await env.DB.prepare('DELETE FROM sources').run();
@@ -2248,7 +2613,9 @@ function normalizeClipboardBackup(records: ClipboardItemRecord[] | undefined): C
 
 async function replaceSources(env: Env, sources: SourceRecord[]): Promise<void> {
   const ordered = [...sources].sort((left, right) => left.sortOrder - right.sortOrder);
-  await Promise.all(ordered.map((source, index) => saveSource(env, { ...source, sortOrder: index })));
+  await mapWithConcurrency(ordered, MAX_IMPORT_WRITE_CONCURRENCY, async (source, index) =>
+    saveSource(env, { ...source, sortOrder: index })
+  );
   await saveSourceIndex(
     env,
     ordered.map((source) => source.id)
@@ -2287,7 +2654,7 @@ async function replaceNavigation(env: Env, categories: NavigationCategoryPayload
 
 async function replaceNotes(env: Env, notes: NoteRecord[]): Promise<void> {
   const ordered = [...notes].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-  await Promise.all(ordered.map((note) => saveNoteRecord(env, note)));
+  await mapWithConcurrency(ordered, MAX_IMPORT_WRITE_CONCURRENCY, async (note) => saveNoteRecord(env, note));
   await saveNoteIndex(
     env,
     ordered.map((note) => note.id)
@@ -2296,7 +2663,7 @@ async function replaceNotes(env: Env, notes: NoteRecord[]): Promise<void> {
 
 async function replaceSnippets(env: Env, snippets: SnippetRecord[]): Promise<void> {
   const ordered = [...snippets].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-  await Promise.all(ordered.map((snippet) => saveSnippetRecord(env, snippet)));
+  await mapWithConcurrency(ordered, MAX_IMPORT_WRITE_CONCURRENCY, async (snippet) => saveSnippetRecord(env, snippet));
   await saveSnippetIndex(
     env,
     ordered.map((snippet) => snippet.id)
@@ -2381,7 +2748,7 @@ async function clearAllClipboard(env: Env): Promise<void> {
 
 async function replaceClipboardItems(env: Env, items: ClipboardItemRecord[]): Promise<void> {
   const ordered = [...items].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-  await Promise.all(ordered.map((item) => saveClipboardItem(env, item)));
+  await mapWithConcurrency(ordered, MAX_IMPORT_WRITE_CONCURRENCY, async (item) => saveClipboardItem(env, item));
   await saveClipboardIndex(
     env,
     ordered.map((item) => item.id)
@@ -2417,6 +2784,7 @@ async function ensureDatabaseSchema(env: Env): Promise<void> {
       .then(async () => {
         await ensureSnippetSchemaColumns(env);
         await ensureSourceSchemaColumns(env);
+        await ensureAuthSessionSchemaColumns(env);
       })
       .catch((error) => {
         d1SchemaReady = null;
@@ -2458,5 +2826,18 @@ async function ensureSourceSchemaColumns(env: Env): Promise<void> {
   const columns = new Set((tableInfo.results ?? []).map((row) => row.name));
   if (!columns.has('enabled')) {
     await db.prepare('ALTER TABLE sources ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1').run();
+  }
+}
+
+async function ensureAuthSessionSchemaColumns(env: Env): Promise<void> {
+  if (!hasD1(env)) {
+    return;
+  }
+
+  const db = getDatabase(env);
+  const tableInfo = await db.prepare('PRAGMA table_info(auth_sessions)').all<{ name: string }>();
+  const columns = new Set((tableInfo.results ?? []).map((row) => row.name));
+  if (!columns.has('password_hash')) {
+    await db.prepare("ALTER TABLE auth_sessions ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''").run();
   }
 }

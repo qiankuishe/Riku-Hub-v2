@@ -9,7 +9,7 @@ export const settingsApi = {
       method: 'POST',
       body: JSON.stringify({ backup })
     }),
-  clearData: (scope: 'sources' | 'navigation' | 'notes' | 'snippets' | 'all') =>
+  clearData: (scope: 'sources' | 'navigation' | 'notes' | 'snippets' | 'clipboard' | 'all') =>
     request<{ success: boolean; scope: string }>(`/api/settings/data/${scope}`, {
       method: 'DELETE'
     })

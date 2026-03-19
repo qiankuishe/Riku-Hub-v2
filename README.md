@@ -47,7 +47,7 @@ pnpm dev:worker
 - `pnpm build:web`：生成 `packages/web/dist`
 - `pnpm check`：workspace 级类型检查
 - `pnpm test`：workspace 级 Vitest
-- `pnpm deploy`：先构建前端，再执行 `wrangler deploy`
+- `pnpm deploy`：先执行 `check + test + build:web`，再执行 `wrangler deploy`
 
 ## 路由兼容现状
 
@@ -56,4 +56,6 @@ pnpm dev:worker
 - 页面主路径是 `/nav` 和 `/snippets`。
 - 页面兼容别名是 `/navigation -> /nav`，`/clipboard -> /snippets`。
 - 现在两套前缀都还在，前端入口按主路径工作，兼容路径只用于历史链接和旧调用。
-- 兼容注册接口 `/api/auth/register` 默认关闭，只有设置 `COMPAT_ALLOW_REGISTER=true` 才会开启。
+- 兼容注册接口 `/api/auth/register` 默认关闭。
+- 只有同时设置 `COMPAT_ALLOW_REGISTER=true` 且配置 `COMPAT_REGISTER_KEY` 时才允许注册。
+- 登录页公开节点接口 `/api/clipboard/public` 默认关闭，需设置 `PUBLIC_CLIPBOARD_ENABLED=true` 才会返回公开节点。
