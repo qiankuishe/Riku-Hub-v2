@@ -206,21 +206,15 @@ function noteExcerpt(content: string) {
 <template>
   <div class="grid gap-4">
     <section class="card">
-      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
-          <p class="text-sm text-gray-500">自动保存，支持 Markdown 预览。</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <ElButton type="primary" :disabled="saving" @click="createNote">
-            <Icon icon="carbon:add-alt" class="mr-1" />
-            新增笔记
-          </ElButton>
-          <ElButton :loading="loading" @click="loadAll">
-            <Icon icon="carbon:renew" class="mr-1" />
-            {{ loading ? '刷新中...' : '刷新' }}
-          </ElButton>
-        </div>
+      <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <ElButton type="primary" :disabled="saving" @click="createNote">
+          <Icon icon="carbon:add-alt" class="mr-1" />
+          新增笔记
+        </ElButton>
+        <ElButton :loading="loading" @click="loadAll">
+          <Icon icon="carbon:renew" class="mr-1" />
+          {{ loading ? '刷新中...' : '刷新' }}
+        </ElButton>
       </div>
 
       <ElInput v-model="searchQuery" clearable placeholder="按标题或内容搜索..." />

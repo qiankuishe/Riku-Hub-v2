@@ -449,11 +449,7 @@ async function copySnippet(snippet: SnippetRecord) {
 <template>
   <div class="grid gap-4">
     <section class="card">
-      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">片段库</h2>
-          <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片。</p>
-        </div>
+      <div class="mb-4 flex justify-end">
         <ElButton :loading="loading" @click="loadAll">
           <Icon icon="carbon:renew" class="mr-1" />
           {{ loading ? '刷新中...' : '刷新' }}

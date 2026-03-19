@@ -721,39 +721,33 @@ async function moveCategoryDown(category: NavigationCategory) {
 <template>
   <div class="grid gap-4">
     <section class="card" :id="overviewSectionId">
-      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">网站导航</h2>
-          <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <ElButton
-            v-if="editMode"
-            type="primary"
-            :loading="saving"
-            :disabled="!pendingDragChanges || saving"
-            @click="saveDragChanges"
-          >
-            <Icon icon="carbon:save" class="mr-1" />
-            保存排序
-          </ElButton>
-          <ElButton v-if="editMode" :disabled="loading || saving" @click="openCategoryDialog()">
-            <Icon icon="carbon:folder-add" class="mr-1" />
-            新增分类
-          </ElButton>
-          <ElButton v-if="editMode && hasCategories" type="primary" :disabled="loading || saving" @click="openLinkDialog()">
-            <Icon icon="carbon:add-alt" class="mr-1" />
-            新增站点
-          </ElButton>
-          <ElButton :loading="loading" @click="loadAll">
-            <Icon icon="carbon:renew" class="mr-1" />
-            {{ loading ? '刷新中...' : '刷新' }}
-          </ElButton>
-          <ElButton :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
-            <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
-            {{ editMode ? '完成编辑' : '进入编辑' }}
-          </ElButton>
-        </div>
+      <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <ElButton
+          v-if="editMode"
+          type="primary"
+          :loading="saving"
+          :disabled="!pendingDragChanges || saving"
+          @click="saveDragChanges"
+        >
+          <Icon icon="carbon:save" class="mr-1" />
+          保存排序
+        </ElButton>
+        <ElButton v-if="editMode" :disabled="loading || saving" @click="openCategoryDialog()">
+          <Icon icon="carbon:folder-add" class="mr-1" />
+          新增分类
+        </ElButton>
+        <ElButton v-if="editMode && hasCategories" type="primary" :disabled="loading || saving" @click="openLinkDialog()">
+          <Icon icon="carbon:add-alt" class="mr-1" />
+          新增站点
+        </ElButton>
+        <ElButton :loading="loading" @click="loadAll">
+          <Icon icon="carbon:renew" class="mr-1" />
+          {{ loading ? '刷新中...' : '刷新' }}
+        </ElButton>
+        <ElButton :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
+          <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
+          {{ editMode ? '完成编辑' : '进入编辑' }}
+        </ElButton>
       </div>
 
       <div class="mb-3 grid gap-3">
@@ -1088,10 +1082,10 @@ async function moveCategoryDown(category: NavigationCategory) {
 .nav-link-card.drop-before::before {
   content: '';
   position: absolute;
-  top: -2px;
+  top: -6px;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 0;
   border-top: 4px dashed #000000;
   z-index: 10;
 }
@@ -1099,10 +1093,10 @@ async function moveCategoryDown(category: NavigationCategory) {
 .nav-link-card.drop-after::after {
   content: '';
   position: absolute;
-  bottom: -2px;
+  bottom: -6px;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 0;
   border-bottom: 4px dashed #000000;
   z-index: 10;
 }

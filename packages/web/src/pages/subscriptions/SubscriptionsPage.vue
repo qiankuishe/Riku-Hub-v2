@@ -233,21 +233,15 @@ async function openQr(name: string, url: string) {
 <template>
   <div class="grid gap-4">
     <section class="card">
-      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">订阅聚合</h2>
-          <p class="text-sm text-gray-500">统一管理订阅源并输出多格式链接。</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <ElButton type="primary" @click="openCreateDialog">
-            <Icon icon="carbon:add-alt" class="mr-1" />
-            新增订阅源
-          </ElButton>
-          <ElButton :loading="refreshing" @click="refreshAggregation">
-            <Icon icon="carbon:renew" class="mr-1" />
-            {{ refreshing ? '刷新中...' : '刷新缓存' }}
-          </ElButton>
-        </div>
+      <div class="mb-4 flex flex-wrap justify-end gap-2">
+        <ElButton type="primary" @click="openCreateDialog">
+          <Icon icon="carbon:add-alt" class="mr-1" />
+          新增订阅源
+        </ElButton>
+        <ElButton :loading="refreshing" @click="refreshAggregation">
+          <Icon icon="carbon:renew" class="mr-1" />
+          {{ refreshing ? '刷新中...' : '刷新缓存' }}
+        </ElButton>
       </div>
 
       <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
