@@ -224,9 +224,9 @@ function getExcerpt(content: string) {
       <template v-if="selectedNote">
         <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
           <ElRadioGroup v-model="viewMode" size="small">
-            <ElRadioButton label="write">写作</ElRadioButton>
-            <ElRadioButton label="preview">预览</ElRadioButton>
-            <ElRadioButton label="split">分栏</ElRadioButton>
+            <ElRadioButton value="write">写作</ElRadioButton>
+            <ElRadioButton value="preview">预览</ElRadioButton>
+            <ElRadioButton value="split">分栏</ElRadioButton>
           </ElRadioGroup>
           <div class="flex flex-wrap gap-2">
             <ElButton size="small" @click="togglePin">
