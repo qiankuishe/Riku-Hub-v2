@@ -442,7 +442,7 @@ function getExcerpt(content: string) {
 }
 
 .note-card-active {
-  border-color: #000000;
+  border-color: rgba(0, 0, 0, 0.16);
   background: rgba(0, 0, 0, 0.08);
 }
 
