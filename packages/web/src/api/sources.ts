@@ -13,7 +13,7 @@ export const sourcesApi = {
       method: 'POST',
       body: JSON.stringify({ name, content })
     }),
-  update: (id: string, data: { name?: string; content?: string }) =>
+  update: (id: string, data: { name?: string; content?: string; enabled?: boolean }) =>
     request<{ source: Source; lastSaveTime: string }>(`/api/sources/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)

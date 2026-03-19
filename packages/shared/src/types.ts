@@ -137,6 +137,7 @@ export interface SourceRecord {
   content: string;
   nodeCount: number;
   sortOrder: number;
+  enabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

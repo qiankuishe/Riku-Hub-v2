@@ -247,39 +247,57 @@ function parseVlessUri(uri: string): VlessNode {
 }
 
 function parseShadowsocksUri(uri: string): ShadowsocksNode | null {
-  const hashIndex = uri.indexOf('#');
-  const name = hashIndex > -1 ? decodeURIComponent(uri.slice(hashIndex + 1)) : '';
-  const mainPart = hashIndex > -1 ? uri.slice(5, hashIndex) : uri.slice(5);
+  try {
+    const hashIndex = uri.indexOf('#');
+    const name = hashIndex > -1 ? decodeURIComponent(uri.slice(hashIndex + 1)) : '';
+    const mainPart = hashIndex > -1 ? uri.slice(5, hashIndex) : uri.slice(5);
 
-  if (mainPart.includes('@')) {
-    const [encoded, serverPart] = mainPart.split('@');
-    const decoded = atob(encoded);
-    const [cipher, password] = decoded.split(':');
-    const [server, port] = serverPart.split(':');
+    // 处理 SIP002 格式：ss://base64(method:password)@server:port
+    if (mainPart.includes('@')) {
+      const atIndex = mainPart.lastIndexOf('@');
+      const encoded = mainPart.slice(0, atIndex);
+      const serverPart = mainPart.slice(atIndex + 1);
+      
+      // 支持 URL-safe base64
+      const decoded = atob(encoded.replace(/-/g, '+').replace(/_/g, '/'));
+      const colonIndex = decoded.indexOf(':');
+      if (colonIndex === -1) {
+        return null;
+      }
+      
+      const cipher = decoded.slice(0, colonIndex);
+      const password = decoded.slice(colonIndex + 1);
+      const [server, port] = serverPart.split(':');
+      
+      return {
+        type: 'ss',
+        name: name || `SS-${server}`,
+        server,
+        port: Number.parseInt(port, 10),
+        cipher,
+        password
+      };
+    }
+
+    // 处理旧格式：ss://base64(method:password@server:port)
+    // 支持 URL-safe base64
+    const decoded = atob(mainPart.replace(/-/g, '+').replace(/_/g, '/'));
+    const match = decoded.match(/^(.+?):(.+)@(.+):(\d+)$/);
+    if (!match) {
+      return null;
+    }
+
     return {
       type: 'ss',
-      name: name || `SS-${server}`,
-      server,
-      port: Number.parseInt(port, 10),
-      cipher,
-      password
+      name: name || `SS-${match[3]}`,
+      server: match[3],
+      port: Number.parseInt(match[4], 10),
+      cipher: match[1],
+      password: match[2]
     };
-  }
-
-  const decoded = atob(mainPart);
-  const match = decoded.match(/^(.+?):(.+)@(.+):(\d+)$/);
-  if (!match) {
+  } catch {
     return null;
   }
-
-  return {
-    type: 'ss',
-    name: name || `SS-${match[3]}`,
-    server: match[3],
-    port: Number.parseInt(match[4], 10),
-    cipher: match[1],
-    password: match[2]
-  };
 }
 
 function parseTrojanUri(uri: string): TrojanNode {

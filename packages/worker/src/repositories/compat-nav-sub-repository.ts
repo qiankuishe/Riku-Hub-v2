@@ -308,7 +308,7 @@ export class CompatNavSubRepository {
   async getSource(id: string): Promise<SourceRecord | null> {
     if (this.hasD1()) {
       const row = await this.getDb()
-        .prepare('SELECT id, name, content, node_count, sort_order, created_at, updated_at FROM sources WHERE id = ?')
+        .prepare('SELECT id, name, content, node_count, sort_order, enabled, created_at, updated_at FROM sources WHERE id = ?')
         .bind(id)
         .first<SourceRow>();
       return row ? mapSourceRow(row) : null;
@@ -333,6 +333,7 @@ export class CompatNavSubRepository {
       content,
       nodeCount,
       sortOrder: ids.length,
+      enabled: true,
       createdAt: now,
       updatedAt: now
     };
@@ -345,17 +346,18 @@ export class CompatNavSubRepository {
     if (this.hasD1()) {
       await this.getDb()
         .prepare(
-          `INSERT INTO sources (id, name, content, node_count, sort_order, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO sources (id, name, content, node_count, sort_order, enabled, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
              name = excluded.name,
              content = excluded.content,
              node_count = excluded.node_count,
              sort_order = excluded.sort_order,
+             enabled = excluded.enabled,
              created_at = excluded.created_at,
              updated_at = excluded.updated_at`
         )
-        .bind(source.id, source.name, source.content, source.nodeCount, source.sortOrder, source.createdAt, source.updatedAt)
+        .bind(source.id, source.name, source.content, source.nodeCount, source.sortOrder, source.enabled ? 1 : 0, source.createdAt, source.updatedAt)
         .run();
       return source;
     }
@@ -743,6 +745,7 @@ interface SourceRow {
   content: string;
   node_count: number;
   sort_order: number;
+  enabled: number;
   created_at: string;
   updated_at: string;
 }
@@ -786,6 +789,7 @@ function mapSourceRow(row: SourceRow): SourceRecord {
     content: row.content,
     nodeCount: row.node_count,
     sortOrder: row.sort_order,
+    enabled: Boolean(row.enabled),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

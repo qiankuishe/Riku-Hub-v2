@@ -83,6 +83,7 @@ export function mapSourceRow(row: SourceRow): SourceRecord {
     content: row.content,
     nodeCount: row.node_count,
     sortOrder: row.sort_order,
+    enabled: Boolean(row.enabled),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

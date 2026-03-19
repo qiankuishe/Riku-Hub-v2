@@ -102,7 +102,8 @@ const APP_KEYS = {
   navCategoryIndex: 'nav:category:index',
   noteIndex: 'note:index',
   snippetIndex: 'snippet:index',
-  clipboardIndex: 'clipboard:index'
+  clipboardIndex: 'clipboard:index',
+  refreshLock: 'lock:refresh-aggregate'
 };
 
 const CACHE_KEYS = {
@@ -216,6 +217,7 @@ const D1_SCHEMA_STATEMENTS = [
     content TEXT NOT NULL,
     node_count INTEGER NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
@@ -278,6 +280,7 @@ mountSubscriptionsRoutes<Env>(app, {
     getLastSaveTime,
     getSubToken,
     ensureAggregateCache,
+    invalidateCache,
     detectFormatFromUserAgent,
     parseSubQuery
   },
@@ -453,7 +456,25 @@ function enforceHttps(request: Request): Response | null {
 }
 
 async function validateContent(env: Env, content: string): Promise<ValidationSummary> {
-  const { urls, nodes: directNodes, warnings: inputWarnings } = parseMixedInput(content);
+  const trimmed = content.trim();
+  
+  // 先尝试识别整段内容格式（与 expandSourceContent 保持一致）
+  const format = detectInputFormat(trimmed);
+  if (format !== 'unknown') {
+    const parsed = parseContent(trimmed, format);
+    const { nodes, duplicateCount } = deduplicateNodes(parsed.nodes);
+    return {
+      valid: nodes.length > 0,
+      urlCount: 0,
+      nodeCount: nodes.length,
+      totalCount: parsed.nodes.length,
+      duplicateCount,
+      warnings: parsed.warnings
+    };
+  }
+  
+  // 否则按混合输入处理
+  const { urls, nodes: directNodes, warnings: inputWarnings } = parseMixedInput(trimmed);
   const resolvedNodes = [...directNodes];
   const warnings = [...inputWarnings];
 
@@ -483,36 +504,82 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
   | { ok: true; payload: CachedNodesPayload; sources: SourceRecord[] }
   | { ok: false; error: string }
 > {
-  const sources = await getAllSources(env);
-  if (sources.length === 0) {
-    const meta = await saveAggregateMeta(env, {
-      cacheStatus: 'missing',
-      totalNodes: 0,
-      warningCount: 0,
-      lastRefreshTime: '',
-      lastRefreshError: '没有配置订阅源'
-    });
-    void meta;
-    return { ok: false, error: '没有配置订阅源' };
+  // 尝试获取锁，避免并发刷新
+  const lockKey = APP_KEYS.refreshLock;
+  const lockValue = `${randomToken(8)}-${Date.now()}`;
+  const lockTtl = 120; // 2分钟锁超时
+  
+  // 检查是否已有锁
+  const existingLock = await env.CACHE_KV.get(lockKey);
+  if (existingLock && !force) {
+    // 检查锁是否过期（防止死锁）
+    const lockParts = existingLock.split('-');
+    const lockTime = lockParts.length > 1 ? Number.parseInt(lockParts[1], 10) : 0;
+    const isExpired = Date.now() - lockTime > lockTtl * 1000;
+    
+    if (!isExpired) {
+      // 记录锁竞争日志
+      await appendLog(env, 'refresh_lock_contention', `检测到并发刷新请求，返回缓存（锁持有时间: ${Date.now() - lockTime}ms）`);
+      
+      // 已有其他进程在刷新，直接返回当前缓存
+      const cached = await getCachedNodes(env);
+      if (cached) {
+        const sources = await getAllSources(env);
+        return { ok: true, payload: cached, sources };
+      }
+      return { ok: false, error: '刷新正在进行中' };
+    } else {
+      // 记录锁过期日志
+      await appendLog(env, 'refresh_lock_expired', `检测到过期锁，强制获取（锁持有时间: ${Date.now() - lockTime}ms）`);
+    }
   }
-
+  
+  // 获取锁（即使有竞争，也只是重复刷新，不会破坏数据）
+  await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtl });
+  
   try {
+    const sources = await getAllSources(env);
+    // 只聚合启用的订阅源
+    const enabledSources = sources.filter(s => s.enabled);
+    
+    if (enabledSources.length === 0) {
+      const meta = await saveAggregateMeta(env, {
+        cacheStatus: 'missing',
+        totalNodes: 0,
+        warningCount: 0,
+        lastRefreshTime: '',
+        lastRefreshError: '没有启用的订阅源'
+      });
+      void meta;
+      return { ok: false, error: '没有启用的订阅源' };
+    }
+
     const aggregated: NormalizedNode[] = [];
     const warnings: AggregateWarning[] = [];
     const updatedSources: SourceRecord[] = [];
 
-    for (const source of sources) {
+    for (const source of enabledSources) {
       const expanded = await expandSourceContent(env, source.content);
       aggregated.push(...expanded.uniqueNodes);
       warnings.push(...expanded.warnings);
-      const updatedSource: SourceRecord = {
-        ...source,
-        nodeCount: expanded.uniqueNodes.length,
-        updatedAt: new Date().toISOString()
-      };
-      updatedSources.push(updatedSource);
-      await saveSource(env, updatedSource);
+      
+      // 只在节点数变化时才更新 source 记录，避免写放大
+      if (expanded.uniqueNodes.length !== source.nodeCount) {
+        const updatedSource: SourceRecord = {
+          ...source,
+          nodeCount: expanded.uniqueNodes.length,
+          updatedAt: new Date().toISOString()
+        };
+        updatedSources.push(updatedSource);
+        await saveSource(env, updatedSource);
+      } else {
+        updatedSources.push(source);
+      }
     }
+    
+    // 将禁用的订阅源也加入返回列表（但不参与聚合）
+    const disabledSources = sources.filter(s => !s.enabled);
+    const allSources = [...updatedSources, ...disabledSources].sort((a, b) => a.sortOrder - b.sortOrder);
 
     const deduped = deduplicateNodes(aggregated);
     const payload: CachedNodesPayload = {
@@ -542,7 +609,7 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
       nextRefreshAfter: new Date(Date.now() + getAggregateTtlSeconds(env) * 1000).toISOString()
     });
 
-    return { ok: true, payload, sources: updatedSources };
+    return { ok: true, payload, sources: allSources };
   } catch (error) {
     const oldCache = await getCachedNodes(env);
     await saveAggregateMeta(env, {
@@ -553,9 +620,16 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
       lastRefreshError: String(error)
     });
     if (!force && oldCache) {
+      const sources = await getAllSources(env);
       return { ok: true, payload: oldCache, sources };
     }
     return { ok: false, error: `刷新聚合缓存失败: ${String(error)}` };
+  } finally {
+    // 释放锁
+    const currentLock = await env.CACHE_KV.get(lockKey);
+    if (currentLock === lockValue) {
+      await env.CACHE_KV.delete(lockKey);
+    }
   }
 }
 
@@ -612,18 +686,41 @@ async function expandSourceContent(env: Env, content: string): Promise<{
   uniqueNodes: NormalizedNode[];
   warnings: AggregateWarning[];
 }> {
-  const { urls, nodes: directNodes, warnings } = parseMixedInput(content);
+  const trimmed = content.trim();
+  
+  // 先尝试识别整段内容格式（Base64/Clash/Singbox）
+  const format = detectInputFormat(trimmed);
+  if (format !== 'unknown') {
+    const parsed = parseContent(trimmed, format);
+    const deduped = deduplicateNodes(parsed.nodes);
+    return { uniqueNodes: deduped.nodes, warnings: parsed.warnings };
+  }
+  
+  // 否则按混合输入处理（URL + URI）
+  const { urls, nodes: directNodes, warnings } = parseMixedInput(trimmed);
   const expandedNodes = [...directNodes];
   const extraWarnings = [...warnings];
 
-  for (const rawUrl of urls) {
-    try {
-      const fetched = await fetchSubscription(env, rawUrl);
-      const parsed = parseContent(fetched.text);
-      expandedNodes.push(...parsed.nodes);
-      extraWarnings.push(...parsed.warnings);
-    } catch (error) {
-      extraWarnings.push({ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl });
+  // 并行拉取所有 URL，提高性能
+  const fetchResults = await Promise.allSettled(
+    urls.map(async (rawUrl) => {
+      try {
+        const fetched = await fetchSubscription(env, rawUrl);
+        const parsed = parseContent(fetched.text);
+        return { nodes: parsed.nodes, warnings: parsed.warnings, url: rawUrl };
+      } catch (error) {
+        throw { url: rawUrl, error };
+      }
+    })
+  );
+
+  for (const result of fetchResults) {
+    if (result.status === 'fulfilled') {
+      expandedNodes.push(...result.value.nodes);
+      extraWarnings.push(...result.value.warnings);
+    } else {
+      const { url, error } = result.reason as { url: string; error: unknown };
+      extraWarnings.push({ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: url });
     }
   }
 
@@ -639,25 +736,53 @@ async function fetchSubscription(env: Env, rawUrl: string, depth = 0): Promise<{
   const url = new URL(fixUrl(rawUrl));
   await assertSafeUrl(env, url);
 
-  const response = await fetch(url.toString(), {
-    headers: { 'User-Agent': 'Riku-Hub/0.1' },
-    redirect: 'manual'
-  });
+  // 添加 30 秒超时控制
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  if (response.status >= 300 && response.status < 400) {
-    const location = response.headers.get('location');
-    if (!location) {
-      throw new Error('上游返回重定向但缺少 Location');
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'Riku-Hub/0.1' },
+      redirect: 'manual',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) {
+        throw new Error('上游返回重定向但缺少 Location');
+      }
+      const redirected = new URL(location, url);
+      return fetchSubscription(env, redirected.toString(), depth + 1);
     }
-    const redirected = new URL(location, url);
-    return fetchSubscription(env, redirected.toString(), depth + 1);
-  }
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
 
-  return { text: await response.text() };
+    // 检查响应大小，限制为 5MB
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && Number.parseInt(contentLength, 10) > 5 * 1024 * 1024) {
+      throw new Error(`响应过大: ${contentLength} 字节（限制 5MB）`);
+    }
+
+    const text = await response.text();
+    
+    // 再次检查实际大小
+    if (text.length > 5 * 1024 * 1024) {
+      throw new Error(`响应过大: ${text.length} 字节（限制 5MB）`);
+    }
+
+    return { text };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('请求超时（30秒）');
+    }
+    throw error;
+  }
 }
 
 async function fetchAndCacheFavicon(env: Env, hostname: string): Promise<string | null> {
@@ -793,17 +918,22 @@ async function getCachedDns(env: Env, hostname: string, type: 'A' | 'AAAA'): Pro
 }
 
 async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<string[]> {
-  const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
-    headers: { Accept: 'application/dns-json' }
-  });
-  if (!response.ok) {
-    return [];
+  try {
+    const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
+      headers: { Accept: 'application/dns-json' }
+    });
+    if (!response.ok) {
+      throw new Error(`DNS 查询失败: HTTP ${response.status}`);
+    }
+    const data = (await response.json()) as { Answer?: Array<{ data?: string; type?: number }> };
+    return (data.Answer ?? [])
+      .filter((record) => Boolean(record.data))
+      .map((record) => String(record.data))
+      .filter((value) => (type === 'A' ? isIpv4(value) : isIpv6(value)));
+  } catch (error) {
+    // DNS 查询失败时抛出错误，而不是返回空数组放行
+    throw new Error(`DNS 解析失败 (${hostname} ${type}): ${String(error)}`);
   }
-  const data = (await response.json()) as { Answer?: Array<{ data?: string; type?: number }> };
-  return (data.Answer ?? [])
-    .filter((record) => Boolean(record.data))
-    .map((record) => String(record.data))
-    .filter((value) => (type === 'A' ? isIpv4(value) : isIpv6(value)));
 }
 
 function isInternalHostname(hostname: string): boolean {
@@ -856,7 +986,7 @@ function isBlockedIp(value: string): boolean {
 async function getSource(env: Env, id: string): Promise<SourceRecord | null> {
   if (hasD1(env)) {
     const row = await env.DB.prepare(
-      'SELECT id, name, content, node_count, sort_order, created_at, updated_at FROM sources WHERE id = ?'
+      'SELECT id, name, content, node_count, sort_order, enabled, created_at, updated_at FROM sources WHERE id = ?'
     )
       .bind(id)
       .first<SourceRow>();
@@ -900,6 +1030,7 @@ async function createSource(env: Env, name: string, content: string, nodeCount: 
     content,
     nodeCount,
     sortOrder: ids.length,
+    enabled: true,
     createdAt: now,
     updatedAt: now
   };
@@ -911,17 +1042,18 @@ async function createSource(env: Env, name: string, content: string, nodeCount: 
 async function saveSource(env: Env, source: SourceRecord): Promise<SourceRecord> {
   if (hasD1(env)) {
     await env.DB.prepare(
-      `INSERT INTO sources (id, name, content, node_count, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO sources (id, name, content, node_count, sort_order, enabled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          content = excluded.content,
          node_count = excluded.node_count,
          sort_order = excluded.sort_order,
+         enabled = excluded.enabled,
          created_at = excluded.created_at,
          updated_at = excluded.updated_at`
     )
-      .bind(source.id, source.name, source.content, source.nodeCount, source.sortOrder, source.createdAt, source.updatedAt)
+      .bind(source.id, source.name, source.content, source.nodeCount, source.sortOrder, source.enabled ? 1 : 0, source.createdAt, source.updatedAt)
       .run();
     return source;
   }
@@ -1081,6 +1213,24 @@ async function getCachedNodes(env: Env): Promise<CachedNodesPayload | null> {
 
 async function getCachedFormat(env: Env, format: OutputFormat): Promise<CachedFormatPayload | null> {
   return env.CACHE_KV.get(CACHE_KEYS.format(format), 'json');
+}
+
+async function invalidateCache(env: Env): Promise<void> {
+  // 清除节点缓存
+  await env.CACHE_KV.delete(CACHE_KEYS.nodes);
+  
+  // 清除所有格式缓存
+  const formats: OutputFormat[] = ['base64', 'clash', 'stash', 'surge', 'loon', 'qx', 'singbox'];
+  await Promise.all(formats.map((format) => env.CACHE_KV.delete(CACHE_KEYS.format(format))));
+  
+  // 更新元数据状态为 missing
+  await saveAggregateMeta(env, {
+    cacheStatus: 'missing',
+    totalNodes: 0,
+    warningCount: 0,
+    lastRefreshTime: '',
+    lastRefreshError: '缓存已清除，等待重新生成'
+  });
 }
 
 async function appendLog(env: Env, action: string, detail?: string): Promise<void> {
@@ -1917,6 +2067,7 @@ function normalizeSourceBackup(records: SourceRecord[] | undefined): SourceRecor
       content: typeof record?.content === 'string' ? record.content : '',
       nodeCount: typeof record?.nodeCount === 'number' ? record.nodeCount : 0,
       sortOrder: typeof record?.sortOrder === 'number' ? record.sortOrder : index,
+      enabled: typeof record?.enabled === 'boolean' ? record.enabled : true,
       createdAt: typeof record?.createdAt === 'string' && record.createdAt ? record.createdAt : now,
       updatedAt: typeof record?.updatedAt === 'string' && record.updatedAt ? record.updatedAt : now
     };

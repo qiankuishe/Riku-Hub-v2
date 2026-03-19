@@ -157,7 +157,8 @@ async function saveSource() {
     if (editingSource.value) {
       const result = await sourcesApi.update(editingSource.value.id, {
         name: formName.value.trim(),
-        content: formContent.value.trim()
+        content: formContent.value.trim(),
+        enabled: editingSource.value.enabled
       });
       lastSaveTime.value = result.lastSaveTime;
       uiStore.showToast('订阅源已更新');
@@ -172,6 +173,20 @@ async function saveSource() {
     errorMessage.value = error instanceof Error ? error.message : '保存失败';
   } finally {
     saving.value = false;
+  }
+}
+
+async function toggleSourceEnabled(source: Source) {
+  try {
+    const result = await sourcesApi.update(source.id, {
+      enabled: !source.enabled
+    });
+    lastSaveTime.value = result.lastSaveTime;
+    uiStore.showToast(!source.enabled ? '已启用' : '已禁用');
+    // 重新加载数据以更新状态
+    await loadPageData();
+  } catch (error) {
+    uiStore.showToast(error instanceof Error ? error.message : '操作失败');
   }
 }
 
@@ -309,15 +324,22 @@ async function openQr(name: string, url: string) {
           v-for="source in sources"
           :key="source.id"
           class="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          :class="{ 'opacity-50': !source.enabled }"
         >
           <div class="mb-2 flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h4 class="truncate text-sm font-semibold text-gray-900">{{ source.name }}</h4>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <h4 class="truncate text-sm font-semibold text-gray-900">{{ source.name }}</h4>
+                <ElTag v-if="!source.enabled" size="small" type="info">已禁用</ElTag>
+              </div>
               <p class="mt-1 text-xs text-gray-500">
                 节点数 {{ source.nodeCount }} · 更新于 {{ formatDateTime(source.updatedAt) }}
               </p>
             </div>
             <div class="flex flex-wrap gap-2">
+              <ElButton size="small" @click="toggleSourceEnabled(source)">
+                {{ source.enabled ? '禁用' : '启用' }}
+              </ElButton>
               <ElButton size="small" @click="moveSource(source, -1)">上移</ElButton>
               <ElButton size="small" @click="moveSource(source, 1)">下移</ElButton>
               <ElButton size="small" @click="openEditDialog(source)">编辑</ElButton>

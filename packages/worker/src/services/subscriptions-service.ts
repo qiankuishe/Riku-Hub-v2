@@ -43,6 +43,10 @@ export class SubscriptionsService<TEnv> {
 
     const validation = await this.repository.validateContent(content);
     const source = await this.repository.createSource(name, content, validation.nodeCount);
+    
+    // 清除缓存，强制下次请求重新聚合
+    await this.repository.invalidateCache();
+    
     return {
       source,
       lastSaveTime: source.updatedAt
@@ -91,9 +95,13 @@ export class SubscriptionsService<TEnv> {
       ...existing,
       name: input.name?.trim() || existing.name,
       content: typeof input.content === 'string' ? input.content.trim() : existing.content,
+      enabled: typeof input.enabled === 'boolean' ? input.enabled : existing.enabled,
       nodeCount,
       updatedAt: new Date().toISOString()
     });
+
+    // 清除缓存，强制下次请求重新聚合
+    await this.repository.invalidateCache();
 
     return {
       source: updated,
@@ -107,6 +115,10 @@ export class SubscriptionsService<TEnv> {
       throw new SubscriptionsHttpError(404, '订阅源不存在');
     }
     await this.repository.deleteSource(id);
+    
+    // 清除缓存，强制下次请求重新聚合
+    await this.repository.invalidateCache();
+    
     return {
       name: source.name,
       lastSaveTime: new Date().toISOString()
@@ -156,7 +168,7 @@ export class SubscriptionsService<TEnv> {
       format,
       content: cacheResult.payload.content,
       contentType: format === 'singbox' ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8',
-      fileName: `riku-hub-${format}.txt`,
+      fileName: format === 'singbox' ? `riku-hub-${format}.json` : `riku-hub-${format}.txt`,
       cacheStatus: cacheResult.meta.cacheStatus,
       warningCount: cacheResult.payload.warnings.length,
       totalNodes: cacheResult.meta.totalNodes,

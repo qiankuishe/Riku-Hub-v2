@@ -64,4 +64,8 @@ export class SubscriptionsRepository<TEnv> {
   parseSubQuery(params: URLSearchParams): { token: string | null; format: OutputFormat | null } {
     return this.deps.parseSubQuery(params);
   }
+
+  invalidateCache(): Promise<void> {
+    return this.deps.invalidateCache(this.env);
+  }
 }

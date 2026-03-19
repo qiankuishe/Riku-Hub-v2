@@ -36,12 +36,30 @@ export function parseSubQuery(searchParams: URLSearchParams): { token: string | 
   let token: string | null = null;
   let format: OutputFormat | null = null;
 
-  for (const key of searchParams.keys()) {
-    const normalized = key.toLowerCase();
+  // 优先从标准参数读取
+  const tokenParam = searchParams.get('token');
+  const formatParam = searchParams.get('format');
+  
+  if (tokenParam) {
+    token = tokenParam;
+  }
+  
+  if (formatParam) {
+    const normalized = formatParam.toLowerCase();
     if (OUTPUT_FORMAT_ALIASES[normalized]) {
       format = OUTPUT_FORMAT_ALIASES[normalized];
-    } else if (!token) {
-      token = key;
+    }
+  }
+  
+  // 兼容旧格式：?{token}&clash
+  if (!token || !format) {
+    for (const key of searchParams.keys()) {
+      const normalized = key.toLowerCase();
+      if (OUTPUT_FORMAT_ALIASES[normalized]) {
+        format = format || OUTPUT_FORMAT_ALIASES[normalized];
+      } else if (!token && key !== 'token' && key !== 'format') {
+        token = key;
+      }
     }
   }
 
@@ -78,17 +96,17 @@ export function ensureUniqueNames<T extends NormalizedNode>(nodes: T[]): T[] {
 export function getNodeIdentity(node: NormalizedNode): string {
   switch (node.type) {
     case 'vmess':
-      return `vmess:${node.server}:${node.port}:${node.uuid}:${node.network ?? 'tcp'}:${node.wsPath ?? ''}:${node.grpcServiceName ?? ''}`;
+      return `vmess:${node.server}:${node.port}:${node.uuid}:${node.network ?? 'tcp'}:${node.tls ? '1' : '0'}:${node.sni ?? ''}:${node.wsPath ?? ''}:${node.wsHeaders?.Host ?? ''}:${node.grpcServiceName ?? ''}`;
     case 'vless':
-      return `vless:${node.server}:${node.port}:${node.uuid}:${node.flow ?? ''}:${node.realityOpts?.publicKey ?? ''}:${node.network ?? 'tcp'}:${node.wsPath ?? ''}:${node.grpcServiceName ?? ''}`;
+      return `vless:${node.server}:${node.port}:${node.uuid}:${node.flow ?? ''}:${node.tls ? '1' : '0'}:${node.sni ?? ''}:${node.realityOpts?.publicKey ?? ''}:${node.realityOpts?.shortId ?? ''}:${node.network ?? 'tcp'}:${node.wsPath ?? ''}:${node.wsHeaders?.Host ?? ''}:${node.grpcServiceName ?? ''}`;
     case 'ss':
       return `ss:${node.server}:${node.port}:${node.cipher}:${node.password}:${node.plugin ?? ''}`;
     case 'trojan':
-      return `trojan:${node.server}:${node.port}:${node.password}:${node.network ?? 'tcp'}:${node.wsPath ?? ''}:${node.grpcServiceName ?? ''}`;
+      return `trojan:${node.server}:${node.port}:${node.password}:${node.sni ?? ''}:${node.network ?? 'tcp'}:${node.wsPath ?? ''}:${node.grpcServiceName ?? ''}`;
     case 'hysteria2':
-      return `hy2:${node.server}:${node.port}:${node.password}:${node.obfs ?? ''}:${node.obfsPassword ?? ''}`;
+      return `hy2:${node.server}:${node.port}:${node.password}:${node.sni ?? ''}:${node.obfs ?? ''}:${node.obfsPassword ?? ''}`;
     case 'tuic':
-      return `tuic:${node.server}:${node.port}:${node.uuid}:${node.password}:${node.udpRelayMode ?? ''}`;
+      return `tuic:${node.server}:${node.port}:${node.uuid}:${node.password}:${node.sni ?? ''}:${node.udpRelayMode ?? ''}`;
     case 'wireguard':
       return `wireguard:${node.server}:${node.port}:${node.publicKey}:${node.localAddress.join(',')}:${node.clientId ?? ''}`;
   }

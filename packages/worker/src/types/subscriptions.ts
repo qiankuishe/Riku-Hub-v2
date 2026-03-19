@@ -6,6 +6,7 @@ export interface SourceRecord {
   content: string;
   nodeCount: number;
   sortOrder: number;
+  enabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,6 +19,7 @@ export interface SourceCreateInput {
 export interface SourceUpdateInput {
   name?: string;
   content?: string;
+  enabled?: boolean;
 }
 
 export interface SourceReorderInput {
@@ -66,6 +68,7 @@ export interface SubscriptionsRepositoryDeps<TEnv> {
   getLastSaveTime: (sources: SourceRecord[]) => string;
   getSubToken: (env: TEnv) => Promise<string>;
   ensureAggregateCache: (env: TEnv, format: OutputFormat) => Promise<EnsureAggregateCacheResult>;
+  invalidateCache: (env: TEnv) => Promise<void>;
   detectFormatFromUserAgent: (userAgent: string) => OutputFormat;
   parseSubQuery: (params: URLSearchParams) => { token: string | null; format: OutputFormat | null };
 }

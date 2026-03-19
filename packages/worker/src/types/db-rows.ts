@@ -66,6 +66,7 @@ export interface SourceRow {
   content: string;
   node_count: number;
   sort_order: number;
+  enabled: number;
   created_at: string;
   updated_at: string;
 }

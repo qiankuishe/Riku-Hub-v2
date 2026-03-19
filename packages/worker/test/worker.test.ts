@@ -406,4 +406,81 @@ describe('worker behaviors', () => {
     expect(clipAfterDeleteResponse.status).toBe(200);
     expect(clipAfterDeleteData.data.items).toHaveLength(0);
   });
+
+  it('filters disabled sources from aggregation', async () => {
+    const cookie = await login(env);
+
+    // 创建两个订阅源
+    const createResponse1 = await app.request(
+      'https://example.com/api/sources',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          name: '启用的源',
+          content: 'vmess://eyJ2IjoiMiIsInBzIjoiVGVzdCIsImFkZCI6ImV4YW1wbGUuY29tIiwicG9ydCI6IjQ0MyIsImlkIjoiMTExMTExMTEtMTExMS0xMTExLTExMTEtMTExMTExMTExMTExIiwiYWlkIjoiMCIsInNjeSI6ImF1dG8iLCJuZXQiOiJ3cyIsInR5cGUiOiJub25lIiwiaG9zdCI6ImV4YW1wbGUuY29tIiwicGF0aCI6Ii8iLCJ0bHMiOiJ0bHMiLCJzbmkiOiJleGFtcGxlLmNvbSJ9'
+        })
+      },
+      env
+    );
+    const data1 = (await createResponse1.json()) as { source: { id: string; enabled: boolean } };
+    expect(data1.source.enabled).toBe(true);
+
+    const createResponse2 = await app.request(
+      'https://example.com/api/sources',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          name: '将被禁用的源',
+          content: 'vmess://eyJ2IjoiMiIsInBzIjoiVGVzdDIiLCJhZGQiOiJleGFtcGxlMi5jb20iLCJwb3J0IjoiNDQzIiwiaWQiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJhaWQiOiIwIiwic2N5IjoiYXV0byIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJob3N0IjoiZXhhbXBsZTIuY29tIiwicGF0aCI6Ii8iLCJ0bHMiOiJ0bHMiLCJzbmkiOiJleGFtcGxlMi5jb20ifQ=='
+        })
+      },
+      env
+    );
+    const data2 = (await createResponse2.json()) as { source: { id: string } };
+
+    // 禁用第二个源
+    const updateResponse = await app.request(
+      `https://example.com/api/sources/${data2.source.id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({ enabled: false })
+      },
+      env
+    );
+    const updateData = (await updateResponse.json()) as { source: { enabled: boolean } };
+    expect(updateData.source.enabled).toBe(false);
+
+    // 刷新聚合缓存
+    await app.request(
+      'https://example.com/api/sources/refresh',
+      {
+        method: 'POST',
+        headers: { cookie }
+      },
+      env
+    );
+
+    // 验证聚合结果只包含启用的源
+    const subInfoResponse = await app.request(
+      'https://example.com/api/sub/info',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const subInfo = (await subInfoResponse.json()) as { totalNodes: number };
+    expect(subInfo.totalNodes).toBe(1); // 只有一个启用的源
+  });
 });
