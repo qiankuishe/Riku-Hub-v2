@@ -34,13 +34,6 @@ export class SubscriptionsController<TEnv extends object> {
     });
   }
 
-  async sourceWarnings(c: SubscriptionsContext<TEnv>): Promise<Response> {
-    return this.handle(c, async () => {
-      const data = await this.serviceFor(c.env).getSourceWarnings(requireParam(c, 'id'));
-      return c.json(data);
-    });
-  }
-
   async createSource(c: SubscriptionsContext<TEnv>): Promise<Response> {
     return this.handle(c, async () => {
       const body = await readJson<SourceCreateInput>(c.req.raw);

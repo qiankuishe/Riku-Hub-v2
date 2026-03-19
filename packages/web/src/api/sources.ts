@@ -8,7 +8,6 @@ export const sourcesApi = {
       method: 'POST',
       body: JSON.stringify({ content })
     }),
-  getWarnings: (id: string) => request<{ warnings: WarningItem[] }>(`/api/sources/${id}/warnings`),
   create: (name: string, content: string) =>
     request<{ source: Source; lastSaveTime: string }>('/api/sources', {
       method: 'POST',

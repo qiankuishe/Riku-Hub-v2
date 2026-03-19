@@ -481,36 +481,12 @@ export class CompatNavSubService {
 
       for (const source of enabledSources) {
         const expanded = await expandSourceContent(this.repository, source.content);
-        const sourceWarnings = [...expanded.warnings];
-        let sourceNodes = expanded.uniqueNodes;
-        const hasConnectivityFailure = sourceWarnings.some(
-          (item) => item.code === 'fetch-failed' || item.code === 'security-blocked'
-        );
-
-        if (hasConnectivityFailure) {
-          const fallbackNodes = await this.repository.getCachedSourceNodes(source.id);
-          if (fallbackNodes?.length) {
-            const merged = deduplicateNodes([...sourceNodes, ...fallbackNodes]);
-            sourceNodes = merged.nodes;
-            sourceWarnings.push({
-              code: 'cache-stale',
-              message: `源 ${source.name} 拉取失败，已保留上次缓存节点 ${fallbackNodes.length} 条`,
-              context: source.id
-            });
-          }
-        }
-
-        if (sourceNodes.length) {
-          await this.repository.saveCachedSourceNodes(source.id, sourceNodes);
-        }
-        await this.repository.saveSourceWarnings(source.id, sourceWarnings);
-
-        aggregated.push(...sourceNodes);
-        warnings.push(...sourceWarnings);
-        if (sourceNodes.length !== source.nodeCount) {
+        aggregated.push(...expanded.uniqueNodes);
+        warnings.push(...expanded.warnings);
+        if (expanded.uniqueNodes.length !== source.nodeCount) {
           const updatedSource: SourceRecord = {
             ...source,
-            nodeCount: sourceNodes.length,
+            nodeCount: expanded.uniqueNodes.length,
             updatedAt: new Date().toISOString()
           };
           updatedSources.push(updatedSource);

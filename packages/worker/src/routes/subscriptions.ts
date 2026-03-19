@@ -20,7 +20,6 @@ export function mountSubscriptionsRoutes<TEnv extends object>(
 
   app.get('/api/sources', (c) => controller.listSources(c));
   app.get('/api/sources/:id', (c) => controller.getSource(c));
-  app.get('/api/sources/:id/warnings', (c) => controller.sourceWarnings(c));
   app.post('/api/sources/validate', (c) => controller.validateSource(c));
   app.post('/api/sources', (c) => controller.createSource(c));
   app.put('/api/sources/reorder', (c) => controller.reorderSources(c));
