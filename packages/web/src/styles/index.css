@@ -201,10 +201,11 @@ p {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
   padding-right: 8px;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  align-content: flex-start;
   gap: 8px;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -215,7 +216,7 @@ p {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
 .sidebar-nav-item,
@@ -352,6 +353,31 @@ p {
 }
 
 .sidebar-submenu-link small {
+  font-size: 12px;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--rk-border);
+  padding: 10px 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--rk-text-soft);
+}
+
+.sidebar-repo-link {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.sidebar-repo-link svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-version {
   font-size: 12px;
 }
 
