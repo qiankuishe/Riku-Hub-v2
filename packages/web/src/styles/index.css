@@ -113,7 +113,7 @@ p {
   border-right: 0;
   background: transparent;
   backdrop-filter: none;
-  padding: 18px 0 14px 14px;
+  padding: 18px 8px 14px 14px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
@@ -132,7 +132,7 @@ p {
   max-width: var(--shell-main-max);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 0 8px 8px;
+  padding: 0 8px 8px 16px;
 }
 
 .page-content {
