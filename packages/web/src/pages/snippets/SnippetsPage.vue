@@ -356,6 +356,24 @@ async function togglePin(snippet: SnippetRecord) {
   }
 }
 
+async function toggleLoginMap(snippet: SnippetRecord) {
+  try {
+    // 检查已映射的数量
+    const mappedCount = snippets.value.filter(s => s.isLoginMapped).length;
+    
+    if (!snippet.isLoginMapped && mappedCount >= 9) {
+      uiStore.showToast('最多只能映射9个片段到登录页');
+      return;
+    }
+    
+    const data = await snippetsApi.update(snippet.id, { isLoginMapped: !snippet.isLoginMapped });
+    snippets.value = snippets.value.map((entry) => (entry.id === data.snippet.id ? data.snippet : entry));
+    uiStore.showToast(data.snippet.isLoginMapped ? '已映射到登录页' : '已取消映射');
+  } catch (error) {
+    uiStore.showToast(error instanceof Error ? error.message : '操作失败');
+  }
+}
+
 function openEditDialog(snippet: SnippetRecord) {
   editingSnippet.value = snippet;
   editType.value = snippet.type;
@@ -554,6 +572,9 @@ async function copySnippet(snippet: SnippetRecord) {
             <div class="flex flex-wrap gap-1">
               <ElButton size="small" text @click="togglePin(snippet)">
                 <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
+              </ElButton>
+              <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
               </ElButton>
               <ElButton size="small" text @click="copySnippet(snippet)">
                 <Icon icon="carbon:copy" />

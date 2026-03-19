@@ -85,6 +85,7 @@ export interface SnippetRecord {
   title: string;
   content: string;
   isPinned: boolean;
+  isLoginMapped?: boolean;
   createdAt: string;
   updatedAt: string;
 }

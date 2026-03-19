@@ -18,7 +18,7 @@ export const snippetsApi = {
       method: 'POST',
       body: JSON.stringify(payload)
     }),
-  update: (id: string, payload: { type?: SnippetType; title?: string; content?: string; isPinned?: boolean }) =>
+  update: (id: string, payload: { type?: SnippetType; title?: string; content?: string; isPinned?: boolean; isLoginMapped?: boolean }) =>
     request<{ snippet: SnippetRecord }>(`/api/snippets/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload)
