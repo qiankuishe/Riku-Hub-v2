@@ -242,10 +242,10 @@ function noteExcerpt(content: string) {
               v-for="note in pinnedNotes"
               :key="note.id"
               type="button"
-              class="notes-note-button"
+              class="list-card w-full text-left"
               :class="{
-                'is-active': selectedNoteId === note.id,
-                'is-highlight': highlightedId === note.id
+                'list-card-active': selectedNoteId === note.id,
+                'notes-note-button-highlight': highlightedId === note.id
               }"
               @click="selectedNoteId = note.id"
             >
@@ -263,10 +263,10 @@ function noteExcerpt(content: string) {
               v-for="note in recentNotes"
               :key="note.id"
               type="button"
-              class="notes-note-button"
+              class="list-card w-full text-left"
               :class="{
-                'is-active': selectedNoteId === note.id,
-                'is-highlight': highlightedId === note.id
+                'list-card-active': selectedNoteId === note.id,
+                'notes-note-button-highlight': highlightedId === note.id
               }"
               @click="selectedNoteId = note.id"
             >
@@ -342,28 +342,7 @@ function noteExcerpt(content: string) {
   grid-template-columns: 300px minmax(0, 1fr);
 }
 
-.notes-note-button {
-  text-align: left;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #fff;
-  padding: 10px;
-  display: grid;
-  gap: 4px;
-  transition: border-color 150ms ease, background-color 150ms ease;
-}
-
-.notes-note-button:hover {
-  border-color: rgba(123, 68, 26, 0.35);
-  background: rgba(123, 68, 26, 0.03);
-}
-
-.notes-note-button.is-active {
-  border-color: rgba(123, 68, 26, 0.42);
-  background: rgba(123, 68, 26, 0.08);
-}
-
-.notes-note-button.is-highlight {
+.notes-note-button-highlight {
   box-shadow: 0 0 0 3px rgba(123, 68, 26, 0.15);
 }
 
@@ -381,7 +360,7 @@ function noteExcerpt(content: string) {
   border: 0;
   outline: 0;
   resize: vertical;
-  padding: 14px;
+  padding: 12px;
   font-size: 14px;
   line-height: 1.6;
   color: #111827;
@@ -392,7 +371,7 @@ function noteExcerpt(content: string) {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fff;
-  padding: 14px;
+  padding: 12px;
   overflow: auto;
   color: #1f2937;
   line-height: 1.65;
@@ -402,7 +381,7 @@ function noteExcerpt(content: string) {
 .notes-preview :deep(pre) {
   background: #111827;
   color: #f9fafb;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 12px;
   overflow: auto;
 }

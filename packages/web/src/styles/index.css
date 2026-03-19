@@ -188,7 +188,7 @@ p {
 .sidebar-logo {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: 12px;
   object-fit: contain;
 }
 

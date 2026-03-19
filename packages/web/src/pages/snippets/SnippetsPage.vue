@@ -542,8 +542,8 @@ async function copySnippet(snippet: SnippetRecord) {
         <article
           v-for="snippet in filtered"
           :key="snippet.id"
-          class="snippet-card"
-          :class="[snippetTypeClass(snippet.type), { 'is-highlight': highlightedId === snippet.id }]"
+          class="content-card"
+          :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
           :data-snippet-id="snippet.id"
         >
           <div class="mb-2 flex flex-wrap items-start justify-between gap-3">
@@ -570,7 +570,7 @@ async function copySnippet(snippet: SnippetRecord) {
           <div v-if="snippet.type === 'image'" class="snippet-image-preview">
             <img :src="snippet.content" alt="snippet" />
           </div>
-          <pre v-else-if="snippet.type === 'code'" class="snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
+          <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
           <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
 
           <p v-if="snippet.type === 'code'" class="mt-2 text-xs text-gray-500">代码内容已折叠，可直接复制。</p>
@@ -635,20 +635,7 @@ async function copySnippet(snippet: SnippetRecord) {
   gap: 12px;
 }
 
-.snippet-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #fff;
-  padding: 12px;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.snippet-card:hover {
-  border-color: rgba(123, 68, 26, 0.35);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
-}
-
-.snippet-card.is-highlight {
+.snippet-card-highlight {
   box-shadow: 0 0 0 3px rgba(123, 68, 26, 0.16);
 }
 
@@ -673,28 +660,30 @@ async function copySnippet(snippet: SnippetRecord) {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #fff;
-  padding: 10px;
+  border-radius: 12px;
+  padding: 12px;
   font-size: 13px;
   line-height: 1.6;
 }
 
 .snippet-code-preview {
-  background: #111827;
-  color: #f9fafb;
-  border-color: #1f2937;
+  margin: 0;
+  border: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.snippet-text-preview {
+  border: 1px solid #e5e7eb;
+  background: #fff;
 }
 
 .snippet-image-preview {
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #fff;
   display: flex;
   justify-content: center;
-  padding: 8px;
+  padding: 12px;
 }
 
 .snippet-image-preview img {

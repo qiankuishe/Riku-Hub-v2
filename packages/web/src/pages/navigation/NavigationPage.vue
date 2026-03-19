@@ -1066,7 +1066,7 @@ async function moveCategoryDown(category: NavigationCategory) {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fff;
-  padding: 10px;
+  padding: 12px;
   min-height: 72px;
   overflow: visible;
   transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;

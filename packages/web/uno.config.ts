@@ -48,6 +48,10 @@ export default defineConfig({
     // 卡片
     'card': 'p-6 rounded-xl bg-white border border-gray-200 shadow-sm',
     'card-hover': 'card hover:shadow-md transition-shadow duration-200',
+    'list-card': 'border border-gray-200 rounded-xl bg-white p-3 transition-all duration-150 hover:border-gray-400 hover:bg-gray-50',
+    'list-card-active': 'border-black bg-gray-100',
+    'content-card': 'border border-gray-200 rounded-xl bg-white p-3 transition-all duration-150 hover:border-gray-400 hover:shadow-md',
+    'code-block': 'border border-gray-200 rounded-xl bg-gray-900 text-gray-50 p-3 overflow-auto',
 
     // 输入框
     'input': 'w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none transition-all duration-200',
