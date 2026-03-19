@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useSortable } from '@vueuse/integrations/useSortable';
 import { ElAlert, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElOption, ElRadioButton, ElRadioGroup, ElSelect, ElTag } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { NavigationCategory, NavigationLink, NoteRecord, SnippetRecord } from '../../api';
@@ -68,7 +67,6 @@ const pendingMoveLinks = ref<Array<{ linkId: string; fromCategoryId: string; toC
 const exitEditConfirmVisible = ref(false);
 
 const overviewSectionId = 'nav-overview';
-const categoryListRef = ref<HTMLElement | null>(null);
 
 const searchEngines: Record<SearchEngine, { name: string; url: string }> = {
   google: { name: 'Google', url: 'https://www.google.com/search?q=' },
@@ -85,39 +83,6 @@ const categoryDialogTitle = computed(() => (editingCategory.value ? '编辑分�
 const linkDialogTitle = computed(() => (editingLink.value ? '编辑链接' : '新增链接'));
 const categoryFormValid = computed(() => Boolean(categoryFormName.value.trim()));
 const linkFormValid = computed(() => Boolean(linkForm.value.categoryId && linkForm.value.title.trim() && linkForm.value.url.trim()));
-
-const categorySortable = useSortable(categoryListRef, categories, {
-  animation: 200,
-  handle: '.nav-category-drag-handle',
-  ghostClass: 'nav-category-ghost',
-  chosenClass: 'nav-category-chosen',
-  dragClass: 'nav-category-drag',
-  onEnd: async (event) => {
-    if (event.oldIndex === event.newIndex || event.oldIndex === undefined || event.newIndex === undefined) {
-      return;
-    }
-
-    try {
-      await navigationStore.reorderCategories(categories.value.map((category) => category.id));
-      uiStore.showToast('分类顺序已更新');
-      pageErrorMessage.value = '';
-    } catch (error) {
-      uiStore.showToast(error instanceof Error ? error.message : '排序更新失败');
-      await loadAll();
-    }
-  }
-});
-
-watch(
-  editMode,
-  (value) => {
-    categorySortable.option('disabled', !value);
-    if (!value) {
-      onLinkDragEnd();
-    }
-  },
-  { immediate: true }
-);
 
 watch(
   categories,
@@ -713,6 +678,44 @@ function confirmExitEdit(shouldSave: boolean) {
 function cancelExitEdit() {
   exitEditConfirmVisible.value = false;
 }
+
+async function moveCategoryUp(category: NavigationCategory) {
+  const index = categories.value.indexOf(category);
+  if (index <= 0) {
+    return;
+  }
+
+  const newCategories = [...categories.value];
+  [newCategories[index - 1], newCategories[index]] = [newCategories[index], newCategories[index - 1]];
+
+  try {
+    await navigationStore.reorderCategories(newCategories.map((cat) => cat.id));
+    uiStore.showToast('分类已上移');
+    pageErrorMessage.value = '';
+  } catch (error) {
+    uiStore.showToast(error instanceof Error ? error.message : '移动失败');
+    await loadAll();
+  }
+}
+
+async function moveCategoryDown(category: NavigationCategory) {
+  const index = categories.value.indexOf(category);
+  if (index < 0 || index >= categories.value.length - 1) {
+    return;
+  }
+
+  const newCategories = [...categories.value];
+  [newCategories[index], newCategories[index + 1]] = [newCategories[index + 1], newCategories[index]];
+
+  try {
+    await navigationStore.reorderCategories(newCategories.map((cat) => cat.id));
+    uiStore.showToast('分类已下移');
+    pageErrorMessage.value = '';
+  } catch (error) {
+    uiStore.showToast(error instanceof Error ? error.message : '移动失败');
+    await loadAll();
+  }
+}
 </script>
 
 <template>
@@ -840,14 +843,14 @@ function cancelExitEdit() {
       </div>
     </section>
 
-    <div v-else ref="categoryListRef" class="grid gap-4">
+    <div v-else class="grid gap-4">
       <div
         v-for="category in categories"
         :key="category.id"
         class="rounded-xl transition"
         :class="{
-          'category-drop-zone': editMode && dropCategoryId === category.id && !dropLinkId,
-          'bg-gray-50': editMode && dropCategoryId === category.id && !dropLinkId
+          'category-drop-zone': editMode && dropCategoryId === category.id && !dropLinkId && dragSourceCategoryId !== category.id,
+          'bg-gray-50': editMode && dropCategoryId === category.id && !dropLinkId && dragSourceCategoryId !== category.id
         }"
         @dragover.prevent="editMode && onCategoryDragOver($event, category.id)"
         @drop.prevent="editMode && onCategoryDropZone($event, category.id)"
@@ -859,9 +862,26 @@ function cancelExitEdit() {
               <span class="text-sm font-normal text-gray-500">({{ category.links.length }})</span>
             </h3>
             <div v-if="editMode" class="flex flex-wrap items-center gap-2">
-              <button class="nav-category-drag-handle" type="button" title="拖拽排序分类">
-                <Icon icon="carbon:draggable" />
-              </button>
+              <div class="flex items-center gap-1">
+                <button
+                  class="nav-category-move-btn"
+                  type="button"
+                  title="上移分类"
+                  :disabled="categories.indexOf(category) === 0"
+                  @click="moveCategoryUp(category)"
+                >
+                  <Icon icon="carbon:chevron-up" />
+                </button>
+                <button
+                  class="nav-category-move-btn"
+                  type="button"
+                  title="下移分类"
+                  :disabled="categories.indexOf(category) === categories.length - 1"
+                  @click="moveCategoryDown(category)"
+                >
+                  <Icon icon="carbon:chevron-down" />
+                </button>
+              </div>
               <ElButton size="small" @click="openLinkDialog(undefined, category.id)">新增链接</ElButton>
               <ElButton size="small" @click="openCategoryDialog(category)">编辑分类</ElButton>
               <ElButton size="small" type="danger" @click="deleteCategoryTarget = category">删除分类</ElButton>
@@ -1072,8 +1092,7 @@ function cancelExitEdit() {
   left: 0;
   right: 0;
   height: 4px;
-  background: #000000;
-  border-radius: 2px;
+  border-top: 4px dashed #000000;
   z-index: 10;
 }
 
@@ -1084,37 +1103,32 @@ function cancelExitEdit() {
   left: 0;
   right: 0;
   height: 4px;
-  background: #000000;
-  border-radius: 2px;
+  border-bottom: 4px dashed #000000;
   z-index: 10;
 }
 
-.nav-category-drag-handle {
-  width: 30px;
-  height: 30px;
+.nav-category-move-btn {
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fff;
   color: #111111;
-  cursor: grab;
+  cursor: pointer;
+  transition: all 150ms ease;
 }
 
-.nav-category-drag-handle:active {
-  cursor: grabbing;
+.nav-category-move-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
 }
 
-.nav-category-ghost {
+.nav-category-move-btn:disabled {
   opacity: 0.4;
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.nav-category-drag {
-  opacity: 1;
-  transform: rotate(2deg);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  cursor: not-allowed;
 }
 
 .category-drop-zone {
