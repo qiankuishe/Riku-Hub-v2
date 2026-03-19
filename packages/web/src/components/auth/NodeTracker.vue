@@ -94,7 +94,6 @@ function handleNodeSelect(node: LoginClipboardNode) {
         <button class="point-label" type="button" @click="handleNodeSelect(entry.node)">
           <span class="label-icon">★</span>
           <span>{{ entry.node.nodeLabel }}</span>
-          <span class="speed-badge">[速度{{ entry.node.speedLevel }}]</span>
         </button>
       </div>
     </div>
@@ -180,11 +179,6 @@ function handleNodeSelect(node: LoginClipboardNode) {
 }
 
 .label-icon {
-  font-size: 8px;
-}
-
-.speed-badge {
-  color: #6b7280;
   font-size: 8px;
 }
 

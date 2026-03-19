@@ -473,4 +473,10 @@ onUnmounted(() => {
     transform: translateY(-50%);
   }
 }
+
+@media (max-width: 1024px) and (orientation: portrait), (max-width: 768px) {
+  .hero-copy {
+    display: none !important;
+  }
+}
 </style>
