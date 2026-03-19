@@ -64,6 +64,7 @@ export interface TrojanNode extends ProxyNodeBase {
   skipCertVerify?: boolean;
   network?: NetworkType;
   wsPath?: string;
+  wsHeaders?: Record<string, string>;
   grpcServiceName?: string;
 }
 

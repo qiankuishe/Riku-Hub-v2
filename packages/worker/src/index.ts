@@ -227,6 +227,7 @@ const D1_SCHEMA_STATEMENTS = [
 ] as const;
 
 let d1SchemaReady: Promise<void> | null = null;
+let aggregateRefreshInFlight = false;
 
 app.onError((error, c) => {
   return c.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, 500);
@@ -474,6 +475,17 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
   | { ok: true; payload: CachedNodesPayload; sources: SourceRecord[] }
   | { ok: false; error: string }
 > {
+  if (!force && aggregateRefreshInFlight) {
+    const cached = await getCachedNodes(env);
+    if (cached) {
+      const sources = await getAllSources(env);
+      return { ok: true, payload: cached, sources };
+    }
+    return { ok: false, error: '刷新正在进行中' };
+  }
+
+  aggregateRefreshInFlight = true;
+
   // 尝试获取锁，避免并发刷新
   const lockKey = APP_KEYS.refreshLock;
   const lockValue = `${randomToken(8)}-${Date.now()}`;
@@ -506,6 +518,15 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
   
   // 获取锁（即使有竞争，也只是重复刷新，不会破坏数据）
   await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtl });
+  const confirmedLock = await env.CACHE_KV.get(lockKey);
+  if (!force && confirmedLock !== lockValue) {
+    const cached = await getCachedNodes(env);
+    if (cached) {
+      const sources = await getAllSources(env);
+      return { ok: true, payload: cached, sources };
+    }
+    return { ok: false, error: '刷新正在进行中' };
+  }
   
   try {
     const sources = await getAllSources(env);
@@ -595,6 +616,7 @@ async function refreshAggregateCache(env: Env, force: boolean): Promise<
     }
     return { ok: false, error: `刷新聚合缓存失败: ${String(error)}` };
   } finally {
+    aggregateRefreshInFlight = false;
     // 释放锁
     const currentLock = await env.CACHE_KV.get(lockKey);
     if (currentLock === lockValue) {

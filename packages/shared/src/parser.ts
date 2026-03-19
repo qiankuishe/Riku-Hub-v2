@@ -233,6 +233,7 @@ function parseVmessUri(uri: string): VmessNode {
 function parseVlessUri(uri: string): VlessNode {
   const url = new URL(uri);
   const params = url.searchParams;
+  const hostHeader = params.get('host') || params.get('Host');
   return {
     type: 'vless',
     name: decodeURIComponent(url.hash.slice(1)) || `VLESS-${url.hostname}`,
@@ -242,9 +243,11 @@ function parseVlessUri(uri: string): VlessNode {
     flow: params.get('flow') || undefined,
     tls: params.get('security') === 'tls' || params.get('security') === 'reality',
     sni: params.get('sni') || undefined,
-    skipCertVerify: params.get('allowInsecure') === '1',
+    skipCertVerify:
+      params.get('allowInsecure') === '1' || params.get('allow_insecure') === '1' || params.get('insecure') === '1',
     network: (params.get('type') as VlessNode['network']) || 'tcp',
     wsPath: params.get('path') || undefined,
+    wsHeaders: hostHeader ? { Host: hostHeader } : undefined,
     grpcServiceName: params.get('serviceName') || undefined,
     realityOpts:
       params.get('security') === 'reality'
@@ -261,58 +264,52 @@ function parseShadowsocksUri(uri: string): ShadowsocksNode | null {
     const hashIndex = uri.indexOf('#');
     const name = hashIndex > -1 ? decodeURIComponent(uri.slice(hashIndex + 1)) : '';
     const mainPart = hashIndex > -1 ? uri.slice(5, hashIndex) : uri.slice(5);
+    const extracted = extractShadowsocksPlugin(mainPart);
+    const payload = extracted.payload;
 
-    // 处理 SIP002 格式：ss://base64(method:password)@server:port
-    if (mainPart.includes('@')) {
-      const atIndex = mainPart.lastIndexOf('@');
-      const encoded = mainPart.slice(0, atIndex);
-      const serverPart = mainPart.slice(atIndex + 1);
-
-      const decoded = decodeBase64Loose(encoded);
-      const colonIndex = decoded.indexOf(':');
-      if (colonIndex === -1) {
-        return null;
-      }
-
-      const cipher = decoded.slice(0, colonIndex);
-      const password = decoded.slice(colonIndex + 1);
-      const parsedServer = parseServerEndpoint(serverPart);
-      if (!parsedServer) {
+    // SIP002: ss://base64(method:password)@host:port
+    if (payload.includes('@')) {
+      const atIndex = payload.lastIndexOf('@');
+      const credentialPart = payload.slice(0, atIndex);
+      const endpointPart = payload.slice(atIndex + 1);
+      const credentials = parseShadowsocksCredentials(credentialPart);
+      const endpoint = parseServerEndpoint(endpointPart);
+      if (!credentials || !endpoint) {
         return null;
       }
 
       return {
         type: 'ss',
-        name: name || `SS-${parsedServer.server}`,
-        server: parsedServer.server,
-        port: parsedServer.port,
-        cipher,
-        password
+        name: name || `SS-${endpoint.server}`,
+        server: endpoint.server,
+        port: endpoint.port,
+        cipher: credentials.cipher,
+        password: credentials.password,
+        plugin: extracted.plugin
       };
     }
 
-    // 处理旧格式：ss://base64(method:password@server:port)
-    const decoded = decodeBase64Loose(mainPart);
-    const colonIndex = decoded.indexOf(':');
-    const atIndex = decoded.lastIndexOf('@');
-    if (colonIndex === -1 || atIndex <= colonIndex) {
+    // Legacy: ss://base64(method:password@host:port)
+    const decoded = decodeBase64Loose(payload);
+    const credentialAndEndpoint = decoded.trim();
+    const atIndex = credentialAndEndpoint.lastIndexOf('@');
+    if (atIndex === -1) {
       return null;
     }
-
-    const cipher = decoded.slice(0, colonIndex);
-    const password = decoded.slice(colonIndex + 1, atIndex);
-    const parsedServer = parseServerEndpoint(decoded.slice(atIndex + 1));
-    if (!parsedServer) {
+    const credentials = parseShadowsocksCredentials(credentialAndEndpoint.slice(0, atIndex), true);
+    const endpoint = parseServerEndpoint(credentialAndEndpoint.slice(atIndex + 1));
+    if (!credentials || !endpoint) {
       return null;
     }
 
     return {
       type: 'ss',
-      name: name || `SS-${parsedServer.server}`,
-      server: parsedServer.server,
-      port: parsedServer.port,
-      cipher,
-      password
+      name: name || `SS-${endpoint.server}`,
+      server: endpoint.server,
+      port: endpoint.port,
+      cipher: credentials.cipher,
+      password: credentials.password,
+      plugin: extracted.plugin
     };
   } catch {
     return null;
@@ -322,6 +319,7 @@ function parseShadowsocksUri(uri: string): ShadowsocksNode | null {
 function parseTrojanUri(uri: string): TrojanNode {
   const url = new URL(uri);
   const params = url.searchParams;
+  const hostHeader = params.get('host') || params.get('Host');
   return {
     type: 'trojan',
     name: decodeURIComponent(url.hash.slice(1)) || `Trojan-${url.hostname}`,
@@ -329,9 +327,11 @@ function parseTrojanUri(uri: string): TrojanNode {
     port: Number.parseInt(url.port, 10),
     password: decodeURIComponent(url.username),
     sni: params.get('sni') || url.hostname,
-    skipCertVerify: params.get('allowInsecure') === '1',
+    skipCertVerify:
+      params.get('allowInsecure') === '1' || params.get('allow_insecure') === '1' || params.get('insecure') === '1',
     network: (params.get('type') as TrojanNode['network']) || 'tcp',
     wsPath: params.get('path') || undefined,
+    wsHeaders: hostHeader ? { Host: hostHeader } : undefined,
     grpcServiceName: params.get('serviceName') || undefined
   };
 }
@@ -349,7 +349,7 @@ function parseHysteria2Uri(uri: string): Hysteria2Node {
     obfs: params.get('obfs') || undefined,
     obfsPassword: params.get('obfs-password') || undefined,
     sni: params.get('sni') || url.hostname,
-    skipCertVerify: params.get('insecure') === '1'
+    skipCertVerify: params.get('insecure') === '1' || params.get('allowInsecure') === '1'
   };
 }
 
@@ -366,7 +366,8 @@ function parseTuicUri(uri: string): TuicNode {
     congestionControl: params.get('congestion_control') || 'bbr',
     alpn: params.get('alpn')?.split(',') || ['h3'],
     sni: params.get('sni') || url.hostname,
-    skipCertVerify: params.get('allow_insecure') === '1',
+    skipCertVerify:
+      params.get('allow_insecure') === '1' || params.get('allowInsecure') === '1' || params.get('insecure') === '1',
     udpRelayMode: params.get('udp_relay_mode') || undefined
   };
 }
@@ -440,6 +441,102 @@ function parseServerEndpoint(input: string): { server: string; port: number } | 
   return { server, port };
 }
 
+function parseShadowsocksCredentials(
+  input: string,
+  treatAsPlain = false
+): { cipher: string; password: string } | null {
+  const raw = treatAsPlain ? input : decodeShadowsocksCredentialInput(input);
+  const colonIndex = raw.indexOf(':');
+  if (colonIndex <= 0) {
+    return null;
+  }
+  return {
+    cipher: raw.slice(0, colonIndex),
+    password: raw.slice(colonIndex + 1)
+  };
+}
+
+function decodeShadowsocksCredentialInput(input: string): string {
+  const decodedCandidate = safeDecodeURIComponent(input);
+  if (decodedCandidate.includes(':')) {
+    return decodedCandidate;
+  }
+  return decodeBase64Loose(input);
+}
+
+function extractShadowsocksPlugin(input: string): { payload: string; plugin?: string } {
+  let payload = input.trim();
+  let plugin: string | undefined;
+
+  const legacyPluginPrefix = '/plugin=';
+  const legacyPluginIndex = payload.indexOf(legacyPluginPrefix);
+  if (legacyPluginIndex !== -1) {
+    plugin = normalizeShadowsocksPlugin(payload.slice(legacyPluginIndex + 1));
+    payload = payload.slice(0, legacyPluginIndex);
+  }
+
+  const queryIndex = payload.indexOf('?');
+  if (queryIndex !== -1) {
+    const query = payload.slice(queryIndex + 1);
+    payload = payload.slice(0, queryIndex);
+    const params = new URLSearchParams(query);
+    const queryPlugin = params.get('plugin');
+    if (queryPlugin) {
+      plugin = normalizeShadowsocksPlugin(queryPlugin);
+    }
+  }
+
+  return { payload: payload.replace(/\/+$/, ''), plugin };
+}
+
+function normalizeShadowsocksPlugin(input: string): string {
+  const trimmed = input.trim();
+  const decoded = safeDecodeURIComponent(trimmed);
+  return decoded.startsWith('plugin=') ? decoded.slice('plugin='.length) : decoded;
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function buildShadowsocksPlugin(plugin: unknown, pluginOptions?: unknown): string | undefined {
+  if (typeof plugin !== 'string' || !plugin.trim()) {
+    return undefined;
+  }
+  const name = plugin.trim();
+  const serializedOptions = serializePluginOptions(pluginOptions);
+  return serializedOptions ? `${name};${serializedOptions}` : name;
+}
+
+function serializePluginOptions(options: unknown): string {
+  if (!options) {
+    return '';
+  }
+  if (typeof options === 'string') {
+    return options.trim().replace(/^[?&]/, '');
+  }
+  if (typeof options !== 'object' || Array.isArray(options)) {
+    return '';
+  }
+  return Object.entries(options as Record<string, unknown>)
+    .map(([key, value]) => `${key}=${serializePluginOptionValue(value)}`)
+    .join(';');
+}
+
+function serializePluginOptionValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item)).join(',');
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  return String(value ?? '');
+}
+
 function extractInlineTokens(line: string): string[] {
   const matches = line.match(MIXED_TOKEN_PATTERN) ?? [];
   return matches.map(sanitizeExtractedToken).filter(Boolean);
@@ -498,15 +595,21 @@ function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {
               }
             : undefined
       };
-    case 'ss':
+    case 'ss': {
+      const clashSsPlugin = buildShadowsocksPlugin(
+        proxy.plugin,
+        (proxy['plugin-opts'] as Record<string, unknown> | string | undefined) ?? proxy.plugin_opts
+      );
       return {
         type: 'ss',
         name: String(proxy.name ?? 'SS'),
         server: String(proxy.server ?? ''),
         port: Number(proxy.port ?? 0),
         cipher: String(proxy.cipher ?? 'aes-256-gcm'),
-        password: String(proxy.password ?? '')
+        password: String(proxy.password ?? ''),
+        plugin: clashSsPlugin
       };
+    }
     case 'trojan':
       return {
         type: 'trojan',
@@ -518,6 +621,7 @@ function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {
         skipCertVerify: Boolean(proxy['skip-cert-verify']),
         network: (proxy.network as TrojanNode['network']) ?? 'tcp',
         wsPath: (proxy['ws-opts'] as Record<string, unknown> | undefined)?.path as string | undefined,
+        wsHeaders: (proxy['ws-opts'] as Record<string, unknown> | undefined)?.headers as Record<string, string> | undefined,
         grpcServiceName: (proxy['grpc-opts'] as Record<string, unknown> | undefined)?.['grpc-service-name'] as string | undefined
       };
     case 'hysteria2':
@@ -624,15 +728,18 @@ function convertSingboxOutbound(outbound: SingboxOutbound): NormalizedNode | nul
               }
             : undefined
       };
-    case 'shadowsocks':
+    case 'shadowsocks': {
+      const singboxSsPlugin = buildShadowsocksPlugin(outbound.plugin, outbound.plugin_opts);
       return {
         type: 'ss',
         name: String(outbound.tag ?? 'SS'),
         server: String(outbound.server ?? ''),
         port: Number(outbound.server_port ?? 0),
         cipher: String(outbound.method ?? 'aes-256-gcm'),
-        password: String(outbound.password ?? '')
+        password: String(outbound.password ?? ''),
+        plugin: singboxSsPlugin
       };
+    }
     case 'trojan':
       return {
         type: 'trojan',
@@ -644,6 +751,7 @@ function convertSingboxOutbound(outbound: SingboxOutbound): NormalizedNode | nul
         skipCertVerify: Boolean((outbound.tls as Record<string, unknown> | undefined)?.insecure),
         network: (outbound.transport as Record<string, unknown> | undefined)?.type as TrojanNode['network'] | undefined,
         wsPath: (outbound.transport as Record<string, unknown> | undefined)?.path as string | undefined,
+        wsHeaders: (outbound.transport as Record<string, unknown> | undefined)?.headers as Record<string, string> | undefined,
         grpcServiceName: (outbound.transport as Record<string, unknown> | undefined)?.service_name as string | undefined
       };
     case 'hysteria2':

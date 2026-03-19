@@ -164,6 +164,7 @@ function serializeNodeUri(node: NormalizedNode, warnings: AggregateWarning[]): s
       if (node.sni) params.set('sni', node.sni);
       if (node.flow) params.set('flow', node.flow);
       if (node.wsPath) params.set('path', node.wsPath);
+      if (node.wsHeaders?.Host) params.set('host', node.wsHeaders.Host);
       if (node.grpcServiceName) params.set('serviceName', node.grpcServiceName);
       if (node.realityOpts) {
         params.set('pbk', node.realityOpts.publicKey);
@@ -171,13 +172,20 @@ function serializeNodeUri(node: NormalizedNode, warnings: AggregateWarning[]): s
       }
       return `vless://${node.uuid}@${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
     }
-    case 'ss':
-      return `ss://${encodeBase64Utf8(`${node.cipher}:${node.password}`)}@${node.server}:${node.port}#${encodeURIComponent(node.name)}`;
+    case 'ss': {
+      const params = new URLSearchParams();
+      if (node.plugin) {
+        params.set('plugin', node.plugin);
+      }
+      const query = params.toString();
+      return `ss://${encodeBase64Utf8(`${node.cipher}:${node.password}`)}@${node.server}:${node.port}${query ? `?${query}` : ''}#${encodeURIComponent(node.name)}`;
+    }
     case 'trojan': {
       const params = new URLSearchParams();
       if (node.sni) params.set('sni', node.sni);
       if (node.network && node.network !== 'tcp') params.set('type', node.network);
       if (node.wsPath) params.set('path', node.wsPath);
+      if (node.wsHeaders?.Host) params.set('host', node.wsHeaders.Host);
       if (node.grpcServiceName) params.set('serviceName', node.grpcServiceName);
       const query = params.toString();
       return `trojan://${encodeURIComponent(node.password)}@${node.server}:${node.port}${query ? `?${query}` : ''}#${encodeURIComponent(node.name)}`;
@@ -214,6 +222,64 @@ function encodeBase64Utf8(input: string): string {
     binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
   return btoa(binary);
+}
+
+function convertShadowsocksPluginToClash(plugin?: string): Record<string, unknown> {
+  const parsed = parseShadowsocksPlugin(plugin);
+  if (!parsed) {
+    return {};
+  }
+  return {
+    plugin: parsed.name,
+    ...(parsed.options && { 'plugin-opts': parsed.options })
+  };
+}
+
+function convertShadowsocksPluginToSingbox(plugin?: string): Record<string, unknown> {
+  const parsed = parseShadowsocksPlugin(plugin);
+  if (!parsed) {
+    return {};
+  }
+  return {
+    plugin: parsed.name,
+    ...(parsed.options && { plugin_opts: stringifyShadowsocksPluginOptions(parsed.options) })
+  };
+}
+
+function parseShadowsocksPlugin(plugin?: string): { name: string; options?: Record<string, string> } | null {
+  if (!plugin?.trim()) {
+    return null;
+  }
+  const [namePart, ...optionParts] = plugin.split(';').map((part) => part.trim()).filter(Boolean);
+  if (!namePart) {
+    return null;
+  }
+  if (!optionParts.length) {
+    return { name: namePart };
+  }
+
+  const options: Record<string, string> = {};
+  for (const option of optionParts) {
+    const equalIndex = option.indexOf('=');
+    if (equalIndex === -1) {
+      options[option] = 'true';
+      continue;
+    }
+    const key = option.slice(0, equalIndex).trim();
+    const value = option.slice(equalIndex + 1).trim();
+    if (!key) {
+      continue;
+    }
+    options[key] = value;
+  }
+
+  return Object.keys(options).length ? { name: namePart, options } : { name: namePart };
+}
+
+function stringifyShadowsocksPluginOptions(options: Record<string, string>): string {
+  return Object.entries(options)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(';');
 }
 
 function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | null {
@@ -256,7 +322,15 @@ function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | nu
         })
       };
     case 'ss':
-      return { name: node.name, type: 'ss', server: node.server, port: node.port, cipher: node.cipher, password: node.password };
+      return {
+        name: node.name,
+        type: 'ss',
+        server: node.server,
+        port: node.port,
+        cipher: node.cipher,
+        password: node.password,
+        ...convertShadowsocksPluginToClash(node.plugin)
+      };
     case 'trojan':
       return {
         name: node.name,
@@ -267,7 +341,7 @@ function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | nu
         ...(node.sni && { sni: node.sni }),
         'skip-cert-verify': Boolean(node.skipCertVerify),
         ...(node.network && { network: node.network }),
-        ...(node.wsPath && { 'ws-opts': { path: node.wsPath } }),
+        ...((node.wsPath || node.wsHeaders) && { 'ws-opts': { ...(node.wsPath && { path: node.wsPath }), ...(node.wsHeaders && { headers: node.wsHeaders }) } }),
         ...(node.grpcServiceName && { 'grpc-opts': { 'grpc-service-name': node.grpcServiceName } })
       };
     case 'hysteria2':
@@ -361,7 +435,8 @@ function convertToSingboxOutbound(node: NormalizedNode): Record<string, unknown>
         server: node.server,
         server_port: node.port,
         method: node.cipher,
-        password: node.password
+        password: node.password,
+        ...convertShadowsocksPluginToSingbox(node.plugin)
       };
     case 'trojan':
       return {
@@ -372,7 +447,7 @@ function convertToSingboxOutbound(node: NormalizedNode): Record<string, unknown>
         password: node.password,
         tls: { enabled: true, server_name: node.sni, insecure: node.skipCertVerify },
         ...(node.network && node.network !== 'tcp' && {
-          transport: { type: node.network, path: node.wsPath, service_name: node.grpcServiceName }
+          transport: { type: node.network, path: node.wsPath, headers: node.wsHeaders, service_name: node.grpcServiceName }
         })
       };
     case 'hysteria2':

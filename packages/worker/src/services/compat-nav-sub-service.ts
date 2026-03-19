@@ -24,6 +24,8 @@ import type { CompatNavigationCategoryRecord, CompatNavigationLinkRecord } from 
 const MAX_REDIRECTS = 3;
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_SUBSCRIPTION_BYTES = 5 * 1024 * 1024;
+const MAX_SUBSCRIPTION_EXPANSION_DEPTH = 2;
+let compatAggregateRefreshInFlight = false;
 
 export class CompatNavSubHttpError extends Error {
   constructor(
@@ -431,29 +433,15 @@ export class CompatNavSubService {
   }
 
   private async validateContent(content: string): Promise<ValidationSummary> {
-    const { urls, nodes: directNodes, warnings: inputWarnings } = parseMixedInput(content);
-    const resolvedNodes = [...directNodes];
-    const warnings = [...inputWarnings];
-
-    for (const rawUrl of urls) {
-      try {
-        const fetched = await fetchSubscription(this.repository, rawUrl);
-        const parsed = parseContent(fetched.text, detectInputFormat(fetched.text));
-        resolvedNodes.push(...parsed.nodes);
-        warnings.push(...parsed.warnings);
-      } catch (error) {
-        warnings.push({ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl });
-      }
-    }
-
-    const { nodes, duplicateCount } = deduplicateNodes(resolvedNodes);
+    const resolved = await resolveNodesFromInput(this.repository, content);
+    const { nodes, duplicateCount } = deduplicateNodes(resolved.nodes);
     return {
-      valid: urls.length > 0 || directNodes.length > 0,
-      urlCount: urls.length,
+      valid: resolved.urlCount > 0 || resolved.nodes.length > 0,
+      urlCount: resolved.urlCount,
       nodeCount: nodes.length,
-      totalCount: resolvedNodes.length,
+      totalCount: resolved.nodes.length,
       duplicateCount,
-      warnings
+      warnings: resolved.warnings
     };
   }
 
@@ -461,6 +449,17 @@ export class CompatNavSubService {
     | { ok: true; payload: CachedNodesPayload; sources: SourceRecord[] }
     | { ok: false; error: string }
   > {
+    if (!force && compatAggregateRefreshInFlight) {
+      const cached = await this.repository.getCachedNodes();
+      if (cached) {
+        const sources = await this.repository.getAllSources();
+        return { ok: true, payload: cached, sources };
+      }
+      return { ok: false, error: '刷新正在进行中' };
+    }
+
+    compatAggregateRefreshInFlight = true;
+
     const sources = await this.repository.getAllSources();
     const enabledSources = sources.filter((source) => source.enabled);
     if (enabledSources.length === 0) {
@@ -471,6 +470,7 @@ export class CompatNavSubService {
         lastRefreshTime: '',
         lastRefreshError: '没有启用的订阅源'
       });
+      compatAggregateRefreshInFlight = false;
       return { ok: false, error: '没有启用的订阅源' };
     }
 
@@ -541,6 +541,8 @@ export class CompatNavSubService {
         return { ok: true, payload: oldCache, sources };
       }
       return { ok: false, error: `刷新聚合缓存失败: ${String(error)}` };
+    } finally {
+      compatAggregateRefreshInFlight = false;
     }
   }
 }
@@ -654,23 +656,77 @@ async function expandSourceContent(
   uniqueNodes: NormalizedNode[];
   warnings: AggregateWarning[];
 }> {
-  const { urls, nodes: directNodes, warnings } = parseMixedInput(content);
-  const expandedNodes = [...directNodes];
-  const extraWarnings = [...warnings];
+  const resolved = await resolveNodesFromInput(repository, content);
+  const deduped = deduplicateNodes(resolved.nodes);
+  return { uniqueNodes: deduped.nodes, warnings: resolved.warnings };
+}
 
-  for (const rawUrl of urls) {
-    try {
-      const fetched = await fetchSubscription(repository, rawUrl);
-      const parsed = parseContent(fetched.text);
-      expandedNodes.push(...parsed.nodes);
-      extraWarnings.push(...parsed.warnings);
-    } catch (error) {
-      extraWarnings.push({ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl });
-    }
+async function resolveNodesFromInput(
+  repository: CompatNavSubRepository,
+  content: string,
+  depth = 0,
+  visitedUrls?: Set<string>
+): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return { nodes: [], warnings: [], urlCount: 0 };
   }
 
-  const deduped = deduplicateNodes(expandedNodes);
-  return { uniqueNodes: deduped.nodes, warnings: extraWarnings };
+  const mixed = parseMixedInput(trimmed);
+  if (mixed.urls.length === 0 && mixed.nodes.length === 0) {
+    const format = detectInputFormat(trimmed);
+    const parsed = parseContent(trimmed, format);
+    return { nodes: parsed.nodes, warnings: parsed.warnings, urlCount: 0 };
+  }
+
+  const nodes = [...mixed.nodes];
+  const warnings = [...mixed.warnings];
+  let urlCount = mixed.urls.length;
+  const seen = visitedUrls ?? new Set<string>();
+
+  if (depth >= MAX_SUBSCRIPTION_EXPANSION_DEPTH) {
+    for (const rawUrl of mixed.urls) {
+      warnings.push({
+        code: 'fetch-failed',
+        message: `订阅嵌套层级超过限制（${MAX_SUBSCRIPTION_EXPANSION_DEPTH}）`,
+        context: rawUrl
+      });
+    }
+    return { nodes, warnings, urlCount };
+  }
+
+  const results = await Promise.all(
+    mixed.urls.map(
+      async (
+        rawUrl
+      ): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> => {
+        const normalizedUrl = fixUrl(rawUrl);
+        if (seen.has(normalizedUrl)) {
+          return { nodes: [], warnings: [], urlCount: 0 };
+        }
+
+        seen.add(normalizedUrl);
+        try {
+          const fetched = await fetchSubscription(repository, normalizedUrl);
+          return await resolveNodesFromInput(repository, fetched.text, depth + 1, seen);
+        } catch (error) {
+          return {
+            nodes: [],
+            warnings: [{ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl }],
+            urlCount: 0
+          };
+        }
+      }
+    )
+  );
+
+  for (const result of results) {
+    nodes.push(...result.nodes);
+    warnings.push(...result.warnings);
+    urlCount += result.urlCount;
+  }
+
+  return { nodes, warnings, urlCount };
 }
 
 async function assertSafeUrl(repository: CompatNavSubRepository, url: URL): Promise<void> {

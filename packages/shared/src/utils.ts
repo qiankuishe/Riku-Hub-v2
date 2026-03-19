@@ -102,7 +102,7 @@ export function getNodeIdentity(node: NormalizedNode): string {
     case 'ss':
       return `ss:${node.server}:${node.port}:${node.cipher}:${node.password}:${node.plugin ?? ''}`;
     case 'trojan':
-      return `trojan:${node.server}:${node.port}:${node.password}:${node.sni ?? ''}:${node.network ?? 'tcp'}:${node.wsPath ?? ''}:${node.grpcServiceName ?? ''}`;
+      return `trojan:${node.server}:${node.port}:${node.password}:${node.sni ?? ''}:${node.skipCertVerify ? '1' : '0'}:${node.network ?? 'tcp'}:${node.wsPath ?? ''}:${node.wsHeaders?.Host ?? ''}:${node.grpcServiceName ?? ''}`;
     case 'hysteria2':
       return `hy2:${node.server}:${node.port}:${node.password}:${node.sni ?? ''}:${node.obfs ?? ''}:${node.obfsPassword ?? ''}`;
     case 'tuic':

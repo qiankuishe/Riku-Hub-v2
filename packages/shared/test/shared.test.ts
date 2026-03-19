@@ -223,4 +223,41 @@ proxies:
       port: 443
     });
   });
+
+  it('keeps vless ws host header during parse and render', () => {
+    const parsed = parseContent(
+      'vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none&security=tls&type=ws&host=cdn.example.com&path=%2F#ws-host'
+    );
+    expect(parsed.nodes).toHaveLength(1);
+    expect(parsed.nodes[0]).toMatchObject({
+      type: 'vless',
+      wsHeaders: { Host: 'cdn.example.com' }
+    });
+
+    const rendered = renderFormat(parsed.nodes, 'base64');
+    const roundTrip = parseContent(rendered.content, 'base64');
+    expect(roundTrip.nodes[0]).toMatchObject({
+      type: 'vless',
+      wsHeaders: { Host: 'cdn.example.com' }
+    });
+  });
+
+  it('parses and renders shadowsocks plugin nodes', () => {
+    const parsed = parseContent(
+      'ss://bm9uZTo3YmQxODBlOC0xMTQyLTQzODctOTNmNS0wM2U4ZDc1MGE4OTZANS4xNjEuOTAuMTE6ODA/plugin=v2ray-plugin;mode=websocket;host=5.161.90.11;path=/7bd180e8;sni=5.161.90.11#ss-plugin'
+    );
+
+    expect(parsed.nodes).toHaveLength(1);
+    expect(parsed.nodes[0]).toMatchObject({
+      type: 'ss',
+      plugin: 'v2ray-plugin;mode=websocket;host=5.161.90.11;path=/7bd180e8;sni=5.161.90.11'
+    });
+
+    const rendered = renderFormat(parsed.nodes, 'base64');
+    const roundTrip = parseContent(rendered.content, 'base64');
+    expect(roundTrip.nodes[0]).toMatchObject({
+      type: 'ss',
+      plugin: 'v2ray-plugin;mode=websocket;host=5.161.90.11;path=/7bd180e8;sni=5.161.90.11'
+    });
+  });
 });

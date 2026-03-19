@@ -501,6 +501,96 @@ describe('worker behaviors', () => {
     expect(clipAfterDeleteData.data.items).toHaveLength(0);
   });
 
+  it('compat source validation supports full clash content blocks', async () => {
+    env.COMPAT_ALLOW_REGISTER = 'true';
+    const { cookie } = await register(env);
+
+    const createResponse = await app.request(
+      'https://example.com/api/sub/sources',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          name: 'compat-clash',
+          content: `mixed-port: 7890
+proxies:
+  - name: ClashNode
+    type: vmess
+    server: example.com
+    port: 443
+    uuid: 11111111-1111-1111-1111-111111111111
+    alterId: 0
+    cipher: auto`
+        })
+      },
+      env
+    );
+    const createData = (await createResponse.json()) as { success: boolean; data: { article_count: number } };
+
+    expect(createResponse.status).toBe(200);
+    expect(createData.success).toBe(true);
+    expect(createData.data.article_count).toBe(1);
+  });
+
+  it('compat fetch expands mixed source entries (direct nodes + subscription urls)', async () => {
+    env.COMPAT_ALLOW_REGISTER = 'true';
+    const { cookie } = await register(env);
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === 'https://8.8.8.8/sub') {
+        return new Response('trojan://pass@example.org:443?security=tls&sni=example.org#remote', { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const createResponse = await app.request(
+      'https://example.com/api/sub/sources',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          name: 'compat-mixed',
+          content: 'vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none&security=none#direct\nhttps://8.8.8.8/sub'
+        })
+      },
+      env
+    );
+    expect(createResponse.status).toBe(200);
+
+    const fetchResponse = await app.request(
+      'https://example.com/api/sub/fetch',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({})
+      },
+      env
+    );
+    expect(fetchResponse.status).toBe(200);
+
+    const infoResponse = await app.request(
+      'https://example.com/api/sub/info',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const infoData = (await infoResponse.json()) as { totalNodes: number };
+
+    expect(infoResponse.status).toBe(200);
+    expect(infoData.totalNodes).toBe(2);
+  });
+
   it('blocks compat register by default', async () => {
     const response = await app.request(
       'https://example.com/api/auth/register',
