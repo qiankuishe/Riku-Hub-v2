@@ -761,7 +761,7 @@ async function moveCategoryDown(category: NavigationCategory) {
 
       <div class="mb-3 grid gap-3">
         <ElRadioGroup v-model="searchEngine" size="small" class="w-fit">
-          <ElRadioButton v-for="engine in searchEngineKeys" :key="engine" :label="engine">
+          <ElRadioButton v-for="engine in searchEngineKeys" :key="engine" :value="engine">
             {{ searchEngines[engine].name }}
           </ElRadioButton>
         </ElRadioGroup>

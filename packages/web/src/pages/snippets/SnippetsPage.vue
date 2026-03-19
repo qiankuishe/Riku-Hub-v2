@@ -542,8 +542,8 @@ async function copySnippet(snippet: SnippetRecord) {
         <div class="flex flex-wrap items-center gap-2">
           <ElTag size="small">{{ filtered.length }} 条</ElTag>
           <ElRadioGroup v-model="filterType" size="small">
-            <ElRadioButton label="all">全部</ElRadioButton>
-            <ElRadioButton v-for="option in typeOptions" :key="option.key" :label="option.key">
+            <ElRadioButton value="all">全部</ElRadioButton>
+            <ElRadioButton v-for="option in typeOptions" :key="option.key" :value="option.key">
               {{ option.label }}
             </ElRadioButton>
           </ElRadioGroup>
