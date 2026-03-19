@@ -3,6 +3,9 @@ main = "packages/worker/src/index.ts"
 compatibility_date = "2025-03-01"
 workers_dev = true
 
+[build]
+command = "corepack pnpm build:web"
+
 [assets]
 directory = "./packages/web/dist"
 binding = "ASSETS"

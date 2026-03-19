@@ -8,7 +8,17 @@ import { mountNotesRoutes } from './routes/notes';
 import { mountSettingsRoutes } from './routes/settings';
 import { mountSnippetsRoutes } from './routes/snippets';
 import { mountSubscriptionsRoutes } from './routes/subscriptions';
-import { filterClipboardItems, normalizeClipboardType, parseJsonTags } from './utils/clipboard';
+import { filterClipboardItems, normalizeClipboardType } from './utils/clipboard';
+import {
+  mapClipboardItemRow,
+  mapLogRow,
+  mapNavigationCategoryRow,
+  mapNavigationLinkRow,
+  mapNoteRow,
+  mapSnippetRow,
+  mapSourceRow
+} from './utils/db-mappers';
+import { isSafeNavigationUrl, normalizeNavigationUrl } from './utils/navigation';
 import {
   getAggregateTtlSeconds,
   getAppMetaValue,
@@ -20,6 +30,15 @@ import {
 } from './utils/runtime';
 import { getByteLength, getDefaultSnippetTitle, isSnippetType } from './utils/snippets';
 import type { ClipboardItemRecord, ClipboardItemType } from './types/clipboard';
+import type {
+  ClipboardItemRow,
+  LogRow,
+  NavigationCategoryRow,
+  NavigationLinkRow,
+  NoteRow,
+  SnippetRow,
+  SourceRow
+} from './types/db-rows';
 import type { NavigationCategoryPayload, NavigationCategoryRecord, NavigationLinkRecord } from './types/navigation';
 import type { NoteRecord } from './types/notes';
 import type { SettingsBackupPayload, SettingsDangerScope, SettingsExportStats } from './types/settings';
@@ -58,73 +77,6 @@ export interface Env {
 }
 
 type Bindings = { Bindings: Env };
-
-interface NavigationCategoryRow {
-  id: string;
-  name: string;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface NavigationLinkRow {
-  id: string;
-  category_id: string;
-  title: string;
-  url: string;
-  description: string;
-  sort_order: number;
-  visit_count: number;
-  last_visited_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface NoteRow {
-  id: string;
-  title: string;
-  content: string;
-  is_pinned: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface SnippetRow {
-  id: string;
-  type: SnippetType;
-  title: string;
-  content: string;
-  is_pinned: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ClipboardItemRow {
-  id: string;
-  type: ClipboardItemType;
-  content: string;
-  tags: string | null;
-  is_pinned: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface LogRow {
-  id: string;
-  action: string;
-  detail: string | null;
-  created_at: string;
-}
-
-interface SourceRow {
-  id: string;
-  name: string;
-  content: string;
-  node_count: number;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
 
 const app = new Hono<Bindings>();
 
@@ -2123,18 +2075,6 @@ async function replaceClipboardItems(env: Env, items: ClipboardItemRecord[]): Pr
   );
 }
 
-function mapClipboardItemRow(row: ClipboardItemRow): ClipboardItemRecord {
-  return {
-    id: row.id,
-    type: row.type,
-    content: row.content,
-    tags: parseJsonTags(row.tags),
-    isPinned: row.is_pinned > 0,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-
 async function getClipboardIndex(env: Env): Promise<string[]> {
   if (hasD1(env)) {
     const result = await env.DB.prepare('SELECT id FROM clipboard_items ORDER BY created_at ASC').all<{ id: string }>();
@@ -2153,28 +2093,6 @@ async function saveClipboardIndex(env: Env, ids: string[]): Promise<void> {
   await env.APP_KV.put(APP_KEYS.clipboardIndex, JSON.stringify(ids));
 }
 
-function isSafeNavigationUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-function normalizeNavigationUrl(value: string | null | undefined): string {
-  const trimmed = value?.trim() ?? '';
-  if (!trimmed) {
-    return '';
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `https://${trimmed}`;
-}
-
 async function ensureDatabaseSchema(env: Env): Promise<void> {
   if (!hasD1(env)) {
     return;
@@ -2190,73 +2108,4 @@ async function ensureDatabaseSchema(env: Env): Promise<void> {
       });
   }
   await d1SchemaReady;
-}
-
-function mapNavigationCategoryRow(row: NavigationCategoryRow): NavigationCategoryRecord {
-  return {
-    id: row.id,
-    name: row.name,
-    sortOrder: row.sort_order,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-
-function mapNavigationLinkRow(row: NavigationLinkRow): NavigationLinkRecord {
-  return {
-    id: row.id,
-    categoryId: row.category_id,
-    title: row.title,
-    url: row.url,
-    description: row.description ?? '',
-    sortOrder: row.sort_order,
-    visitCount: row.visit_count ?? 0,
-    lastVisitedAt: row.last_visited_at ?? null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-
-function mapNoteRow(row: NoteRow): NoteRecord {
-  return {
-    id: row.id,
-    title: row.title,
-    content: row.content,
-    isPinned: Boolean(row.is_pinned),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-
-function mapSnippetRow(row: SnippetRow): SnippetRecord {
-  return {
-    id: row.id,
-    type: row.type,
-    title: row.title,
-    content: row.content,
-    isPinned: Boolean(row.is_pinned),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-
-function mapSourceRow(row: SourceRow): SourceRecord {
-  return {
-    id: row.id,
-    name: row.name,
-    content: row.content,
-    nodeCount: row.node_count,
-    sortOrder: row.sort_order,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-
-function mapLogRow(row: LogRow): LogRecord {
-  return {
-    id: row.id,
-    action: row.action,
-    detail: row.detail ?? null,
-    createdAt: row.created_at
-  };
 }

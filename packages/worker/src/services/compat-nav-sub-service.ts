@@ -15,6 +15,7 @@ import {
   type ValidationSummary
 } from '@riku-hub/shared';
 import { buildFaviconUrl } from '../utils/compat';
+import { isSafeNavigationUrl, normalizeNavigationUrl } from '../utils/navigation';
 import {
   CompatNavSubRepository,
 } from '../repositories/compat-nav-sub-repository';
@@ -576,28 +577,6 @@ function mapSourceApi(source: SourceRecord): {
     is_active: true,
     article_count: source.nodeCount
   };
-}
-
-function normalizeNavigationUrl(value: string | null | undefined): string {
-  const trimmed = value?.trim() ?? '';
-  if (!trimmed) {
-    return '';
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `https://${trimmed}`;
-}
-
-function isSafeNavigationUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
 }
 
 function getHttpsOrigin(request: Request): string {
