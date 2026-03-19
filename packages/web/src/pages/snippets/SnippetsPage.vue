@@ -41,9 +41,9 @@ const editContent = ref('');
 const editErrorMessage = ref('');
 const deleteTarget = ref<SnippetRecord | null>(null);
 const IMAGE_LIMIT_BYTES = 340 * 1024;
-const SNIPPET_TITLE_MAX_UNITS_ZH = 36;
+const SNIPPET_TITLE_MAX_UNITS_ZH = 32;
 const SNIPPET_TITLE_MAX_UNITS_EN = 33;
-const SNIPPET_TITLE_MAX_UNITS_MIXED = 34;
+const SNIPPET_TITLE_MAX_UNITS_MIXED = 30;
 
 const typeOptions: Array<{ key: SnippetType; label: string; icon: string }> = [
   { key: 'text', label: '文本', icon: 'carbon:text-align-left' },
