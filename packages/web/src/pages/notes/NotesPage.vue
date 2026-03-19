@@ -238,15 +238,17 @@ async function renderMarkdown(content: string) {
               v-for="note in pinnedNotes"
               :key="note.id"
               type="button"
-              class="list-card w-full text-left min-w-0"
+              class="list-card w-full text-left"
               :class="{
                 'list-card-active': selectedNoteId === note.id,
                 'notes-note-button-highlight': highlightedId === note.id
               }"
               @click="selectedNoteId = note.id"
             >
-              <strong class="block truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
-              <p class="truncate text-xs text-gray-500">{{ note.content.replace(/\s+/g, ' ').trim() || '空白笔记' }}</p>
+              <div class="min-w-0">
+                <strong class="block truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
+                <p class="truncate text-xs text-gray-500">{{ note.content.replace(/\s+/g, ' ').trim() || '空白笔记' }}</p>
+              </div>
             </button>
           </div>
 
@@ -259,15 +261,17 @@ async function renderMarkdown(content: string) {
               v-for="note in recentNotes"
               :key="note.id"
               type="button"
-              class="list-card w-full text-left min-w-0"
+              class="list-card w-full text-left"
               :class="{
                 'list-card-active': selectedNoteId === note.id,
                 'notes-note-button-highlight': highlightedId === note.id
               }"
               @click="selectedNoteId = note.id"
             >
-              <strong class="block truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
-              <p class="truncate text-xs text-gray-500">{{ note.content.replace(/\s+/g, ' ').trim() || '空白笔记' }}</p>
+              <div class="min-w-0">
+                <strong class="block truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
+                <p class="truncate text-xs text-gray-500">{{ note.content.replace(/\s+/g, ' ').trim() || '空白笔记' }}</p>
+              </div>
             </button>
           </div>
         </template>
