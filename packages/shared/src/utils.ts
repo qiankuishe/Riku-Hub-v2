@@ -68,7 +68,7 @@ export function parseSubQuery(searchParams: URLSearchParams): { token: string | 
 
 export function isHttpUrl(input: string): boolean {
   const trimmed = input.trim();
-  return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  return /^https?:\/\//i.test(trimmed);
 }
 
 export function fixUrl(rawUrl: string): string {

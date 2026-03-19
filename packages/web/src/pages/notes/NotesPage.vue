@@ -17,6 +17,7 @@ const notes = ref<NoteRecord[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const errorMessage = ref('');
+const saveErrorMessage = ref('');
 const searchQuery = ref('');
 const selectedNoteId = ref<string | null>(null);
 const editTitle = ref('');
@@ -26,10 +27,17 @@ const renderedPreview = ref('');
 const deleteTarget = ref<NoteRecord | null>(null);
 const highlightedId = ref<string | null>(null);
 
+interface PendingSavePayload {
+  noteId: string;
+  title: string;
+  content: string;
+}
+
 let saveTimer = 0;
 let previewRunId = 0;
 let hydrating = false;
 let markdownRenderer: ((value: string) => Promise<string>) | null = null;
+let pendingSavePayload: PendingSavePayload | null = null;
 
 const filtered = computed(() => {
   const needle = searchQuery.value.trim().toLowerCase();
@@ -47,6 +55,7 @@ watch(selectedNote, (note) => {
   hydrating = true;
   editTitle.value = note?.title ?? '';
   editContent.value = note?.content ?? '';
+  saveErrorMessage.value = '';
   nextTick(() => {
     hydrating = false;
   });
@@ -56,6 +65,11 @@ watch([editTitle, editContent], () => {
   if (hydrating || !selectedNote.value) {
     return;
   }
+  pendingSavePayload = {
+    noteId: selectedNote.value.id,
+    title: editTitle.value.trim() || '无标题',
+    content: editContent.value
+  };
   queueSave();
 });
 
@@ -77,6 +91,8 @@ watch(
 
 onMounted(async () => {
   uiStore.clearSecondaryNav();
+  window.addEventListener('pagehide', handlePageHide);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
   await loadAll();
   if (initialFocusId && notes.value.some((note) => note.id === initialFocusId)) {
     selectedNoteId.value = initialFocusId;
@@ -88,9 +104,13 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener('pagehide', handlePageHide);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
   if (saveTimer) {
     window.clearTimeout(saveTimer);
+    saveTimer = 0;
   }
+  void flushPendingSave(true);
 });
 
 async function loadAll() {
@@ -119,6 +139,8 @@ async function createNote() {
     notes.value = [data.note, ...notes.value];
     selectedNoteId.value = data.note.id;
     viewMode.value = 'write';
+    saveErrorMessage.value = '';
+    pendingSavePayload = null;
     uiStore.showToast('已创建笔记');
   } catch (error) {
     uiStore.showToast(error instanceof Error ? error.message : '创建失败');
@@ -127,30 +149,71 @@ async function createNote() {
   }
 }
 
-async function saveNow() {
-  if (!selectedNote.value) {
-    return;
+async function saveNow(payload: PendingSavePayload, options?: { silent?: boolean }): Promise<boolean> {
+  const target = notes.value.find((note) => note.id === payload.noteId);
+  if (!target) {
+    return true;
   }
   saving.value = true;
   try {
-    const data = await notesApi.update(selectedNote.value.id, {
-      title: editTitle.value.trim() || '无标题',
-      content: editContent.value
+    const data = await notesApi.update(payload.noteId, {
+      title: payload.title,
+      content: payload.content
     });
     notes.value = notes.value.map((note) => (note.id === data.note.id ? data.note : note));
     notes.value.sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt.localeCompare(a.updatedAt));
+    if (pendingSavePayload && pendingSavePayload.noteId === payload.noteId && pendingSavePayload.content === payload.content && pendingSavePayload.title === payload.title) {
+      pendingSavePayload = null;
+    }
+    saveErrorMessage.value = '';
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '保存失败';
+    saveErrorMessage.value = message;
+    if (!options?.silent) {
+      uiStore.showToast(message);
+    }
+    pendingSavePayload = payload;
+    return false;
   } finally {
     saving.value = false;
   }
 }
 
 function queueSave() {
+  const payload = pendingSavePayload;
+  if (!payload) {
+    return;
+  }
   if (saveTimer) {
     window.clearTimeout(saveTimer);
   }
   saveTimer = window.setTimeout(() => {
-    void saveNow();
+    saveTimer = 0;
+    void saveNow(payload, { silent: false });
   }, 2000);
+}
+
+async function flushPendingSave(silent = true) {
+  const payload = pendingSavePayload;
+  if (!payload) {
+    return;
+  }
+  if (saveTimer) {
+    window.clearTimeout(saveTimer);
+    saveTimer = 0;
+  }
+  await saveNow(payload, { silent });
+}
+
+function handlePageHide() {
+  void flushPendingSave(true);
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    void flushPendingSave(true);
+  }
 }
 
 async function togglePin() {
@@ -222,6 +285,14 @@ function getExcerpt(content: string) {
       </div>
 
       <template v-if="selectedNote">
+        <ElAlert
+          v-if="saveErrorMessage"
+          class="mb-3"
+          :closable="false"
+          show-icon
+          type="error"
+          :title="saveErrorMessage"
+        />
         <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
           <ElRadioGroup v-model="viewMode" size="small">
             <ElRadioButton value="write">写作</ElRadioButton>

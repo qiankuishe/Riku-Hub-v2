@@ -3,6 +3,7 @@ export { DEFAULT_APP_ROUTE, isAppRoutePath } from './pageConfig';
 
 const LAST_APP_ROUTE_KEY = 'riku-hub:last-app-route';
 const ROUTE_SCROLL_KEY_PREFIX = 'riku-hub:scroll:';
+const ROUTE_CONTAINER_SCROLL_KEY_PREFIX = 'riku-hub:scroll-container:';
 
 export function readLastAppRoute(): string {
   if (typeof window === 'undefined') {
@@ -42,6 +43,25 @@ export function rememberAppRouteScroll(route: string, top: number) {
 
   const normalized = Math.max(0, Math.round(top));
   window.sessionStorage.setItem(`${ROUTE_SCROLL_KEY_PREFIX}${route}`, String(normalized));
+}
+
+export function readAppRouteContainerScroll(route: string, containerKey: string): number {
+  if (typeof window === 'undefined' || !isAppRoutePath(route) || !containerKey.trim()) {
+    return 0;
+  }
+
+  const raw = window.sessionStorage.getItem(`${ROUTE_CONTAINER_SCROLL_KEY_PREFIX}${containerKey}:${route}`);
+  const value = Number.parseInt(raw ?? '0', 10);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export function rememberAppRouteContainerScroll(route: string, containerKey: string, top: number) {
+  if (typeof window === 'undefined' || !isAppRoutePath(route) || !containerKey.trim()) {
+    return;
+  }
+
+  const normalized = Math.max(0, Math.round(top));
+  window.sessionStorage.setItem(`${ROUTE_CONTAINER_SCROLL_KEY_PREFIX}${containerKey}:${route}`, String(normalized));
 }
 
 export function buildLoginRedirectUrl(route?: string): string {

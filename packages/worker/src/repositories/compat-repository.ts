@@ -28,9 +28,10 @@ export class CompatRepository {
   async createSession(username: string): Promise<CompatSessionRecord> {
     const token = randomToken();
     const createdAt = Date.now();
+    const effectiveUsername = (this.env.ADMIN_USERNAME ?? username).trim() || 'admin';
     const session: CompatSessionRecord = {
       token,
-      username,
+      username: effectiveUsername,
       createdAt,
       expiresAt: createdAt + SESSION_TTL_SECONDS * 1000,
       passwordHash: this.env.ADMIN_PASSWORD_HASH ?? ''

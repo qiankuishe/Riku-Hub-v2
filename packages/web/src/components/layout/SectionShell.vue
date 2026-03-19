@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import AppTopbar from './AppTopbar.vue';
 import MainSidebar from './MainSidebar.vue';
 import MobileNavDrawer from './MobileNavDrawer.vue';
 import { useUiStore, type SecondaryNavItem } from '../../stores/ui';
 import { getCurrentFullPath, getCurrentSearchParams, isAppRoutePath } from '../../utils/pageConfig';
-import { readAppRouteScroll, rememberAppRouteScroll } from '../../utils/routeMemory';
+import {
+  readAppRouteContainerScroll,
+  readAppRouteScroll,
+  rememberAppRouteContainerScroll,
+  rememberAppRouteScroll
+} from '../../utils/routeMemory';
 
 const props = defineProps<{
   currentPath: string;
@@ -16,9 +21,22 @@ const props = defineProps<{
 const uiStore = useUiStore();
 const secondaryTitle = computed(() => uiStore.secondaryNavTitle || props.title);
 const RESTORE_SCROLL_WINDOW_MS = 5000;
+const APP_MAIN_SCROLL_KEY = 'app-main';
+const PAGE_CONTENT_SCROLL_KEY = 'page-content';
 let scrollFrame = 0;
+let containerScrollFrame = 0;
 let restoreRunId = 0;
 let initialHistoryScrollRestoration: History['scrollRestoration'] | null = null;
+const appMainRef = ref<HTMLElement | null>(null);
+const pageContentRef = ref<HTMLElement | null>(null);
+
+function setAppMainRef(element: unknown) {
+  appMainRef.value = element instanceof HTMLElement ? element : null;
+}
+
+function setPageContentRef(element: unknown) {
+  pageContentRef.value = element instanceof HTMLElement ? element : null;
+}
 
 function shouldRestoreScrollPosition(path = getCurrentFullPath()) {
   const searchParams = getCurrentSearchParams();
@@ -31,6 +49,12 @@ function persistRouteScroll(path = getCurrentFullPath()) {
   }
 
   rememberAppRouteScroll(path, window.scrollY);
+  if (appMainRef.value) {
+    rememberAppRouteContainerScroll(path, APP_MAIN_SCROLL_KEY, appMainRef.value.scrollTop);
+  }
+  if (pageContentRef.value) {
+    rememberAppRouteContainerScroll(path, PAGE_CONTENT_SCROLL_KEY, pageContentRef.value.scrollTop);
+  }
 }
 
 function handleWindowScroll() {
@@ -40,6 +64,17 @@ function handleWindowScroll() {
 
   scrollFrame = window.requestAnimationFrame(() => {
     scrollFrame = 0;
+    persistRouteScroll();
+  });
+}
+
+function handleContainerScroll() {
+  if (containerScrollFrame) {
+    return;
+  }
+
+  containerScrollFrame = window.requestAnimationFrame(() => {
+    containerScrollFrame = 0;
     persistRouteScroll();
   });
 }
@@ -57,8 +92,13 @@ async function restoreRouteScroll(path = getCurrentFullPath()) {
     return;
   }
 
-  const targetTop = readAppRouteScroll(path);
-  if (targetTop <= 0 || !shouldRestoreScrollPosition(path)) {
+  const windowTargetTop = readAppRouteScroll(path);
+  const appMainTargetTop = readAppRouteContainerScroll(path, APP_MAIN_SCROLL_KEY);
+  const pageContentTargetTop = readAppRouteContainerScroll(path, PAGE_CONTENT_SCROLL_KEY);
+  if (
+    !shouldRestoreScrollPosition(path) ||
+    (windowTargetTop <= 0 && appMainTargetTop <= 0 && pageContentTargetTop <= 0)
+  ) {
     return;
   }
 
@@ -71,23 +111,69 @@ async function restoreRouteScroll(path = getCurrentFullPath()) {
       return;
     }
 
-    const scrollingElement = document.scrollingElement ?? document.documentElement;
-    const maxTop = Math.max(0, scrollingElement.scrollHeight - window.innerHeight);
-    const nextTop = Math.min(targetTop, maxTop);
-    if (Math.abs(window.scrollY - nextTop) > 2) {
-      window.scrollTo(0, nextTop);
-    }
+    const windowState = applyWindowScroll(windowTargetTop);
+    const appMainState = applyElementScroll(appMainRef.value, appMainTargetTop);
+    const pageContentState = applyElementScroll(pageContentRef.value, pageContentTargetTop);
 
-    const hasEnoughHeight = maxTop >= targetTop - 2;
-    const restored = Math.abs(window.scrollY - nextTop) <= 2;
-    if ((hasEnoughHeight && restored) || Date.now() - startedAt >= RESTORE_SCROLL_WINDOW_MS) {
+    const allDone =
+      windowState.restored &&
+      appMainState.restored &&
+      pageContentState.restored &&
+      (windowState.hasEnoughHeight || windowTargetTop <= 0) &&
+      (appMainState.hasEnoughHeight || appMainTargetTop <= 0) &&
+      (pageContentState.hasEnoughHeight || pageContentTargetTop <= 0);
+
+    const pendingByHeight =
+      (windowTargetTop > 0 && !windowState.hasEnoughHeight) ||
+      (appMainTargetTop > 0 && !appMainState.hasEnoughHeight) ||
+      (pageContentTargetTop > 0 && !pageContentState.hasEnoughHeight);
+
+    if (allDone || Date.now() - startedAt >= RESTORE_SCROLL_WINDOW_MS) {
       return;
     }
 
-    window.setTimeout(apply, hasEnoughHeight ? 220 : 120);
+    window.setTimeout(apply, pendingByHeight ? 120 : 220);
   };
 
   apply();
+}
+
+function applyWindowScroll(targetTop: number): { restored: boolean; hasEnoughHeight: boolean } {
+  if (targetTop <= 0) {
+    return { restored: true, hasEnoughHeight: true };
+  }
+
+  const scrollingElement = document.scrollingElement ?? document.documentElement;
+  const maxTop = Math.max(0, scrollingElement.scrollHeight - window.innerHeight);
+  const nextTop = Math.min(targetTop, maxTop);
+  if (Math.abs(window.scrollY - nextTop) > 2) {
+    window.scrollTo(0, nextTop);
+  }
+
+  return {
+    restored: Math.abs(window.scrollY - nextTop) <= 2,
+    hasEnoughHeight: maxTop >= targetTop - 2
+  };
+}
+
+function applyElementScroll(
+  element: HTMLElement | null,
+  targetTop: number
+): { restored: boolean; hasEnoughHeight: boolean } {
+  if (!element || targetTop <= 0) {
+    return { restored: true, hasEnoughHeight: true };
+  }
+
+  const maxTop = Math.max(0, element.scrollHeight - element.clientHeight);
+  const nextTop = Math.min(targetTop, maxTop);
+  if (Math.abs(element.scrollTop - nextTop) > 2) {
+    element.scrollTop = nextTop;
+  }
+
+  return {
+    restored: Math.abs(element.scrollTop - nextTop) <= 2,
+    hasEnoughHeight: maxTop >= targetTop - 2
+  };
 }
 
 function syncExpandedSection() {
@@ -143,6 +229,8 @@ onMounted(() => {
   window.addEventListener('scroll', handleWindowScroll, { passive: true });
   window.addEventListener('pagehide', handlePageHide);
   window.addEventListener('pageshow', handlePageShow);
+  appMainRef.value?.addEventListener('scroll', handleContainerScroll, { passive: true });
+  pageContentRef.value?.addEventListener('scroll', handleContainerScroll, { passive: true });
   syncExpandedSection();
   void restoreRouteScroll();
 });
@@ -152,9 +240,15 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleWindowScroll);
   window.removeEventListener('pagehide', handlePageHide);
   window.removeEventListener('pageshow', handlePageShow);
+  appMainRef.value?.removeEventListener('scroll', handleContainerScroll);
+  pageContentRef.value?.removeEventListener('scroll', handleContainerScroll);
   if (scrollFrame) {
     window.cancelAnimationFrame(scrollFrame);
     scrollFrame = 0;
+  }
+  if (containerScrollFrame) {
+    window.cancelAnimationFrame(containerScrollFrame);
+    containerScrollFrame = 0;
   }
   restoreRunId += 1;
   if (initialHistoryScrollRestoration) {
@@ -179,11 +273,11 @@ onUnmounted(() => {
       @select-secondary="handleSecondarySelect"
     />
 
-    <div class="app-shell-main">
+    <div :ref="setAppMainRef" class="app-shell-main">
       <div class="app-shell-main-inner">
         <AppTopbar :title="title" :subtitle="subtitle ?? ''" @menu="uiStore.openMobileNav" />
 
-        <main class="page-content">
+        <main :ref="setPageContentRef" class="page-content">
           <slot />
         </main>
       </div>

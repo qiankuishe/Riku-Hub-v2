@@ -80,6 +80,14 @@ interface SettingsImportSnapshot {
   clipboardItems: ClipboardItemRecord[];
 }
 
+interface SettingsImportPayloadNormalized {
+  sources: SourceRecord[];
+  navigation: NavigationCategoryPayload[];
+  notes: NoteRecord[];
+  snippets: SnippetRecord[];
+  clipboardItems: ClipboardItemRecord[];
+}
+
 export interface Env {
   APP_KV: KVNamespace;
   CACHE_KV: KVNamespace;
@@ -108,6 +116,7 @@ const MAX_IMPORT_WRITE_CONCURRENCY = 16;
 const MAX_IMAGE_SNIPPET_BYTES = 350 * 1024;
 const MAX_FAVICON_BYTES = 64 * 1024;
 const FAVICON_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
+const DNS_QUERY_TIMEOUT_MS = 4_000;
 
 const APP_KEYS = {
   subToken: 'config:sub-token',
@@ -120,7 +129,8 @@ const APP_KEYS = {
   snippetIndex: 'snippet:index',
   clipboardIndex: 'clipboard:index',
   refreshLock: 'lock:refresh-aggregate',
-  settingsImportLock: 'lock:settings-import'
+  settingsImportLock: 'lock:settings-import',
+  kvToD1Migrated: 'migration:kv-to-d1-v1'
 };
 
 const CACHE_KEYS = {
@@ -1198,9 +1208,12 @@ async function resolveAddresses(hostname: string): Promise<string[]> {
 }
 
 async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<string[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DNS_QUERY_TIMEOUT_MS);
   try {
     const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
-      headers: { Accept: 'application/dns-json' }
+      headers: { Accept: 'application/dns-json' },
+      signal: controller.signal
     });
     if (!response.ok) {
       throw new Error(`DNS 查询失败: HTTP ${response.status}`);
@@ -1212,7 +1225,9 @@ async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<str
       .filter((value) => (type === 'A' ? isIpv4(value) : isIpv6(value)));
   } catch (error) {
     // DNS 查询失败时抛出错误，而不是返回空数组放行
-    throw new Error(`DNS 解析失败 (${hostname} ${type}): ${String(error)}`);
+    throw new Error(`DNS 解析失败 (${hostname} ${type}): ${formatError(error)}`);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -1430,14 +1445,12 @@ async function clearSettingsScope(env: Env, scope: SettingsDangerScope): Promise
       await clearAllClipboard(env);
       return;
     case 'all':
-      await Promise.all([
-        clearAllSources(env),
-        clearAllNavigation(env),
-        clearAllNotes(env),
-        clearAllSnippets(env),
-        clearAllClipboard(env),
-        clearAllAuthSessions(env)
-      ]);
+      await clearAllSources(env);
+      await clearAllNavigation(env);
+      await clearAllNotes(env);
+      await clearAllSnippets(env);
+      await clearAllClipboard(env);
+      await clearAllAuthSessions(env);
       return;
   }
 }
@@ -1521,45 +1534,47 @@ async function restoreSettingsImportSnapshot(env: Env, snapshot: SettingsImportS
 }
 
 async function importSettingsBackup(env: Env, backup: SettingsBackupPayload): Promise<SettingsExportStats> {
-  const sources = normalizeSourceBackup(backup.sources);
-  const navigation = normalizeNavigationBackup(backup.navigation ?? backup.categories);
-  const notes = normalizeNoteBackup(backup.notes);
-  const snippets = normalizeSnippetBackup(backup.snippets);
-  const clipboardItems = normalizeClipboardBackup(backup.clipboard ?? backup.clipboard_items);
+  const payload: SettingsImportPayloadNormalized = {
+    sources: normalizeSourceBackup(backup.sources),
+    navigation: normalizeNavigationBackup(backup.navigation ?? backup.categories),
+    notes: normalizeNoteBackup(backup.notes),
+    snippets: normalizeSnippetBackup(backup.snippets),
+    clipboardItems: normalizeClipboardBackup(backup.clipboard ?? backup.clipboard_items)
+  };
+  const stats = buildSettingsImportStats(payload);
+
   return withSettingsImportLock(env, async () => {
+    if (hasD1(env)) {
+      await importSettingsBackupWithD1Transaction(env, payload);
+      return stats;
+    }
+
     const snapshot = await captureSettingsImportSnapshot(env);
 
     try {
       await clearSettingsScope(env, 'all');
 
-      if (sources.length) {
-        await replaceSources(env, sources);
+      if (payload.sources.length) {
+        await replaceSources(env, payload.sources);
       }
 
-      if (navigation.length) {
-        await replaceNavigation(env, navigation);
+      if (payload.navigation.length) {
+        await replaceNavigation(env, payload.navigation);
       }
 
-      if (notes.length) {
-        await replaceNotes(env, notes);
+      if (payload.notes.length) {
+        await replaceNotes(env, payload.notes);
       }
 
-      if (snippets.length) {
-        await replaceSnippets(env, snippets);
+      if (payload.snippets.length) {
+        await replaceSnippets(env, payload.snippets);
       }
 
-      if (clipboardItems.length) {
-        await replaceClipboardItems(env, clipboardItems);
+      if (payload.clipboardItems.length) {
+        await replaceClipboardItems(env, payload.clipboardItems);
       }
 
-      return {
-        sources: sources.length,
-        navigationCategories: navigation.length,
-        navigationLinks: navigation.reduce((sum, category) => sum + category.links.length, 0),
-        notes: notes.length,
-        snippets: snippets.length,
-        clipboardItems: clipboardItems.length
-      };
+      return stats;
     } catch (error) {
       try {
         await restoreSettingsImportSnapshot(env, snapshot);
@@ -1575,6 +1590,153 @@ async function importSettingsBackup(env: Env, backup: SettingsBackupPayload): Pr
       throw new Error(`设置导入失败，已自动回滚: ${formatError(error)}`);
     }
   });
+}
+
+function buildSettingsImportStats(payload: SettingsImportPayloadNormalized): SettingsExportStats {
+  return {
+    sources: payload.sources.length,
+    navigationCategories: payload.navigation.length,
+    navigationLinks: payload.navigation.reduce((sum, category) => sum + category.links.length, 0),
+    notes: payload.notes.length,
+    snippets: payload.snippets.length,
+    clipboardItems: payload.clipboardItems.length
+  };
+}
+
+async function importSettingsBackupWithD1Transaction(env: Env, payload: SettingsImportPayloadNormalized): Promise<void> {
+  const db = getDatabase(env);
+  const orderedSources = [...payload.sources].sort((left, right) => left.sortOrder - right.sortOrder);
+  const orderedCategories = [...payload.navigation].sort((left, right) => left.sortOrder - right.sortOrder);
+  const orderedNotes = [...payload.notes].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const orderedSnippets = [...payload.snippets].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const orderedClipboard = [...payload.clipboardItems].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const now = new Date().toISOString();
+
+  await db.prepare('BEGIN IMMEDIATE').run();
+  try {
+    await db.batch([
+      db.prepare('DELETE FROM sources'),
+      db.prepare('DELETE FROM navigation_links'),
+      db.prepare('DELETE FROM navigation_categories'),
+      db.prepare('DELETE FROM notes'),
+      db.prepare('DELETE FROM snippets'),
+      db.prepare('DELETE FROM clipboard_items'),
+      db.prepare('DELETE FROM auth_sessions')
+    ]);
+
+    for (const [index, source] of orderedSources.entries()) {
+      await db
+        .prepare(
+          `INSERT INTO sources (id, name, content, node_count, sort_order, enabled, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          source.id,
+          source.name,
+          source.content,
+          source.nodeCount,
+          index,
+          Number(source.enabled),
+          source.createdAt,
+          source.updatedAt
+        )
+        .run();
+    }
+
+    for (const [categoryIndex, category] of orderedCategories.entries()) {
+      await db
+        .prepare(
+          `INSERT INTO navigation_categories (id, name, sort_order, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .bind(category.id, category.name, categoryIndex, category.createdAt, category.updatedAt)
+        .run();
+
+      const orderedLinks = [...category.links].sort((left, right) => left.sortOrder - right.sortOrder);
+      for (const [linkIndex, link] of orderedLinks.entries()) {
+        await db
+          .prepare(
+            `INSERT INTO navigation_links (id, category_id, title, url, description, sort_order, visit_count, last_visited_at, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .bind(
+            link.id,
+            category.id,
+            link.title,
+            link.url,
+            link.description,
+            linkIndex,
+            link.visitCount,
+            link.lastVisitedAt,
+            link.createdAt,
+            link.updatedAt
+          )
+          .run();
+      }
+    }
+
+    for (const note of orderedNotes) {
+      await db
+        .prepare(
+          `INSERT INTO notes (id, title, content, is_pinned, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        )
+        .bind(note.id, note.title, note.content, Number(note.isPinned), note.createdAt, note.updatedAt)
+        .run();
+    }
+
+    for (const snippet of orderedSnippets) {
+      await db
+        .prepare(
+          `INSERT INTO snippets (id, type, title, content, is_pinned, is_login_mapped, login_node_label, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          snippet.id,
+          snippet.type,
+          snippet.title,
+          snippet.content,
+          Number(snippet.isPinned),
+          Number(snippet.isLoginMapped),
+          snippet.loginNodeLabel,
+          snippet.createdAt,
+          snippet.updatedAt
+        )
+        .run();
+    }
+
+    for (const item of orderedClipboard) {
+      await db
+        .prepare(
+          `INSERT INTO clipboard_items (id, type, content, tags, is_pinned, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(item.id, item.type, item.content, JSON.stringify(item.tags ?? []), Number(item.isPinned), item.createdAt, item.updatedAt)
+        .run();
+    }
+
+    await db
+      .prepare(
+        `INSERT INTO app_meta (key, value, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET
+           value = excluded.value,
+           updated_at = excluded.updated_at`
+      )
+      .bind(APP_KEYS.navigationSeeded, '1', now)
+      .run();
+
+    await db.prepare('COMMIT').run();
+  } catch (error) {
+    try {
+      await db.prepare('ROLLBACK').run();
+    } catch {
+      // rollback failure should not hide import error
+    }
+    throw error;
+  }
+
+  await clearSubscriptionCache(env);
 }
 
 async function getSubToken(env: Env): Promise<string> {
@@ -2090,6 +2252,24 @@ async function deleteNavigationLink(env: Env, linkId: string, categoryId: string
 }
 
 async function recordNavigationLinkVisit(env: Env, link: NavigationLinkRecord): Promise<NavigationLinkRecord> {
+  if (hasD1(env)) {
+    const now = new Date().toISOString();
+    await env.DB.prepare(
+      `UPDATE navigation_links
+       SET visit_count = visit_count + 1,
+           last_visited_at = ?,
+           updated_at = ?
+       WHERE id = ?`
+    )
+      .bind(now, now, link.id)
+      .run();
+    const latest = await getNavigationLink(env, link.id);
+    if (!latest) {
+      throw createStatusError(404, '站点不存在');
+    }
+    return latest;
+  }
+
   const updated: NavigationLinkRecord = {
     ...link,
     visitCount: (link.visitCount ?? 0) + 1,
@@ -2785,6 +2965,7 @@ async function ensureDatabaseSchema(env: Env): Promise<void> {
         await ensureSnippetSchemaColumns(env);
         await ensureSourceSchemaColumns(env);
         await ensureAuthSessionSchemaColumns(env);
+        await ensureKvDataMigratedToD1(env);
       })
       .catch((error) => {
         d1SchemaReady = null;
@@ -2840,4 +3021,129 @@ async function ensureAuthSessionSchemaColumns(env: Env): Promise<void> {
   if (!columns.has('password_hash')) {
     await db.prepare("ALTER TABLE auth_sessions ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''").run();
   }
+}
+
+async function ensureKvDataMigratedToD1(env: Env): Promise<void> {
+  if (!hasD1(env)) {
+    return;
+  }
+
+  const migrated = await getAppMetaValue(env, APP_KEYS.kvToD1Migrated);
+  if (migrated === '1') {
+    return;
+  }
+
+  if (await hasAnyD1UserData(env)) {
+    await setAppMetaValue(env, APP_KEYS.kvToD1Migrated, '1');
+    return;
+  }
+
+  const legacyPayload = await readLegacySettingsFromKv(env);
+  const hasLegacyData =
+    legacyPayload.sources.length > 0 ||
+    legacyPayload.navigation.length > 0 ||
+    legacyPayload.notes.length > 0 ||
+    legacyPayload.snippets.length > 0 ||
+    legacyPayload.clipboardItems.length > 0;
+
+  if (!hasLegacyData) {
+    await setAppMetaValue(env, APP_KEYS.kvToD1Migrated, '1');
+    return;
+  }
+
+  await importSettingsBackupWithD1Transaction(env, legacyPayload);
+  await setAppMetaValue(env, APP_KEYS.kvToD1Migrated, '1');
+  await appendLog(
+    env,
+    'kv_d1_migration',
+    `已迁移历史数据到 D1：sources=${legacyPayload.sources.length}, categories=${legacyPayload.navigation.length}, notes=${legacyPayload.notes.length}, snippets=${legacyPayload.snippets.length}, clipboard=${legacyPayload.clipboardItems.length}`
+  );
+}
+
+async function hasAnyD1UserData(env: Env): Promise<boolean> {
+  if (!hasD1(env)) {
+    return false;
+  }
+
+  const db = getDatabase(env);
+  const [
+    sourceCount,
+    categoryCount,
+    noteCount,
+    snippetCount,
+    clipboardCount,
+    sessionCount
+  ] = await Promise.all([
+    db.prepare('SELECT COUNT(*) AS count FROM sources').first<{ count: number }>(),
+    db.prepare('SELECT COUNT(*) AS count FROM navigation_categories').first<{ count: number }>(),
+    db.prepare('SELECT COUNT(*) AS count FROM notes').first<{ count: number }>(),
+    db.prepare('SELECT COUNT(*) AS count FROM snippets').first<{ count: number }>(),
+    db.prepare('SELECT COUNT(*) AS count FROM clipboard_items').first<{ count: number }>(),
+    db.prepare('SELECT COUNT(*) AS count FROM auth_sessions').first<{ count: number }>()
+  ]);
+
+  return (
+    Number(sourceCount?.count ?? 0) > 0 ||
+    Number(categoryCount?.count ?? 0) > 0 ||
+    Number(noteCount?.count ?? 0) > 0 ||
+    Number(snippetCount?.count ?? 0) > 0 ||
+    Number(clipboardCount?.count ?? 0) > 0 ||
+    Number(sessionCount?.count ?? 0) > 0
+  );
+}
+
+async function readLegacySettingsFromKv(env: Env): Promise<SettingsImportPayloadNormalized> {
+  const sourceIds = await readKvIndexArray(env.APP_KV, APP_KEYS.sourceIndex);
+  const categoryIds = await readKvIndexArray(env.APP_KV, APP_KEYS.navCategoryIndex);
+  const noteIds = await readKvIndexArray(env.APP_KV, APP_KEYS.noteIndex);
+  const snippetIds = await readKvIndexArray(env.APP_KV, APP_KEYS.snippetIndex);
+  const clipboardIds = await readKvIndexArray(env.APP_KV, APP_KEYS.clipboardIndex);
+
+  const rawSources = (
+    await Promise.all(sourceIds.map((id) => env.APP_KV.get(`source:${id}`, 'json')))
+  ).filter((value): value is SourceRecord => Boolean(value && typeof value === 'object'));
+
+  const rawNavigation = (
+    await Promise.all(
+      categoryIds.map(async (categoryId) => {
+        const category = await env.APP_KV.get(`nav:category:${categoryId}`, 'json');
+        if (!category || typeof category !== 'object') {
+          return null;
+        }
+        const linkIds = await readKvIndexArray(env.APP_KV, `nav:link:index:${categoryId}`);
+        const links = (
+          await Promise.all(linkIds.map((linkId) => env.APP_KV.get(`nav:link:${linkId}`, 'json')))
+        ).filter((value): value is NavigationLinkRecord => Boolean(value && typeof value === 'object'));
+        return { ...(category as NavigationCategoryRecord), links };
+      })
+    )
+  ).filter((value): value is NavigationCategoryPayload => Boolean(value));
+
+  const rawNotes = (
+    await Promise.all(noteIds.map((id) => env.APP_KV.get(`note:${id}`, 'json')))
+  ).filter((value): value is NoteRecord => Boolean(value && typeof value === 'object'));
+
+  const rawSnippets = (
+    await Promise.all(snippetIds.map((id) => env.APP_KV.get(`snippet:${id}`, 'json')))
+  ).filter((value): value is SnippetRecord => Boolean(value && typeof value === 'object'));
+
+  const rawClipboard = (
+    await Promise.all(clipboardIds.map((id) => env.APP_KV.get(`clipboard:${id}`, 'json')))
+  ).filter((value): value is ClipboardItemRecord => Boolean(value && typeof value === 'object'));
+
+  return {
+    sources: normalizeSourceBackup(rawSources),
+    navigation: normalizeNavigationBackup(rawNavigation),
+    notes: normalizeNoteBackup(rawNotes),
+    snippets: normalizeSnippetBackup(rawSnippets),
+    clipboardItems: normalizeClipboardBackup(rawClipboard)
+  };
+}
+
+async function readKvIndexArray(kv: KVNamespace, key: string): Promise<string[]> {
+  const value = await kv.get(key, 'json');
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
 }

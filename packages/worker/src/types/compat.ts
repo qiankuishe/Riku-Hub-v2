@@ -1,6 +1,7 @@
 export interface CompatBindings {
   APP_KV: KVNamespace;
   DB?: D1Database;
+  ADMIN_USERNAME?: string;
   ADMIN_PASSWORD_HASH?: string;
   COMPAT_ALLOW_REGISTER?: string;
   COMPAT_REGISTER_KEY?: string;

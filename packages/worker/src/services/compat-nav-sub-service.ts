@@ -23,6 +23,7 @@ import type { CompatNavigationCategoryRecord, CompatNavigationLinkRecord } from 
 
 const MAX_REDIRECTS = 3;
 const FETCH_TIMEOUT_MS = 30_000;
+const DNS_QUERY_TIMEOUT_MS = 4_000;
 const MAX_SUBSCRIPTION_BYTES = 5 * 1024 * 1024;
 const MAX_SUBSCRIPTION_EXPANSION_DEPTH = 2;
 const MAX_SUBSCRIPTION_FETCH_CONCURRENCY = 8;
@@ -881,9 +882,12 @@ async function resolveAddresses(hostname: string): Promise<string[]> {
 }
 
 async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<string[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DNS_QUERY_TIMEOUT_MS);
   try {
     const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
-      headers: { Accept: 'application/dns-json' }
+      headers: { Accept: 'application/dns-json' },
+      signal: controller.signal
     });
     if (!response.ok) {
       throw new Error(`DNS 查询失败: HTTP ${response.status}`);
@@ -894,8 +898,14 @@ async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<str
       .map((record) => String(record.data))
       .filter((value) => (type === 'A' ? isIpv4(value) : isIpv6(value)));
   } catch (error) {
-    throw new Error(`DNS 解析失败 (${hostname} ${type}): ${String(error)}`);
+    throw new Error(`DNS 解析失败 (${hostname} ${type}): ${formatError(error)}`);
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function isInternalHostname(hostname: string): boolean {

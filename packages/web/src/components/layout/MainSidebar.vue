@@ -31,26 +31,6 @@ function setNavRef(element: unknown) {
   navRef.value = element instanceof HTMLElement ? element : null;
 }
 
-function handleNavWheel(event: WheelEvent) {
-  const nav = navRef.value;
-  if (!nav) {
-    return;
-  }
-  const canScroll = nav.scrollHeight > nav.clientHeight;
-  if (!canScroll) {
-    return;
-  }
-
-  const atTop = event.deltaY < 0 && nav.scrollTop <= 0;
-  const atBottom = event.deltaY > 0 && nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 1;
-  if (atTop || atBottom) {
-    return;
-  }
-
-  event.preventDefault();
-  nav.scrollTop += event.deltaY;
-}
-
 async function revealGroup(itemTo: string) {
   await nextTick();
   const nav = navRef.value;
@@ -121,7 +101,7 @@ watch(
       <span class="sidebar-brand-name">Riku-Hub</span>
     </button>
 
-    <nav :ref="setNavRef" class="sidebar-nav" @wheel="handleNavWheel">
+    <nav :ref="setNavRef" class="sidebar-nav">
       <div
         v-for="item in APP_NAV_ITEMS"
         :key="item.to"

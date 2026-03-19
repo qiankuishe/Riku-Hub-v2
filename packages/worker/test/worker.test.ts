@@ -878,4 +878,31 @@ proxies:
     );
     expect(protectedResponse.status).toBe(401);
   });
+
+  it('requires authentication for unknown /api/auth/* routes', async () => {
+    const response = await app.request('https://example.com/api/auth/internal', undefined, env);
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects sessions with mismatched username', async () => {
+    const token = 'mismatch-token';
+    await env.APP_KV.put(
+      `session:${token}`,
+      JSON.stringify({
+        username: 'not-admin',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 30_000,
+        passwordHash: env.ADMIN_PASSWORD_HASH
+      })
+    );
+
+    const response = await app.request(
+      'https://example.com/api/sources',
+      {
+        headers: { cookie: `session=${token}` }
+      },
+      env
+    );
+    expect(response.status).toBe(401);
+  });
 });

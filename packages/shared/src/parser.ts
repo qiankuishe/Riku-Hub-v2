@@ -18,23 +18,24 @@ type ClashLikeProxy = Record<string, unknown>;
 type SingboxOutbound = Record<string, unknown>;
 const MIXED_TOKEN_PATTERN =
   /(?:https?:\/\/[^\s"'<>]+|(?:vmess|vless|ss|trojan|hysteria2|hy2|tuic|wireguard):\/\/[^\s"'<>]+)/gi;
+const MAX_PARSE_WARNINGS = 200;
 
 function warning(code: AggregateWarning['code'], message: string, context?: string): AggregateWarning {
   return { code, message, context };
 }
 
+function pushWarningWithCap(list: AggregateWarning[], next: AggregateWarning): void {
+  if (list.length < MAX_PARSE_WARNINGS) {
+    list.push(next);
+    return;
+  }
+  if (list.length === MAX_PARSE_WARNINGS) {
+    list.push(warning('parse-failed', '解析警告过多，后续内容已省略'));
+  }
+}
+
 export function isNodeUri(input: string): boolean {
-  const trimmed = input.trim().toLowerCase();
-  return (
-    trimmed.startsWith('vmess://') ||
-    trimmed.startsWith('vless://') ||
-    trimmed.startsWith('ss://') ||
-    trimmed.startsWith('trojan://') ||
-    trimmed.startsWith('hysteria2://') ||
-    trimmed.startsWith('hy2://') ||
-    trimmed.startsWith('tuic://') ||
-    trimmed.startsWith('wireguard://')
-  );
+  return /^(vmess|vless|ss|trojan|hysteria2|hy2|tuic|wireguard):\/\//i.test(input.trim());
 }
 
 export function detectInputFormat(content: string): InputFormat {
@@ -80,7 +81,7 @@ export function parseMixedInput(content: string): {
   for (const line of content.split('\n').map((value) => value.trim()).filter(Boolean)) {
     const tokens = extractInlineTokens(line);
     if (!tokens.length) {
-      warnings.push(warning('parse-failed', `忽略无法识别的输入: ${line.slice(0, 40)}`, line));
+      pushWarningWithCap(warnings, warning('parse-failed', `忽略无法识别的输入: ${line.slice(0, 40)}`, line));
       continue;
     }
 
@@ -91,7 +92,7 @@ export function parseMixedInput(content: string): {
       }
 
       if (!isNodeUri(token)) {
-        warnings.push(warning('parse-failed', `忽略无法识别的输入: ${token.slice(0, 40)}`, token));
+        pushWarningWithCap(warnings, warning('parse-failed', `忽略无法识别的输入: ${token.slice(0, 40)}`, token));
         continue;
       }
 
@@ -99,7 +100,7 @@ export function parseMixedInput(content: string): {
       if (parsed) {
         nodes.push(parsed);
       } else {
-        warnings.push(warning('parse-failed', `无法解析节点 URI: ${token.slice(0, 40)}`, token));
+        pushWarningWithCap(warnings, warning('parse-failed', `无法解析节点 URI: ${token.slice(0, 40)}`, token));
       }
     }
   }
@@ -141,11 +142,11 @@ export function parseClashContent(content: string): ParsedContent {
     const warnings: AggregateWarning[] = [];
 
     for (const proxy of proxies) {
-      const node = convertClashProxy(proxy);
+      const node = sanitizeNode(convertClashProxy(proxy));
       if (node) {
         nodes.push(node);
       } else {
-        warnings.push(warning('unsupported-protocol', `Clash 中存在未支持协议: ${String(proxy.type ?? 'unknown')}`));
+        pushWarningWithCap(warnings, warning('unsupported-protocol', `Clash 中存在未支持协议: ${String(proxy.type ?? 'unknown')}`));
       }
     }
 
@@ -168,11 +169,11 @@ export function parseSingboxContent(content: string): ParsedContent {
         continue;
       }
 
-      const node = convertSingboxOutbound(outbound);
+      const node = sanitizeNode(convertSingboxOutbound(outbound));
       if (node) {
         nodes.push(node);
       } else {
-        warnings.push(warning('unsupported-protocol', `SingBox 中存在未支持协议: ${type}`));
+        pushWarningWithCap(warnings, warning('unsupported-protocol', `SingBox 中存在未支持协议: ${type}`));
       }
     }
 
@@ -183,28 +184,29 @@ export function parseSingboxContent(content: string): ParsedContent {
 }
 
 export function parseUri(uri: string): NormalizedNode | null {
-  const trimmed = uri.trim();
+  const trimmed = normalizeUriScheme(uri.trim());
+  const lowered = trimmed.toLowerCase();
   try {
-    if (trimmed.startsWith('vmess://')) {
-      return parseVmessUri(trimmed);
+    if (lowered.startsWith('vmess://')) {
+      return sanitizeNode(parseVmessUri(trimmed));
     }
-    if (trimmed.startsWith('vless://')) {
-      return parseVlessUri(trimmed);
+    if (lowered.startsWith('vless://')) {
+      return sanitizeNode(parseVlessUri(trimmed));
     }
-    if (trimmed.startsWith('ss://')) {
-      return parseShadowsocksUri(trimmed);
+    if (lowered.startsWith('ss://')) {
+      return sanitizeNode(parseShadowsocksUri(trimmed));
     }
-    if (trimmed.startsWith('trojan://')) {
-      return parseTrojanUri(trimmed);
+    if (lowered.startsWith('trojan://')) {
+      return sanitizeNode(parseTrojanUri(trimmed));
     }
-    if (trimmed.startsWith('hysteria2://') || trimmed.startsWith('hy2://')) {
-      return parseHysteria2Uri(trimmed);
+    if (lowered.startsWith('hysteria2://') || lowered.startsWith('hy2://')) {
+      return sanitizeNode(parseHysteria2Uri(trimmed));
     }
-    if (trimmed.startsWith('tuic://')) {
-      return parseTuicUri(trimmed);
+    if (lowered.startsWith('tuic://')) {
+      return sanitizeNode(parseTuicUri(trimmed));
     }
-    if (trimmed.startsWith('wireguard://')) {
-      return parseWireGuardUri(trimmed);
+    if (lowered.startsWith('wireguard://')) {
+      return sanitizeNode(parseWireGuardUri(trimmed));
     }
   } catch {
     return null;
@@ -337,7 +339,7 @@ function parseTrojanUri(uri: string): TrojanNode {
 }
 
 function parseHysteria2Uri(uri: string): Hysteria2Node {
-  const normalized = uri.replace('hy2://', 'hysteria2://');
+  const normalized = uri.replace(/^hy2:\/\//i, 'hysteria2://');
   const url = new URL(normalized);
   const params = url.searchParams;
   return {
@@ -548,6 +550,48 @@ function sanitizeExtractedToken(token: string): string {
     value = value.slice(0, -1);
   }
   return value;
+}
+
+function normalizeUriScheme(uri: string): string {
+  return uri.replace(/^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//, (_full, scheme: string) => `${scheme.toLowerCase()}://`);
+}
+
+function sanitizeNode(node: NormalizedNode | null): NormalizedNode | null {
+  if (!node || !isValidServer(node.server) || !isValidPort(node.port)) {
+    return null;
+  }
+
+  switch (node.type) {
+    case 'vmess':
+      return hasText(node.uuid) ? node : null;
+    case 'vless':
+      return hasText(node.uuid) ? node : null;
+    case 'ss':
+      return hasText(node.cipher) && hasText(node.password) ? node : null;
+    case 'trojan':
+      return hasText(node.password) ? node : null;
+    case 'hysteria2':
+      return hasText(node.password) ? node : null;
+    case 'tuic':
+      return hasText(node.uuid) && hasText(node.password) ? node : null;
+    case 'wireguard':
+      return hasText(node.publicKey) && node.localAddress.length > 0 ? node : null;
+    default:
+      return null;
+  }
+}
+
+function hasText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidServer(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.length > 0 && !/\s/.test(trimmed);
+}
+
+function isValidPort(value: number): boolean {
+  return Number.isInteger(value) && value > 0 && value <= 65_535;
 }
 
 function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {

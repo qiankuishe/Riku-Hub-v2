@@ -48,7 +48,8 @@ export class AuthController {
   }
 
   async ensureAuthenticated(c: AuthContext, next: Next): Promise<Response | void> {
-    if (c.req.path.startsWith('/api/auth/')) {
+    const normalizedPath = normalizePath(c.req.path);
+    if (PUBLIC_AUTH_PATHS.has(normalizedPath)) {
       await next();
       return;
     }
@@ -65,6 +66,14 @@ export class AuthController {
     return new AuthService(env, new AuthRepository(env));
   }
 }
+
+const PUBLIC_AUTH_PATHS = new Set<string>([
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/check',
+  '/api/auth/register',
+  '/api/auth/me'
+]);
 
 async function readJson<T>(request: Request): Promise<T> {
   try {
@@ -96,3 +105,9 @@ function getCookie(request: Request, name: string): string | null {
   return null;
 }
 
+function normalizePath(path: string): string {
+  if (!path) {
+    return '/';
+  }
+  return path.replace(/\/+$/, '') || '/';
+}

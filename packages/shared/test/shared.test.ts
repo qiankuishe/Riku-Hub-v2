@@ -224,6 +224,25 @@ proxies:
     });
   });
 
+  it('parses URI schemes in a case-insensitive way', () => {
+    const parsed = parseContent(
+      'VLESS://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none&security=none#upper'
+    );
+    expect(parsed.nodes).toHaveLength(1);
+    expect(parsed.nodes[0]).toMatchObject({
+      type: 'vless',
+      server: 'example.com',
+      port: 443
+    });
+  });
+
+  it('filters nodes with invalid ports', () => {
+    const parsed = parseContent(
+      'vless://11111111-1111-1111-1111-111111111111@example.com:70000?encryption=none&security=none#bad-port'
+    );
+    expect(parsed.nodes).toHaveLength(0);
+  });
+
   it('keeps vless ws host header during parse and render', () => {
     const parsed = parseContent(
       'vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none&security=tls&type=ws&host=cdn.example.com&path=%2F#ws-host'

@@ -80,6 +80,11 @@ export class AuthService {
       await this.repository.deleteSession(session.token);
       return null;
     }
+    const expectedUser = (this.env.ADMIN_USERNAME ?? 'admin').trim();
+    if (expectedUser && session.username !== expectedUser) {
+      await this.repository.deleteSession(session.token);
+      return null;
+    }
     return session;
   }
 

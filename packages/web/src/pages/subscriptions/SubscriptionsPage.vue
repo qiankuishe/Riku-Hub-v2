@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElDialog, ElInput, ElTag } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { Source, SubInfo, ValidationResult } from '../../api';
@@ -46,16 +46,28 @@ watch(formContent, () => {
   if (!editorOpen.value) {
     return;
   }
-  if (validateTimer) {
-    window.clearTimeout(validateTimer);
-  }
+  clearValidateTimer();
   validateTimer = window.setTimeout(() => {
     void runValidate();
   }, 300);
 });
 
+watch(editorOpen, (open) => {
+  if (open) {
+    return;
+  }
+  validateRunId += 1;
+  clearValidateTimer();
+  validating.value = false;
+});
+
 onMounted(() => {
   void loadPageData();
+});
+
+onUnmounted(() => {
+  validateRunId += 1;
+  clearValidateTimer();
 });
 
 async function loadPageData() {
@@ -108,6 +120,8 @@ function openEditDialog(source: Source) {
 
 function closeEditor() {
   editorOpen.value = false;
+  validateRunId += 1;
+  clearValidateTimer();
   errorMessage.value = '';
   validation.value = null;
   validating.value = false;
@@ -143,6 +157,14 @@ async function runValidate() {
       validating.value = false;
     }
   }
+}
+
+function clearValidateTimer() {
+  if (!validateTimer) {
+    return;
+  }
+  window.clearTimeout(validateTimer);
+  validateTimer = 0;
 }
 
 async function saveSource() {
