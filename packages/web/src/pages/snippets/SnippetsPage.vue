@@ -82,7 +82,7 @@ watch(
   () => [filterType.value, snippets.value.length, typeCounts.value.text, typeCounts.value.code, typeCounts.value.link, typeCounts.value.image],
   () => {
     uiStore.setSecondaryNav({
-      title: '片段',
+      title: '剪贴板',
       activeKey: filterType.value,
       items: [
         { key: 'all', label: '全部', badge: String(snippets.value.length), to: '/snippets' },
@@ -469,7 +469,7 @@ async function copySnippet(snippet: SnippetRecord) {
     <section class="card">
       <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="text-xl font-semibold text-gray-900">片段库</h2>
+          <h2 class="text-xl font-semibold text-gray-900">剪贴板</h2>
           <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片。</p>
         </div>
         <ElButton :loading="loading" @click="loadAll">
@@ -564,12 +564,12 @@ async function copySnippet(snippet: SnippetRecord) {
           :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
           :data-snippet-id="snippet.id"
         >
-          <div class="mb-2 flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
-              <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
+          <div class="mb-2">
+            <div class="mb-2">
+              <strong class="block text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
               <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
             </div>
-            <div class="flex flex-wrap gap-1">
+            <div class="flex flex-wrap items-center justify-end gap-1">
               <ElButton size="small" text @click="togglePin(snippet)">
                 <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
               </ElButton>
@@ -685,6 +685,8 @@ async function copySnippet(snippet: SnippetRecord) {
   padding: 12px;
   font-size: 13px;
   line-height: 1.6;
+  max-height: 180px;
+  overflow-y: auto;
 }
 
 .snippet-code-preview {
