@@ -206,9 +206,9 @@ function animate(time: number) {
   particleMesh.rotation.y += medium.y;
   particleMesh.rotation.x += medium.x;
 
-  // 更新shader的时间uniform，驱动粒子闪烁
+  // 更新shader的时间uniform
   if (particleMesh.material.uniforms) {
-    particleMesh.material.uniforms.time.value = time;
+    particleMesh.material.uniforms.uTime.value = time * 0.001;
   }
 
   emit('project', buildProjectionList(time));
@@ -318,84 +318,55 @@ function initScene() {
   applyResponsiveOffset();
 
   const geometry = new three.SphereGeometry(5.8, 64, 64);
-  const positions = geometry.attributes.position;
-  const count = positions.count;
 
-  // 为每个粒子创建闪烁属性
-  const opacities = new Float32Array(count);
-  const phases = new Float32Array(count);
-  const speeds = new Float32Array(count);
-
-  for (let i = 0; i < count; i++) {
-    opacities[i] = Math.random();
-    phases[i] = Math.random() * Math.PI * 2;
-    speeds[i] = 0.5 + Math.random() * 1.5;
-  }
-
-  geometry.setAttribute('opacity', new three.BufferAttribute(opacities, 1));
-  geometry.setAttribute('phase', new three.BufferAttribute(phases, 1));
-  geometry.setAttribute('speed', new three.BufferAttribute(speeds, 1));
-
-  // 使用ShaderMaterial实现粒子闪烁
+  // 使用与原版HTML相同的ShaderMaterial
   const material = new three.ShaderMaterial({
     uniforms: {
-      time: { value: 0 },
-      pointSize: { value: 2.5 },
-      color: { value: new three.Color(0xffffff) }
+      uTime: { value: 0 },
+      uDistortion: { value: 0.8 },
+      uSize: { value: 1.8 },
+      uColor: { value: new three.Color(0xffffff) },
+      uOpacity: { value: 0.6 },
+      uMouse: { value: new three.Vector2(0, 0) }
     },
     vertexShader: `
-      attribute float opacity;
-      attribute float phase;
-      attribute float speed;
-      uniform float time;
-      uniform float pointSize;
-      varying float vOpacity;
-
-      // 三层噪声函数
-      float noise1(float t) {
-        return sin(t * 2.0 + phase) * 0.5 + 0.5;
+      uniform float uTime, uDistortion, uSize;
+      uniform vec2 uMouse;
+      varying float vAlpha;
+      varying vec3 vPos;
+      
+      float snoise(vec3 v) {
+        return fract(sin(dot(v, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
       }
-      float noise2(float t) {
-        return sin(t * 3.7 + phase * 1.3) * 0.5 + 0.5;
-      }
-      float noise3(float t) {
-        return sin(t * 5.1 + phase * 0.7) * 0.5 + 0.5;
-      }
-
+      
       void main() {
-        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        gl_Position = projectionMatrix * mvPosition;
-        gl_PointSize = pointSize * (300.0 / -mvPosition.z);
-
-        // 三层噪声叠加，产生复杂的闪烁效果
-        float t = time * speed * 0.001;
-        float n1 = noise1(t);
-        float n2 = noise2(t);
-        float n3 = noise3(t);
-        
-        // 组合三层噪声，让透明度在0-1之间变化
-        vOpacity = (n1 * 0.4 + n2 * 0.3 + n3 * 0.3);
+        vec3 pos = position;
+        float noise = snoise(pos * 0.1 + uTime * 0.05);
+        vec3 dir = normalize(pos);
+        vec3 finalPos = pos + (dir * noise * uDistortion);
+        float mDist = distance(uMouse * 8.0, finalPos.xy);
+        finalPos += dir * smoothstep(5.0, 0.0, mDist) * 0.4;
+        vec4 mvPos = modelViewMatrix * vec4(finalPos, 1.0);
+        gl_Position = projectionMatrix * mvPos;
+        gl_PointSize = uSize * (15.0 / -mvPos.z);
+        vAlpha = 0.8;
+        vPos = finalPos;
       }
     `,
     fragmentShader: `
-      uniform vec3 color;
-      varying float vOpacity;
-
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      varying float vAlpha;
+      varying vec3 vPos;
+      
       void main() {
-        // 圆形粒子
-        vec2 center = gl_PointCoord - vec2(0.5);
-        float dist = length(center);
-        if (dist > 0.5) discard;
-
-        // 柔和边缘
-        float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
-        
-        gl_FragColor = vec4(color, alpha * vOpacity);
+        if (length(gl_PointCoord - 0.5) > 0.5) discard;
+        float alpha = smoothstep(0.5, 0.3, length(gl_PointCoord - 0.5)) * uOpacity * vAlpha;
+        gl_FragColor = vec4(uColor, alpha);
       }
     `,
     transparent: true,
-    depthWrite: false,
-    blending: three.AdditiveBlending
+    depthWrite: false
   });
 
   particleMesh = new three.Points(geometry, material);
