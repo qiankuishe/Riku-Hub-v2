@@ -41,6 +41,7 @@ const editContent = ref('');
 const editErrorMessage = ref('');
 const deleteTarget = ref<SnippetRecord | null>(null);
 const IMAGE_LIMIT_BYTES = 340 * 1024;
+const SNIPPET_TITLE_MAX_LENGTH = 12;
 
 const typeOptions: Array<{ key: SnippetType; label: string; icon: string }> = [
   { key: 'text', label: '文本', icon: 'carbon:text-align-left' },
@@ -145,6 +146,14 @@ function buildSuggestedTitle(type: SnippetType, content: string) {
     }
   }
   return content.trim().split(/\r?\n/)[0]?.slice(0, 24) || (type === 'code' ? '剪贴代码' : '剪贴文本');
+}
+
+function getSnippetDisplayTitle(title: string) {
+  const normalized = title?.trim() || '未命名片段';
+  if (normalized.length <= SNIPPET_TITLE_MAX_LENGTH) {
+    return normalized;
+  }
+  return `${normalized.slice(0, SNIPPET_TITLE_MAX_LENGTH - 1)}…`;
 }
 
 function validateSnippet(type: SnippetType, content: string) {
@@ -564,12 +573,12 @@ async function copySnippet(snippet: SnippetRecord) {
           :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
           :data-snippet-id="snippet.id"
         >
-          <div class="mb-2">
-            <div class="mb-2">
-              <strong class="block text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
+          <div class="mb-2 flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <strong class="block truncate text-sm text-gray-900">{{ getSnippetDisplayTitle(snippet.title) }}</strong>
               <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
             </div>
-            <div class="flex flex-wrap items-center justify-end gap-1">
+            <div class="flex flex-wrap gap-1">
               <ElButton size="small" text @click="togglePin(snippet)">
                 <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
               </ElButton>
@@ -593,8 +602,6 @@ async function copySnippet(snippet: SnippetRecord) {
           </div>
           <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
           <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
-
-          <p v-if="snippet.type === 'code'" class="mt-2 text-xs text-gray-500">代码内容已折叠，可直接复制。</p>
         </article>
       </div>
     </section>
