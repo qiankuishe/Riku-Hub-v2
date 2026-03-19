@@ -1089,12 +1089,14 @@ async function moveCategoryDown(category: NavigationCategory) {
 }
 
 .nav-link-card.drop-before {
-  border-left: 3px dashed #111111 !important;
+  border-left: 4px dashed #111111 !important;
+  border-right: 1px solid #9ca3af !important;
   box-shadow: inset 8px 0 0 rgba(17, 17, 17, 0.05), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .nav-link-card.drop-after {
-  border-right: 3px dashed #111111 !important;
+  border-right: 4px dashed #111111 !important;
+  border-left: 1px solid #9ca3af !important;
   box-shadow: inset -8px 0 0 rgba(17, 17, 17, 0.05), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
