@@ -1087,23 +1087,27 @@ async function moveCategoryDown(category: NavigationCategory) {
 .nav-link-card.drop-before::before {
   content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -6px;
-  width: 0;
+  top: -4px;
+  bottom: -4px;
+  left: -10px;
+  width: 8px;
+  background: rgba(0, 0, 0, 0.1);
   border-left: 4px dashed #000000;
-  z-index: 10;
+  border-radius: 4px;
+  z-index: 100;
 }
 
 .nav-link-card.drop-after::after {
   content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
-  right: -6px;
-  width: 0;
+  top: -4px;
+  bottom: -4px;
+  right: -10px;
+  width: 8px;
+  background: rgba(0, 0, 0, 0.1);
   border-right: 4px dashed #000000;
-  z-index: 10;
+  border-radius: 4px;
+  z-index: 100;
 }
 
 .nav-category-move-btn {
