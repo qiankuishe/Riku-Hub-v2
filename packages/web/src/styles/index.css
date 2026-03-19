@@ -340,7 +340,7 @@ p {
 }
 
 .sidebar-submenu-link:hover {
-  background: var(--rk-surface-soft);
+  background: rgba(0, 0, 0, 0.06);
   color: var(--rk-text);
   opacity: 1;
 }
