@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { Source, ValidationResult } from './types';
+import type { Source, ValidationResult, WarningItem } from './types';
 
 export const sourcesApi = {
   getAll: () => request<{ sources: Source[]; lastSaveTime: string }>('/api/sources'),
@@ -28,7 +28,7 @@ export const sourcesApi = {
       body: JSON.stringify({ ids })
     }),
   refresh: () =>
-    request<{ sources: Source[]; lastSaveTime: string }>('/api/sources/refresh', {
+    request<{ sources: Source[]; lastSaveTime: string; warningCount: number; warnings: WarningItem[] }>('/api/sources/refresh', {
       method: 'POST'
     })
 };

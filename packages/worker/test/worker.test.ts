@@ -606,4 +606,83 @@ describe('worker behaviors', () => {
     const subResponse = await app.request('https://example.com/sub?token=token-123&base64', undefined, env);
     expect(subResponse.status).toBe(503);
   });
+
+  it('treats legacy KV sources without enabled as active', async () => {
+    const now = new Date().toISOString();
+    await env.APP_KV.put('source:index', JSON.stringify(['legacy-source']));
+    await env.APP_KV.put(
+      'source:legacy-source',
+      JSON.stringify({
+        id: 'legacy-source',
+        name: 'legacy',
+        content:
+          'vmess://eyJ2IjoiMiIsInBzIjoiTGVnYWN5IiwiYWRkIjoibGVnYWN5LmV4YW1wbGUuY29tIiwicG9ydCI6IjQ0MyIsImlkIjoiOTk5OTk5OTktOTk5OS05OTk5LTk5OTktOTk5OTk5OTk5OTk5IiwiYWlkIjoiMCIsInNjeSI6ImF1dG8ifQ==',
+        nodeCount: 0,
+        sortOrder: 0,
+        createdAt: now,
+        updatedAt: now
+      })
+    );
+
+    const cookie = await login(env);
+    const refreshResponse = await app.request(
+      'https://example.com/api/sources/refresh',
+      {
+        method: 'POST',
+        headers: { cookie }
+      },
+      env
+    );
+    const refreshData = (await refreshResponse.json()) as { sources: Array<{ enabled: boolean }> };
+    expect(refreshResponse.status).toBe(200);
+    expect(refreshData.sources[0]?.enabled).toBe(true);
+
+    const subInfoResponse = await app.request(
+      'https://example.com/api/sub/info',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const subInfo = (await subInfoResponse.json()) as { totalNodes: number };
+    expect(subInfoResponse.status).toBe(200);
+    expect(subInfo.totalNodes).toBe(1);
+  });
+
+  it('returns warning details in refresh response', async () => {
+    const cookie = await login(env);
+
+    const createResponse = await app.request(
+      'https://example.com/api/sources',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({
+          name: 'warning-source',
+          content: 'http://127.0.0.1/sub'
+        })
+      },
+      env
+    );
+    expect(createResponse.status).toBe(200);
+
+    const refreshResponse = await app.request(
+      'https://example.com/api/sources/refresh',
+      {
+        method: 'POST',
+        headers: { cookie }
+      },
+      env
+    );
+    const refreshData = (await refreshResponse.json()) as {
+      warningCount: number;
+      warnings: Array<{ code: string; context?: string }>;
+    };
+    expect(refreshResponse.status).toBe(200);
+    expect(refreshData.warningCount).toBeGreaterThan(0);
+    expect(refreshData.warnings.some((item) => item.code === 'fetch-failed')).toBe(true);
+  });
 });

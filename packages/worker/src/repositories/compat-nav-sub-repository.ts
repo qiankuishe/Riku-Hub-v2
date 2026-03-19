@@ -315,7 +315,7 @@ export class CompatNavSubRepository {
     }
 
     const source = await this.env.APP_KV.get(`source:${id}`, 'json');
-    return source as SourceRecord | null;
+    return normalizeStoredSourceRecord(source, id);
   }
 
   async getAllSources(): Promise<SourceRecord[]> {
@@ -783,15 +783,40 @@ function mapNavigationLinkRow(row: NavigationLinkRow): CompatNavigationLinkRecor
 }
 
 function mapSourceRow(row: SourceRow): SourceRecord {
+  const enabled = typeof row.enabled === 'number' ? row.enabled > 0 : true;
   return {
     id: row.id,
     name: row.name,
     content: row.content,
     nodeCount: row.node_count,
     sortOrder: row.sort_order,
-    enabled: Boolean(row.enabled),
+    enabled,
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function normalizeStoredSourceRecord(value: unknown, fallbackId: string): SourceRecord | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Partial<SourceRecord>;
+  const now = new Date().toISOString();
+  const id = typeof record.id === 'string' && record.id ? record.id : fallbackId;
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    name: typeof record.name === 'string' ? record.name : '未命名订阅源',
+    content: typeof record.content === 'string' ? record.content : '',
+    nodeCount: typeof record.nodeCount === 'number' ? record.nodeCount : 0,
+    sortOrder: typeof record.sortOrder === 'number' ? record.sortOrder : 0,
+    enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+    createdAt: typeof record.createdAt === 'string' && record.createdAt ? record.createdAt : now,
+    updatedAt: typeof record.updatedAt === 'string' && record.updatedAt ? record.updatedAt : now
   };
 }
 

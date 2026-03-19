@@ -125,7 +125,13 @@ export class SubscriptionsService<TEnv> {
     };
   }
 
-  async refreshSources(): Promise<{ sources: SourceRecord[]; lastSaveTime: string; nodeCount: number }> {
+  async refreshSources(): Promise<{
+    sources: SourceRecord[];
+    lastSaveTime: string;
+    nodeCount: number;
+    warningCount: number;
+    warnings: ValidationSummary['warnings'];
+  }> {
     const refresh = await this.repository.refreshAggregateCache(true);
     if (!refresh.ok) {
       throw new SubscriptionsHttpError(500, refresh.error);
@@ -134,7 +140,9 @@ export class SubscriptionsService<TEnv> {
     return {
       sources: refresh.sources,
       lastSaveTime: this.repository.getLastSaveTime(refresh.sources),
-      nodeCount: refresh.payload.nodes.length
+      nodeCount: refresh.payload.nodes.length,
+      warningCount: refresh.payload.warnings.length,
+      warnings: refresh.payload.warnings
     };
   }
 

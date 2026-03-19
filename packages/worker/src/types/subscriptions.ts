@@ -33,7 +33,7 @@ export interface SourceValidateInput {
 export type SourceRefreshResult =
   | {
       ok: true;
-      payload: { nodes: unknown[] };
+      payload: { nodes: unknown[]; warnings: AggregateWarning[] };
       sources: SourceRecord[];
     }
   | {

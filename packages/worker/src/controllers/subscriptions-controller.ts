@@ -75,7 +75,9 @@ export class SubscriptionsController<TEnv extends object> {
       await this.appendLog(c.env, 'source_refresh', `手动刷新订阅缓存，共 ${data.nodeCount} 条节点`);
       return c.json({
         sources: data.sources,
-        lastSaveTime: data.lastSaveTime
+        lastSaveTime: data.lastSaveTime,
+        warningCount: data.warningCount,
+        warnings: data.warnings
       });
     });
   }

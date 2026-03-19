@@ -1041,7 +1041,7 @@ async function getSource(env: Env, id: string): Promise<SourceRecord | null> {
   }
 
   const source = await env.APP_KV.get(`source:${id}`, 'json');
-  return source as SourceRecord | null;
+  return normalizeStoredSourceRecord(source, id);
 }
 
 async function getAllSources(env: Env): Promise<SourceRecord[]> {
@@ -2119,6 +2119,30 @@ function normalizeSourceBackup(records: SourceRecord[] | undefined): SourceRecor
       updatedAt: typeof record?.updatedAt === 'string' && record.updatedAt ? record.updatedAt : now
     };
   });
+}
+
+function normalizeStoredSourceRecord(value: unknown, fallbackId: string): SourceRecord | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Partial<SourceRecord>;
+  const now = new Date().toISOString();
+  const id = typeof record.id === 'string' && record.id ? record.id : fallbackId;
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    name: typeof record.name === 'string' ? record.name : '未命名订阅源',
+    content: typeof record.content === 'string' ? record.content : '',
+    nodeCount: typeof record.nodeCount === 'number' ? record.nodeCount : 0,
+    sortOrder: typeof record.sortOrder === 'number' ? record.sortOrder : 0,
+    enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+    createdAt: typeof record.createdAt === 'string' && record.createdAt ? record.createdAt : now,
+    updatedAt: typeof record.updatedAt === 'string' && record.updatedAt ? record.updatedAt : now
+  };
 }
 
 function normalizeNavigationBackup(records: NavigationCategoryPayload[] | undefined): NavigationCategoryPayload[] {
