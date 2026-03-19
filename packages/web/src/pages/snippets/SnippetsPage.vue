@@ -478,9 +478,120 @@ async function copySnippet(snippet: SnippetRecord) {
         </ElButton>
       </div>
 
-      <!-- 搜索和快速收集：左右分布 -->
-      <div class="grid gap-4 lg:grid-cols-3">
-        <!-- 左侧：搜索功能（1/3宽度） -->
+      <!-- 快速收集：独占整个容器 -->
+      <div>
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-900">快速收集</h3>
+          <ElTag size="small" type="info">当前内容大小：{{ draftSizeText }}</ElTag>
+        </div>
+
+        <div class="grid gap-3 md:grid-cols-2">
+          <div class="grid gap-2">
+            <label class="text-sm text-gray-600">类型</label>
+            <ElSelect v-model="draftType">
+              <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
+            </ElSelect>
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-gray-600">标题</label>
+            <ElInput v-model="draftTitle" placeholder="可选，留空自动生成" />
+          </div>
+        </div>
+
+        <div class="mt-3 grid gap-2">
+          <label class="text-sm text-gray-600">内容</label>
+          <ElInput v-if="draftType !== 'image'" v-model="draftContent" type="textarea" :rows="7" placeholder="输入内容" />
+          <div v-else class="rounded-xl border border-gray-200 bg-white p-3">
+            <div v-if="draftContent" class="snippet-image-preview">
+              <img :src="draftContent" alt="draft" />
+            </div>
+            <p v-else class="text-sm text-gray-500">未选择图片，可读取剪贴板或上传图片。</p>
+          </div>
+        </div>
+
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
+            <Icon icon="carbon:paste" class="mr-1" />
+            {{ clipboardBusy === 'text' ? '读取中...' : '读取文本' }}
+          </ElButton>
+          <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
+            <Icon icon="carbon:image-search" class="mr-1" />
+            {{ clipboardBusy === 'image' ? '读取中...' : '读取图片' }}
+          </ElButton>
+          <ElButton @click="triggerImageUpload">
+            <Icon icon="carbon:upload" class="mr-1" />
+            上传图片
+          </ElButton>
+          <ElButton type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
+            <Icon icon="carbon:save" class="mr-1" />
+            保存片段
+          </ElButton>
+        </div>
+
+        <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
+        <ElAlert v-if="draftError" class="mt-3" :closable="false" show-icon type="error" :title="draftError" />
+      </div>
+    </section>
+
+    <!-- 结果列表和搜索筛选：左右分布 -->
+    <section class="card">
+      <div class="grid gap-4 lg:grid-cols-4">
+        <!-- 左侧：结果列表（3/4宽度） -->
+        <div class="lg:col-span-3">
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">结果列表</h3>
+            <ElTag size="small">{{ filtered.length }} 条</ElTag>
+          </div>
+
+          <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+            加载中...
+          </div>
+          <ElAlert v-else-if="pageErrorMessage" :closable="false" show-icon type="error" :title="pageErrorMessage" />
+          <div v-else-if="!filtered.length" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+            暂无内容
+          </div>
+          <div v-else class="snippet-cards">
+            <article
+              v-for="snippet in filtered"
+              :key="snippet.id"
+              class="content-card"
+              :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
+              :data-snippet-id="snippet.id"
+            >
+              <div class="mb-2 flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
+                  <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
+                </div>
+                <div class="flex flex-shrink-0 gap-1">
+                  <ElButton size="small" text @click="togglePin(snippet)">
+                    <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
+                  </ElButton>
+                  <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                    <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
+                  </ElButton>
+                  <ElButton size="small" text @click="copySnippet(snippet)">
+                    <Icon icon="carbon:copy" />
+                  </ElButton>
+                  <ElButton size="small" text @click="openEditDialog(snippet)">
+                    <Icon icon="carbon:edit" />
+                  </ElButton>
+                  <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
+                    <Icon icon="carbon:trash-can" />
+                  </ElButton>
+                </div>
+              </div>
+
+              <div v-if="snippet.type === 'image'" class="snippet-image-preview">
+                <img :src="snippet.content" alt="snippet" />
+              </div>
+              <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
+              <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
+            </article>
+          </div>
+        </div>
+
+        <!-- 右侧：搜索筛选（1/4宽度） -->
         <div class="lg:col-span-1">
           <h3 class="mb-3 text-lg font-semibold text-gray-900">搜索筛选</h3>
           <div class="grid gap-3">
@@ -493,114 +604,6 @@ async function copySnippet(snippet: SnippetRecord) {
             <ElInput v-model="searchQuery" clearable placeholder="按标题或内容筛选..." />
           </div>
         </div>
-
-        <!-- 右侧：快速收集（2/3宽度） -->
-        <div class="lg:col-span-2">
-          <div class="mb-3 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">快速收集</h3>
-            <ElTag size="small" type="info">当前内容大小：{{ draftSizeText }}</ElTag>
-          </div>
-
-          <div class="grid gap-3 md:grid-cols-2">
-            <div class="grid gap-2">
-              <label class="text-sm text-gray-600">类型</label>
-              <ElSelect v-model="draftType">
-                <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
-              </ElSelect>
-            </div>
-            <div class="grid gap-2">
-              <label class="text-sm text-gray-600">标题</label>
-              <ElInput v-model="draftTitle" placeholder="可选，留空自动生成" />
-            </div>
-          </div>
-
-          <div class="mt-3 grid gap-2">
-            <label class="text-sm text-gray-600">内容</label>
-            <ElInput v-if="draftType !== 'image'" v-model="draftContent" type="textarea" :rows="7" placeholder="输入内容" />
-            <div v-else class="rounded-xl border border-gray-200 bg-white p-3">
-              <div v-if="draftContent" class="snippet-image-preview">
-                <img :src="draftContent" alt="draft" />
-              </div>
-              <p v-else class="text-sm text-gray-500">未选择图片，可读取剪贴板或上传图片。</p>
-            </div>
-          </div>
-
-          <div class="mt-3 flex flex-wrap items-center gap-2">
-            <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
-              <Icon icon="carbon:paste" class="mr-1" />
-              {{ clipboardBusy === 'text' ? '读取中...' : '读取文本' }}
-            </ElButton>
-            <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
-              <Icon icon="carbon:image-search" class="mr-1" />
-              {{ clipboardBusy === 'image' ? '读取中...' : '读取图片' }}
-            </ElButton>
-            <ElButton @click="triggerImageUpload">
-              <Icon icon="carbon:upload" class="mr-1" />
-              上传图片
-            </ElButton>
-            <ElButton type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
-              <Icon icon="carbon:save" class="mr-1" />
-              保存片段
-            </ElButton>
-          </div>
-
-          <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
-          <ElAlert v-if="draftError" class="mt-3" :closable="false" show-icon type="error" :title="draftError" />
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="mb-3 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900">结果列表</h3>
-        <ElTag size="small">{{ filtered.length }} 条</ElTag>
-      </div>
-
-      <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-        加载中...
-      </div>
-      <ElAlert v-else-if="pageErrorMessage" :closable="false" show-icon type="error" :title="pageErrorMessage" />
-      <div v-else-if="!filtered.length" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-        暂无内容
-      </div>
-      <div v-else class="snippet-cards">
-        <article
-          v-for="snippet in filtered"
-          :key="snippet.id"
-          class="content-card"
-          :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
-          :data-snippet-id="snippet.id"
-        >
-          <div class="mb-2 flex items-start justify-between gap-3">
-            <div class="min-w-0 flex-1">
-              <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
-              <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
-            </div>
-            <div class="flex flex-shrink-0 gap-1">
-              <ElButton size="small" text @click="togglePin(snippet)">
-                <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
-              </ElButton>
-              <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
-                <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
-              </ElButton>
-              <ElButton size="small" text @click="copySnippet(snippet)">
-                <Icon icon="carbon:copy" />
-              </ElButton>
-              <ElButton size="small" text @click="openEditDialog(snippet)">
-                <Icon icon="carbon:edit" />
-              </ElButton>
-              <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
-                <Icon icon="carbon:trash-can" />
-              </ElButton>
-            </div>
-          </div>
-
-          <div v-if="snippet.type === 'image'" class="snippet-image-preview">
-            <img :src="snippet.content" alt="snippet" />
-          </div>
-          <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
-          <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
-        </article>
       </div>
     </section>
 
