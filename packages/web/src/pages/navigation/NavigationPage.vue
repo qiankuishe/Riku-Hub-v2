@@ -62,6 +62,9 @@ const dragSourceCategoryId = ref('');
 const dropCategoryId = ref('');
 const dropLinkId = ref('');
 const dropPlacement = ref<'' | 'before' | 'after'>('');
+const pendingDragChanges = ref(false);
+const dragChangeQueue = ref<Array<{ type: 'reorder' | 'move'; categoryId: string; linkIds: string[] }>>([]);
+const pendingMoveLinks = ref<Array<{ linkId: string; fromCategoryId: string; toCategoryId: string }>>([]);
 
 const overviewSectionId = 'nav-overview';
 const categoryListRef = ref<HTMLElement | null>(null);
@@ -197,6 +200,56 @@ function getCategorySectionId(categoryId: string) {
   return `nav-category-${categoryId}`;
 }
 
+function resetPendingDragState() {
+  pendingDragChanges.value = false;
+  dragChangeQueue.value = [];
+  pendingMoveLinks.value = [];
+}
+
+function syncCategoryLinks(category: NavigationCategory, links: NavigationLink[]) {
+  category.links = links.map((link, index) => ({
+    ...link,
+    categoryId: category.id,
+    sortOrder: index
+  }));
+}
+
+function upsertReorderQueue(categoryId: string, linkIds: string[]) {
+  const existing = dragChangeQueue.value.find((entry) => entry.type === 'reorder' && entry.categoryId === categoryId);
+  if (existing) {
+    existing.linkIds = [...linkIds];
+    return;
+  }
+  dragChangeQueue.value.push({
+    type: 'reorder',
+    categoryId,
+    linkIds: [...linkIds]
+  });
+}
+
+function upsertMoveQueue(linkId: string, sourceCategoryId: string, targetCategoryId: string) {
+  if (sourceCategoryId === targetCategoryId) {
+    return;
+  }
+
+  dragChangeQueue.value.push({
+    type: 'move',
+    categoryId: targetCategoryId,
+    linkIds: [linkId]
+  });
+
+  const existing = pendingMoveLinks.value.find((entry) => entry.linkId === linkId);
+  if (!existing) {
+    pendingMoveLinks.value.push({ linkId, fromCategoryId: sourceCategoryId, toCategoryId: targetCategoryId });
+    return;
+  }
+
+  existing.toCategoryId = targetCategoryId;
+  if (existing.fromCategoryId === targetCategoryId) {
+    pendingMoveLinks.value = pendingMoveLinks.value.filter((entry) => entry.linkId !== linkId);
+  }
+}
+
 async function loadAll() {
   loading.value = true;
   pageErrorMessage.value = '';
@@ -205,6 +258,7 @@ async function loadAll() {
     const [notesData, snippetsData] = await Promise.all([notesApi.getAll(), snippetsApi.getAll({ type: 'all' })]);
     notes.value = notesData.notes;
     snippets.value = snippetsData.snippets;
+    resetPendingDragState();
     if (searchEngine.value === 'local' && searchQuery.value.trim()) {
       runLocalSearch();
     }
@@ -538,32 +592,95 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
     return;
   }
 
-  try {
-    if (sourceCategoryId === targetCategoryId) {
-      const ids = sourceCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
-      const targetIndex = targetLinkId ? ids.indexOf(targetLinkId) : -1;
-      const insertIndex = targetLinkId ? Math.max(0, targetIndex + (insertAfter ? 1 : 0)) : ids.length;
-      ids.splice(insertIndex, 0, sourceLinkId);
-      await navigationStore.reorderLinks(sourceCategoryId, ids);
-      uiStore.showToast('链接排序已更新');
-    } else {
-      const sourceIds = sourceCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
-      const targetIds = targetCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
-      const targetIndex = targetLinkId ? targetIds.indexOf(targetLinkId) : -1;
-      const insertIndex = targetLinkId ? Math.max(0, targetIndex + (insertAfter ? 1 : 0)) : targetIds.length;
-      targetIds.splice(insertIndex, 0, sourceLinkId);
-
-      await navigationStore.updateLink(sourceLinkId, { categoryId: targetCategoryId });
-      await Promise.all([navigationStore.reorderLinks(sourceCategoryId, sourceIds), navigationStore.reorderLinks(targetCategoryId, targetIds)]);
-      uiStore.showToast('链接已移动');
-    }
+  if (sourceCategoryId === targetCategoryId) {
+    const ids = sourceCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
+    const targetIndex = targetLinkId ? ids.indexOf(targetLinkId) : -1;
+    const insertIndex = targetLinkId ? Math.max(0, targetIndex + (insertAfter ? 1 : 0)) : ids.length;
+    ids.splice(insertIndex, 0, sourceLinkId);
+    const newLinks = ids.map((id) => sourceCategory.links.find((link) => link.id === id)).filter((link): link is NavigationLink => Boolean(link));
+    syncCategoryLinks(sourceCategory, newLinks);
+    upsertReorderQueue(sourceCategory.id, sourceCategory.links.map((link) => link.id));
+    pendingDragChanges.value = true;
     pageErrorMessage.value = '';
-  } catch (error) {
-    uiStore.showToast(error instanceof Error ? error.message : '拖拽操作失败');
-    await loadAll();
-  } finally {
     onLinkDragEnd();
+    return;
   }
+
+  const sourceIds = sourceCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
+  const targetIds = targetCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
+  const targetIndex = targetLinkId ? targetIds.indexOf(targetLinkId) : -1;
+  const insertIndex = targetLinkId ? Math.max(0, targetIndex + (insertAfter ? 1 : 0)) : targetIds.length;
+  targetIds.splice(insertIndex, 0, sourceLinkId);
+
+  const sourceLinks = sourceIds
+    .map((id) => sourceCategory.links.find((link) => link.id === id))
+    .filter((link): link is NavigationLink => Boolean(link));
+  syncCategoryLinks(sourceCategory, sourceLinks);
+
+  const movedLink: NavigationLink = { ...sourceLink, categoryId: targetCategoryId };
+  const targetLinks = targetIds
+    .map((id) => (id === sourceLinkId ? movedLink : targetCategory.links.find((link) => link.id === id)))
+    .filter((link): link is NavigationLink => Boolean(link));
+  syncCategoryLinks(targetCategory, targetLinks);
+
+  upsertMoveQueue(sourceLinkId, sourceCategoryId, targetCategoryId);
+  upsertReorderQueue(sourceCategory.id, sourceCategory.links.map((link) => link.id));
+  upsertReorderQueue(targetCategory.id, targetCategory.links.map((link) => link.id));
+  pendingDragChanges.value = true;
+  pageErrorMessage.value = '';
+  onLinkDragEnd();
+}
+
+async function saveDragChanges() {
+  if (!pendingDragChanges.value) {
+    return;
+  }
+
+  try {
+    for (const move of pendingMoveLinks.value) {
+      if (move.fromCategoryId !== move.toCategoryId) {
+        await navigationStore.updateLink(move.linkId, { categoryId: move.toCategoryId });
+      }
+    }
+
+    const changedCategories = dragChangeQueue.value
+      .filter((entry) => entry.type === 'reorder')
+      .map((entry) => entry.categoryId);
+    const categoryIds = [...new Set(changedCategories)];
+    const reorderTasks = categoryIds.map((categoryId) => {
+      const category = categories.value.find((entry) => entry.id === categoryId);
+      if (!category) {
+        return Promise.resolve();
+      }
+      const linkIds = category.links.map((link) => link.id);
+      return navigationStore.reorderLinks(category.id, linkIds);
+    });
+
+    await Promise.all(reorderTasks);
+    resetPendingDragState();
+    uiStore.showToast('排序已保存');
+    pageErrorMessage.value = '';
+    window.setTimeout(() => {
+      void loadAll();
+    }, 800);
+  } catch (error) {
+    uiStore.showToast(error instanceof Error ? error.message : '保存失败');
+    resetPendingDragState();
+    await loadAll();
+  }
+}
+
+async function handleEditModeToggle() {
+  if (editMode.value && pendingDragChanges.value) {
+    const shouldSave = window.confirm('有未保存的排序更改，是否保存？');
+    if (shouldSave) {
+      await saveDragChanges();
+    } else {
+      resetPendingDragState();
+      await loadAll();
+    }
+  }
+  editMode.value = !editMode.value;
 }
 </script>
 
@@ -584,11 +701,21 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增站点
           </ElButton>
+          <ElButton
+            v-if="editMode && pendingDragChanges"
+            type="primary"
+            :loading="saving"
+            :disabled="saving || loading"
+            @click="saveDragChanges"
+          >
+            <Icon icon="carbon:save" class="mr-1" />
+            保存排序
+          </ElButton>
           <ElButton :loading="loading" @click="loadAll">
             <Icon icon="carbon:renew" class="mr-1" />
             {{ loading ? '刷新中...' : '刷新' }}
           </ElButton>
-          <ElButton :type="editMode ? 'primary' : 'default'" @click="editMode = !editMode">
+          <ElButton :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
             <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
             {{ editMode ? '完成编辑' : '进入编辑' }}
           </ElButton>
@@ -625,7 +752,7 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
             v-for="item in localSearchResults"
             :key="`${item.type}-${item.id}`"
             type="button"
-            class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-left transition hover:border-[#7b441a]/40 hover:bg-[#7b441a]/[0.03]"
+            class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-left transition hover:border-gray-400 hover:bg-gray-50"
             @click="handleLocalResultClick(item)"
           >
             <div class="mb-1 flex items-center gap-2">
@@ -687,11 +814,14 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
         v-for="category in categories"
         :key="category.id"
         class="rounded-xl transition"
-        :class="{ 'bg-[#7b441a]/[0.05]': dropCategoryId === category.id }"
+        :class="{
+          'category-drop-zone': editMode && dropCategoryId === category.id && !dropLinkId,
+          'bg-gray-50': editMode && dropCategoryId === category.id && !dropLinkId
+        }"
         @dragover.prevent="editMode && onCategoryDragOver($event, category.id)"
         @drop.prevent="editMode && onCategoryDropZone($event, category.id)"
       >
-        <section class="card" :id="getCategorySectionId(category.id)" :class="{ 'ring-2 ring-[#7b441a]/30': selectedCategoryId === category.id }">
+        <section class="card" :id="getCategorySectionId(category.id)" :class="{ 'ring-2 ring-black/20': selectedCategoryId === category.id }">
           <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
             <h3 class="text-lg font-semibold text-gray-900">
               {{ category.name }}
@@ -751,11 +881,11 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
             <button
               v-if="editMode"
               type="button"
-              class="nav-link-card border-dashed text-left transition hover:border-[#7b441a]/35 hover:bg-[#7b441a]/[0.04]"
+              class="nav-link-card border-dashed text-left transition hover:border-gray-400 hover:bg-gray-50"
               @click="openLinkDialog(undefined, category.id)"
             >
               <div class="flex items-center gap-2">
-                <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#7b441a]/25 text-[#7b441a]">
+                <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-gray-400 text-gray-700">
                   <Icon icon="carbon:add" />
                 </span>
                 <span class="text-sm font-medium text-gray-700">新增链接</span>
@@ -858,7 +988,7 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
 }
 
 .nav-link-card:hover {
-  border-color: rgba(123, 68, 26, 0.35);
+  border-color: #9ca3af;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
 }
 
@@ -867,16 +997,16 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
 }
 
 .nav-link-card.is-drop-target {
-  border-color: #7b441a;
-  background: rgba(123, 68, 26, 0.08);
+  border-color: #111111;
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .nav-link-card.drop-before {
-  box-shadow: inset 0 3px 0 rgba(123, 68, 26, 0.8);
+  box-shadow: inset 0 3px 0 #111111;
 }
 
 .nav-link-card.drop-after {
-  box-shadow: inset 0 -3px 0 rgba(123, 68, 26, 0.8);
+  box-shadow: inset 0 -3px 0 #111111;
 }
 
 .nav-category-drag-handle {
@@ -885,10 +1015,10 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(123, 68, 26, 0.22);
+  border: 1px solid #d1d5db;
   border-radius: 8px;
   background: #fff;
-  color: #7b441a;
+  color: #111111;
   cursor: grab;
 }
 
@@ -898,13 +1028,17 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
 
 .nav-category-ghost {
   opacity: 0.4;
-  background: rgba(123, 68, 26, 0.06);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .nav-category-drag {
   opacity: 1;
   transform: rotate(2deg);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.category-drop-zone {
+  border: 1px dashed rgba(0, 0, 0, 0.3);
 }
 
 @media (max-width: 1500px) {
