@@ -36,26 +36,69 @@ const visibleNodes = computed<VisibleNode[]>(() => {
 });
 
 const trackerLines = computed(() => {
-  if (visibleNodes.value.length < 2) {
+  const nodeCount = visibleNodes.value.length;
+  
+  if (nodeCount < 2) {
     return [] as Array<{ key: string; from: VisibleNode; to: VisibleNode; active: boolean }>;
   }
 
   const lines: Array<{ key: string; from: VisibleNode; to: VisibleNode; active: boolean }> = [];
-  for (let index = 0; index < visibleNodes.value.length - 1; index += 1) {
+  
+  // 只连接相邻的节点，不形成完整的环
+  // 对于3个节点：0-1, 1-2, 2-0（三角形）
+  // 对于更多节点：只连接前几个节点，避免线条过多
+  if (nodeCount === 3) {
+    // 3个节点形成三角形
+    lines.push(
+      {
+        key: `line-${visibleNodes.value[0].node.id}-${visibleNodes.value[1].node.id}`,
+        from: visibleNodes.value[0],
+        to: visibleNodes.value[1],
+        active: true
+      },
+      {
+        key: `line-${visibleNodes.value[1].node.id}-${visibleNodes.value[2].node.id}`,
+        from: visibleNodes.value[1],
+        to: visibleNodes.value[2],
+        active: false
+      },
+      {
+        key: `line-${visibleNodes.value[2].node.id}-${visibleNodes.value[0].node.id}`,
+        from: visibleNodes.value[2],
+        to: visibleNodes.value[0],
+        active: false
+      }
+    );
+  } else if (nodeCount > 3) {
+    // 多于3个节点时，只连接部分节点，避免线条过多
+    // 连接前3个节点形成核心三角形
+    for (let i = 0; i < Math.min(3, nodeCount); i++) {
+      const nextIndex = (i + 1) % Math.min(3, nodeCount);
+      lines.push({
+        key: `line-${visibleNodes.value[i].node.id}-${visibleNodes.value[nextIndex].node.id}`,
+        from: visibleNodes.value[i],
+        to: visibleNodes.value[nextIndex],
+        active: i === 0
+      });
+    }
+    
+    // 其他节点连接到最近的核心节点
+    for (let i = 3; i < nodeCount; i++) {
+      const targetIndex = i % 3;
+      lines.push({
+        key: `line-${visibleNodes.value[i].node.id}-${visibleNodes.value[targetIndex].node.id}`,
+        from: visibleNodes.value[i],
+        to: visibleNodes.value[targetIndex],
+        active: false
+      });
+    }
+  } else {
+    // 2个节点只连一条线
     lines.push({
-      key: `line-${visibleNodes.value[index].node.id}-${visibleNodes.value[index + 1].node.id}`,
-      from: visibleNodes.value[index],
-      to: visibleNodes.value[index + 1],
-      active: index === 0
-    });
-  }
-
-  if (visibleNodes.value.length >= 3) {
-    lines.push({
-      key: `line-${visibleNodes.value[visibleNodes.value.length - 1].node.id}-${visibleNodes.value[0].node.id}`,
-      from: visibleNodes.value[visibleNodes.value.length - 1],
-      to: visibleNodes.value[0],
-      active: false
+      key: `line-${visibleNodes.value[0].node.id}-${visibleNodes.value[1].node.id}`,
+      from: visibleNodes.value[0],
+      to: visibleNodes.value[1],
+      active: true
     });
   }
 
