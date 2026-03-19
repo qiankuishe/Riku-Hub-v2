@@ -905,10 +905,10 @@ async function moveCategoryDown(category: NavigationCategory) {
               }"
               :draggable="editMode"
               @click="!editMode && handleOpenLink(link)"
-              @dragstart="editMode && onLinkDragStart($event, link)"
-              @dragend="editMode && onLinkDragEnd()"
-              @dragover.prevent="editMode && onLinkDragOver($event, link)"
-              @drop.prevent="editMode && onLinkDrop($event, link)"
+              @dragstart.stop="editMode && onLinkDragStart($event, link)"
+              @dragend.stop="editMode && onLinkDragEnd()"
+              @dragover.prevent.stop="editMode && onLinkDragOver($event, link)"
+              @drop.prevent.stop="editMode && onLinkDrop($event, link)"
             >
               <div class="flex items-center gap-2 min-w-0">
                 <FaviconImage :url="link.url" :title="link.title" />
