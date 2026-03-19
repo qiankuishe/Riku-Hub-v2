@@ -132,7 +132,7 @@ p {
   max-width: var(--shell-main-max);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 18px 22px 26px;
+  padding: 8px 22px 8px;
 }
 
 .page-content {
@@ -144,7 +144,7 @@ p {
 }
 
 .topbar {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
