@@ -25,13 +25,6 @@ const viewMode = ref<ViewMode>('write');
 const renderedPreview = ref('');
 const deleteTarget = ref<NoteRecord | null>(null);
 const highlightedId = ref<string | null>(null);
-const NOTE_TITLE_MAX_UNITS_ZH = 28;
-const NOTE_TITLE_MAX_UNITS_EN = 26;
-const NOTE_TITLE_MAX_UNITS_MIXED = 27;
-const NOTE_EXCERPT_MAX_UNITS_ZH = 32;
-const NOTE_EXCERPT_MAX_UNITS_EN = 32;
-const NOTE_EXCERPT_MAX_UNITS_MIXED = 32;
-const ELLIPSIS_MARK = '···';
 
 let saveTimer = 0;
 let previewRunId = 0;
@@ -204,87 +197,6 @@ async function renderMarkdown(content: string) {
   }
   return markdownRenderer(content);
 }
-
-function noteExcerpt(content: string) {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-  if (!normalized) {
-    return '空白笔记';
-  }
-  return truncateByVisualUnits(normalized, getExcerptMaxUnits(normalized));
-}
-
-function getNoteDisplayTitle(title: string) {
-  const normalized = title?.trim() || '无标题';
-  return truncateByVisualUnits(normalized, getTitleMaxUnits(normalized));
-}
-
-function isHanCharacter(char: string) {
-  return /[\u3400-\u9FFF\uF900-\uFAFF]/.test(char);
-}
-
-function getTextMode(value: string): 'zh' | 'en' | 'mixed' {
-  let hanCount = 0;
-  let latinCount = 0;
-  for (const char of value) {
-    if (/\s/.test(char)) {
-      continue;
-    }
-    if (isHanCharacter(char)) {
-      hanCount += 1;
-      continue;
-    }
-    if (/[A-Za-z0-9]/.test(char)) {
-      latinCount += 1;
-    }
-  }
-  if (hanCount > 0 && latinCount === 0) {
-    return 'zh';
-  }
-  if (latinCount > 0 && hanCount === 0) {
-    return 'en';
-  }
-  return 'mixed';
-}
-
-function getTitleMaxUnits(value: string) {
-  const mode = getTextMode(value);
-  if (mode === 'zh') {
-    return NOTE_TITLE_MAX_UNITS_ZH;
-  }
-  if (mode === 'en') {
-    return NOTE_TITLE_MAX_UNITS_EN;
-  }
-  return NOTE_TITLE_MAX_UNITS_MIXED;
-}
-
-function getExcerptMaxUnits(value: string) {
-  const mode = getTextMode(value);
-  if (mode === 'zh') {
-    return NOTE_EXCERPT_MAX_UNITS_ZH;
-  }
-  if (mode === 'en') {
-    return NOTE_EXCERPT_MAX_UNITS_EN;
-  }
-  return NOTE_EXCERPT_MAX_UNITS_MIXED;
-}
-
-function getCharVisualUnits(char: string) {
-  return isHanCharacter(char) ? 2 : 1;
-}
-
-function truncateByVisualUnits(value: string, maxUnits: number) {
-  let units = 0;
-  let output = '';
-  for (const char of value) {
-    const nextUnits = units + getCharVisualUnits(char);
-    if (nextUnits > maxUnits) {
-      return `${output}${ELLIPSIS_MARK}`;
-    }
-    output += char;
-    units = nextUnits;
-  }
-  return output;
-}
 </script>
 
 <template>
@@ -326,15 +238,15 @@ function truncateByVisualUnits(value: string, maxUnits: number) {
               v-for="note in pinnedNotes"
               :key="note.id"
               type="button"
-              class="list-card w-full text-left"
+              class="list-card w-full text-left min-w-0"
               :class="{
                 'list-card-active': selectedNoteId === note.id,
                 'notes-note-button-highlight': highlightedId === note.id
               }"
               @click="selectedNoteId = note.id"
             >
-              <strong class="truncate text-sm text-gray-900">{{ getNoteDisplayTitle(note.title) }}</strong>
-              <p class="truncate text-xs text-gray-500">{{ noteExcerpt(note.content) }}</p>
+              <strong class="block truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
+              <p class="truncate text-xs text-gray-500">{{ note.content.replace(/\s+/g, ' ').trim() || '空白笔记' }}</p>
             </button>
           </div>
 
@@ -347,15 +259,15 @@ function truncateByVisualUnits(value: string, maxUnits: number) {
               v-for="note in recentNotes"
               :key="note.id"
               type="button"
-              class="list-card w-full text-left"
+              class="list-card w-full text-left min-w-0"
               :class="{
                 'list-card-active': selectedNoteId === note.id,
                 'notes-note-button-highlight': highlightedId === note.id
               }"
               @click="selectedNoteId = note.id"
             >
-              <strong class="truncate text-sm text-gray-900">{{ getNoteDisplayTitle(note.title) }}</strong>
-              <p class="truncate text-xs text-gray-500">{{ noteExcerpt(note.content) }}</p>
+              <strong class="block truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
+              <p class="truncate text-xs text-gray-500">{{ note.content.replace(/\s+/g, ' ').trim() || '空白笔记' }}</p>
             </button>
           </div>
         </template>

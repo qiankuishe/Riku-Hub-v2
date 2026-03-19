@@ -41,9 +41,6 @@ const editContent = ref('');
 const editErrorMessage = ref('');
 const deleteTarget = ref<SnippetRecord | null>(null);
 const IMAGE_LIMIT_BYTES = 340 * 1024;
-const SNIPPET_TITLE_MAX_UNITS_ZH = 32;
-const SNIPPET_TITLE_MAX_UNITS_EN = 33;
-const SNIPPET_TITLE_MAX_UNITS_MIXED = 30;
 
 const typeOptions: Array<{ key: SnippetType; label: string; icon: string }> = [
   { key: 'text', label: '文本', icon: 'carbon:text-align-left' },
@@ -148,63 +145,6 @@ function buildSuggestedTitle(type: SnippetType, content: string) {
     }
   }
   return content.trim().split(/\r?\n/)[0]?.slice(0, 24) || (type === 'code' ? '剪贴代码' : '剪贴文本');
-}
-
-function isHanCharacter(char: string) {
-  return /[\u3400-\u9FFF\uF900-\uFAFF]/.test(char);
-}
-
-function getTitleMode(value: string): 'zh' | 'en' | 'mixed' {
-  let hanCount = 0;
-  let latinCount = 0;
-  for (const char of value) {
-    if (/\s/.test(char)) {
-      continue;
-    }
-    if (isHanCharacter(char)) {
-      hanCount += 1;
-      continue;
-    }
-    if (/[A-Za-z0-9]/.test(char)) {
-      latinCount += 1;
-    }
-  }
-  if (hanCount > 0 && latinCount === 0) {
-    return 'zh';
-  }
-  if (latinCount > 0 && hanCount === 0) {
-    return 'en';
-  }
-  return 'mixed';
-}
-
-function getCharVisualUnits(char: string) {
-  return isHanCharacter(char) ? 2 : 1;
-}
-
-function truncateByVisualUnits(value: string, maxUnits: number) {
-  let units = 0;
-  let output = '';
-  for (const char of value) {
-    const nextUnits = units + getCharVisualUnits(char);
-    if (nextUnits > maxUnits) {
-      return `${output}…`;
-    }
-    output += char;
-    units = nextUnits;
-  }
-  return output;
-}
-
-function getSnippetDisplayTitle(title: string) {
-  const normalized = title?.trim() || '未命名片段';
-  const mode = getTitleMode(normalized);
-  const maxUnits = mode === 'zh'
-    ? SNIPPET_TITLE_MAX_UNITS_ZH
-    : mode === 'en'
-      ? SNIPPET_TITLE_MAX_UNITS_EN
-      : SNIPPET_TITLE_MAX_UNITS_MIXED;
-  return truncateByVisualUnits(normalized, maxUnits);
 }
 
 function validateSnippet(type: SnippetType, content: string) {
@@ -626,7 +566,7 @@ async function copySnippet(snippet: SnippetRecord) {
         >
           <div class="mb-2 flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-              <strong class="block truncate text-sm text-gray-900">{{ getSnippetDisplayTitle(snippet.title) }}</strong>
+              <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
               <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
             </div>
             <div class="flex flex-wrap gap-1">
