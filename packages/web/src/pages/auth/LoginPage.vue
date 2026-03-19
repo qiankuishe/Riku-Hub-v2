@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ElButton, ElInput, ElForm, ElFormItem, ElMessage } from 'element-plus'
+import { ElButton, ElInput, ElMessage } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { authApi } from '../../api'
 import { resolveAppRoute } from '../../utils/routeMemory'
@@ -15,7 +15,7 @@ const showPassword = ref(false)
 async function handleLogin() {
   if (!loginForm.value.username.trim() || !loginForm.value.password.trim()) {
     ElMessage.error('请输入用户名和密码')
-    return;
+    return
   }
 
   loading.value = true
@@ -33,51 +33,45 @@ async function handleLogin() {
 
 <template>
   <div class="min-h-screen flex-center bg-gray-50">
-    <div class="card max-w-md w-full mx-4">
-      <!-- Logo 和标题 -->
+    <div class="card max-w-sm w-full mx-4">
       <div class="flex items-center gap-4 mb-8">
         <img src="/logo.png" alt="Riku-Hub" class="w-16 h-16 rounded-xl" />
         <div>
           <h1 class="text-2xl font-bold text-gray-900">Riku-Hub</h1>
-          <p class="text-muted">登录后继续使用导航、订阅和知识模块</p>
+          <p class="text-muted">登录后继续使用</p>
         </div>
       </div>
 
-      <!-- 登录表单 -->
-      <el-form @submit.prevent="handleLogin">
-        <el-form-item label="用户名">
-          <el-input
-            v-model="loginForm.username"
-            placeholder="请输入用户名"
-            autocomplete="username"
-            size="large"
-          >
-            <template #prefix>
-              <Icon icon="carbon:user" />
-            </template>
-          </el-input>
-        </el-form-item>
+      <form @submit.prevent="handleLogin" class="space-y-4">
+        <el-input
+          v-model="loginForm.username"
+          placeholder="用户名"
+          autocomplete="username"
+          size="large"
+        >
+          <template #prefix>
+            <Icon icon="carbon:user" />
+          </template>
+        </el-input>
 
-        <el-form-item label="密码">
-          <el-input
-            v-model="loginForm.password"
-            :type="showPassword ? 'text' : 'password'"
-            placeholder="请输入密码"
-            autocomplete="current-password"
-            size="large"
-          >
-            <template #prefix>
-              <Icon icon="carbon:password" />
-            </template>
-            <template #suffix>
-              <Icon
-                :icon="showPassword ? 'carbon:view-off' : 'carbon:view'"
-                class="cursor-pointer"
-                @click="showPassword = !showPassword"
-              />
-            </template>
-          </el-input>
-        </el-form-item>
+        <el-input
+          v-model="loginForm.password"
+          :type="showPassword ? 'text' : 'password'"
+          placeholder="密码"
+          autocomplete="current-password"
+          size="large"
+        >
+          <template #prefix>
+            <Icon icon="carbon:password" />
+          </template>
+          <template #suffix>
+            <Icon
+              :icon="showPassword ? 'carbon:view-off' : 'carbon:view'"
+              class="cursor-pointer"
+              @click="showPassword = !showPassword"
+            />
+          </template>
+        </el-input>
 
         <el-button
           type="primary"
@@ -89,7 +83,7 @@ async function handleLogin() {
           <Icon icon="carbon:login" class="mr-2" />
           登录
         </el-button>
-      </el-form>
+      </form>
     </div>
   </div>
 </template>

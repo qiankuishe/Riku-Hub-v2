@@ -1,13 +1,13 @@
 :root {
-  --rk-bg: #f6f5f1;
+  --rk-bg: #f5f5f7;
   --rk-surface: #ffffff;
-  --rk-surface-soft: #f3f1eb;
-  --rk-text: #1f1f22;
-  --rk-text-soft: #6b6a70;
-  --rk-border: #d8d6d0;
-  --rk-brand: #7b441a;
-  --rk-brand-strong: #653513;
-  --rk-danger: #c9372c;
+  --rk-surface-soft: #f2f2f4;
+  --rk-text: #1d1d1f;
+  --rk-text-soft: #6e6e73;
+  --rk-border: #d2d2d7;
+  --rk-brand: #000000;
+  --rk-brand-strong: #111111;
+  --rk-danger: #ef4444;
   --rk-success: #1d7d39;
   --rk-shadow: 0 12px 40px rgba(22, 21, 24, 0.08);
   --shell-sidebar-width: 260px;
@@ -34,8 +34,8 @@ body {
 body {
   color: var(--rk-text);
   background:
-    radial-gradient(circle at top left, rgba(123, 68, 26, 0.1), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(123, 68, 26, 0.08), transparent 24%),
+    radial-gradient(circle at top left, rgba(0, 0, 0, 0.06), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(0, 0, 0, 0.04), transparent 24%),
     var(--rk-bg);
   font: 15px/1.5 "SF Pro Display", "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
   text-rendering: optimizeLegibility;
@@ -247,9 +247,9 @@ p {
 
 .sidebar-nav-item-active,
 .sidebar-link-active {
-  background: rgba(123, 68, 26, 0.12);
+  background: rgba(0, 0, 0, 0.08);
   color: var(--rk-brand-strong);
-  border-color: rgba(123, 68, 26, 0.18);
+  border-color: rgba(0, 0, 0, 0.16);
 }
 
 .sidebar-nav-icon {
@@ -302,14 +302,14 @@ p {
   gap: 2px;
   padding: 6px 8px 8px 24px;
   margin-left: 18px;
-  border-left: 2px solid rgba(123, 68, 26, 0.25);
+  border-left: 2px solid rgba(0, 0, 0, 0.2);
   margin-top: 2px;
 }
 
 .mobile-secondary-nav {
   margin-left: 16px;
   padding-left: 10px;
-  border-left: 2px solid rgba(123, 68, 26, 0.22);
+  border-left: 2px solid rgba(0, 0, 0, 0.16);
 }
 
 .mobile-secondary-nav-list {
@@ -346,8 +346,8 @@ p {
 }
 
 .sidebar-submenu-link-active {
-  border-color: rgba(123, 68, 26, 0.18);
-  background: rgba(123, 68, 26, 0.12);
+  border-color: rgba(0, 0, 0, 0.16);
+  background: rgba(0, 0, 0, 0.08);
   color: var(--rk-brand-strong);
   font-weight: 500;
   opacity: 1;

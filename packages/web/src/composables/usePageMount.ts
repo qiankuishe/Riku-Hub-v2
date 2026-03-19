@@ -9,6 +9,48 @@ import 'virtual:uno.css';
 import 'element-plus/dist/index.css';
 import '../styles/index.css';
 
+const ELEMENT_THEME_STYLE_ID = 'rk-element-theme-override';
+
+function ensureElementThemeStyles() {
+  if (document.getElementById(ELEMENT_THEME_STYLE_ID)) {
+    return;
+  }
+
+  const style = document.createElement('style');
+  style.id = ELEMENT_THEME_STYLE_ID;
+  style.textContent = `
+    :root {
+      --el-color-primary: #000000;
+      --el-color-primary-light-3: #4d4d4d;
+      --el-color-primary-light-5: #808080;
+      --el-color-primary-light-7: #b3b3b3;
+      --el-color-primary-light-8: #cccccc;
+      --el-color-primary-light-9: #e6e6e6;
+      --el-color-primary-dark-2: #000000;
+      --el-color-danger: #ef4444;
+      --el-color-success: #10b981;
+      --el-color-warning: #f59e0b;
+      --el-color-info: #6b7280;
+    }
+
+    .el-button--primary {
+      background-color: #000000;
+      border-color: #000000;
+    }
+
+    .el-button--primary:hover {
+      background-color: #1a1a1a;
+      border-color: #1a1a1a;
+    }
+
+    .el-button--primary:active {
+      background-color: #333333;
+      border-color: #333333;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 export interface ProtectedPageOptions {
   component: Component;
   currentPath: string;
@@ -17,6 +59,7 @@ export interface ProtectedPageOptions {
 }
 
 function mount(component: Component) {
+  ensureElementThemeStyles();
   const app = createApp(component);
   const pinia = createPinia();
   pinia.use(piniaPluginPersistedstate);
