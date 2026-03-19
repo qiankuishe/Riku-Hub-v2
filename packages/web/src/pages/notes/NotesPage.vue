@@ -25,6 +25,9 @@ const viewMode = ref<ViewMode>('write');
 const renderedPreview = ref('');
 const deleteTarget = ref<NoteRecord | null>(null);
 const highlightedId = ref<string | null>(null);
+const NOTE_TITLE_MAX_UNITS = 28;
+const NOTE_EXCERPT_MAX_UNITS = 32;
+const ELLIPSIS_MARK = '···';
 
 let saveTimer = 0;
 let previewRunId = 0;
@@ -199,7 +202,38 @@ async function renderMarkdown(content: string) {
 }
 
 function noteExcerpt(content: string) {
-  return content.replace(/\s+/g, ' ').trim().slice(0, 54) || '空白笔记';
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '空白笔记';
+  }
+  return truncateByVisualUnits(normalized, NOTE_EXCERPT_MAX_UNITS);
+}
+
+function getNoteDisplayTitle(title: string) {
+  const normalized = title?.trim() || '无标题';
+  return truncateByVisualUnits(normalized, NOTE_TITLE_MAX_UNITS);
+}
+
+function isHanCharacter(char: string) {
+  return /[\u3400-\u9FFF\uF900-\uFAFF]/.test(char);
+}
+
+function getCharVisualUnits(char: string) {
+  return isHanCharacter(char) ? 2 : 1;
+}
+
+function truncateByVisualUnits(value: string, maxUnits: number) {
+  let units = 0;
+  let output = '';
+  for (const char of value) {
+    const nextUnits = units + getCharVisualUnits(char);
+    if (nextUnits > maxUnits) {
+      return `${output}${ELLIPSIS_MARK}`;
+    }
+    output += char;
+    units = nextUnits;
+  }
+  return output;
 }
 </script>
 
@@ -249,7 +283,7 @@ function noteExcerpt(content: string) {
               }"
               @click="selectedNoteId = note.id"
             >
-              <strong class="truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
+              <strong class="truncate text-sm text-gray-900">{{ getNoteDisplayTitle(note.title) }}</strong>
               <p class="truncate text-xs text-gray-500">{{ noteExcerpt(note.content) }}</p>
             </button>
           </div>
@@ -270,7 +304,7 @@ function noteExcerpt(content: string) {
               }"
               @click="selectedNoteId = note.id"
             >
-              <strong class="truncate text-sm text-gray-900">{{ note.title || '无标题' }}</strong>
+              <strong class="truncate text-sm text-gray-900">{{ getNoteDisplayTitle(note.title) }}</strong>
               <p class="truncate text-xs text-gray-500">{{ noteExcerpt(note.content) }}</p>
             </button>
           </div>
