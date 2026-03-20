@@ -40,13 +40,13 @@ const dangerActions: DangerAction[] = [
 
 const statsItems = computed(() => {
   const current = stats.value;
+  const clipboardTotal = current ? (current.snippets ?? 0) + (current.clipboardItems ?? 0) : loadingStats.value ? -1 : 0;
   return [
     { key: 'sources', label: '订阅源', value: current?.sources ?? (loadingStats.value ? -1 : 0), icon: 'carbon:rss' },
     { key: 'navigationCategories', label: '导航分类', value: current?.navigationCategories ?? (loadingStats.value ? -1 : 0), icon: 'carbon:categories' },
     { key: 'navigationLinks', label: '导航链接', value: current?.navigationLinks ?? (loadingStats.value ? -1 : 0), icon: 'carbon:link' },
     { key: 'notes', label: '笔记', value: current?.notes ?? (loadingStats.value ? -1 : 0), icon: 'carbon:notebook' },
-    { key: 'snippets', label: '片段', value: current?.snippets ?? (loadingStats.value ? -1 : 0), icon: 'carbon:code' },
-    { key: 'clipboardItems', label: '剪贴板', value: current?.clipboardItems ?? (loadingStats.value ? -1 : 0), icon: 'carbon:paste' }
+    { key: 'clipboard', label: '剪贴板', value: clipboardTotal, icon: 'carbon:paste' }
   ];
 });
 
