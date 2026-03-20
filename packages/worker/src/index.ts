@@ -8,6 +8,7 @@ import { mountNotesRoutes } from './routes/notes';
 import { mountSettingsRoutes } from './routes/settings';
 import { mountSnippetsRoutes } from './routes/snippets';
 import { mountSubscriptionsRoutes } from './routes/subscriptions';
+import images from './routes/images';
 import { filterClipboardItems, normalizeClipboardType } from './utils/clipboard';
 import {
   mapClipboardItemRow,
@@ -139,6 +140,8 @@ export interface Env {
   COMPAT_ALLOW_REGISTER?: string;
   COMPAT_REGISTER_KEY?: string;
   PUBLIC_CLIPBOARD_ENABLED?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
 }
 
 type Bindings = { Bindings: Env };
@@ -448,6 +451,8 @@ mountSnippetsRoutes<Env>(app, {
     maxImageSnippetBytes: MAX_IMAGE_SNIPPET_BYTES
   }
 });
+
+app.route('/api/images', images);
 
 app.notFound(async (c) => {
   if (c.env.ASSETS) {

@@ -2,6 +2,17 @@
 
 Cloudflare Workers 版的 Riku-Hub 聚合服务。当前仓库保留了主接口和兼容接口，部署按仓库内 `wrangler.toml` 直接落地即可。
 
+## 当前状态（2026-03-20）
+
+- Week 1 P0（安全修复）已完成。
+- Week 2 P1（重构与稳定性）已完成。
+- 最近已补齐以下关键修复：
+  - 导入时非法导航链接结构化返回 `skipped` 结果。
+  - 订阅源并发删除后不再被刷新逻辑“复活”。
+  - 订阅源大小校验改为 UTF-8 字节长度校验。
+  - `link` 类型导入大小限制已生效。
+- 最新验证：`check + test` 全通过（`67/67`）。
+
 ## 组成
 
 - `packages/worker`：Worker API、Cron 刷新、KV / D1 访问
@@ -23,6 +34,14 @@ Cloudflare Workers 版的 Riku-Hub 聚合服务。当前仓库保留了主接口
 - `APP_KV` 仅保留为代码中的兼容分支，不在当前默认部署路径中启用。
 
 部署细节见 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)，接口清单见 [`docs/API.md`](./docs/API.md)，迁移说明见 [`docs/MIGRATION.md`](./docs/MIGRATION.md)。
+
+## 文档索引
+
+- 部署文档：[`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)
+- 安全文档：[`docs/SECURITY.md`](./docs/SECURITY.md)
+- 故障排查：[`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md)
+- 接口文档：[`docs/API.md`](./docs/API.md)
+- 迁移文档：[`docs/MIGRATION.md`](./docs/MIGRATION.md)
 
 ## 迁移脚本
 
@@ -48,6 +67,14 @@ pnpm dev:worker
 - `pnpm check`：workspace 级类型检查
 - `pnpm test`：workspace 级 Vitest
 - `pnpm deploy`：先执行 `check + test + build:web`，再执行 `wrangler deploy`
+
+推荐在本地或 CI 使用：
+
+```bash
+corepack pnpm check
+corepack pnpm test
+corepack pnpm build
+```
 
 ## 路由兼容现状
 

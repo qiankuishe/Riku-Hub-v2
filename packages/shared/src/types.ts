@@ -180,3 +180,6 @@ export interface ValidationSummary {
   duplicateCount: number;
   warnings: AggregateWarning[];
 }
+
+// Images types
+export * from './types/images';
