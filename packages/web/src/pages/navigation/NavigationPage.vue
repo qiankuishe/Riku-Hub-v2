@@ -76,7 +76,7 @@ const searchEngines: Record<SearchEngine, { name: string; url: string }> = {
   local: { name: '站内', url: '' }
 };
 
-const searchEngineKeys: SearchEngine[] = ['google', 'bing', 'github', 'baidu', 'local'];
+const searchEngineKeys: SearchEngine[] = ['github', 'bing', 'google', 'baidu', 'local'];
 const hasCategories = computed(() => categories.value.length > 0);
 const recentLinksPreview = computed(() => recentLinks.value.slice(0, 8));
 const categoryDialogTitle = computed(() => (editingCategory.value ? '编辑分类' : '新增分类'));
