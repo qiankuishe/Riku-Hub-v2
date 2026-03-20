@@ -792,11 +792,19 @@ onMounted(() => {
 
 .overlay-buttons {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   justify-content: center;
   align-items: center;
   max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.overlay-buttons::-webkit-scrollbar {
+  display: none;
 }
 
 .overlay-buttons :deep(.el-button) {
