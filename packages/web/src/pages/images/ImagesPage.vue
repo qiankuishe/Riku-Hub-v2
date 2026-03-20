@@ -785,7 +785,7 @@ onMounted(() => {
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
-  padding: 0;
+  padding: 0 12px;
   z-index: 10;
 }
 
@@ -797,10 +797,10 @@ onMounted(() => {
 .overlay-buttons {
   display: flex;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 5px;
   justify-content: center;
   align-items: center;
-  padding: 0 8px;
+  max-width: 100%;
 }
 
 .overlay-buttons::-webkit-scrollbar {
@@ -810,15 +810,15 @@ onMounted(() => {
 .overlay-buttons :deep(.el-button) {
   background: white;
   border-color: white;
-  width: 32px !important;
-  height: 32px !important;
+  width: 30px !important;
+  height: 30px !important;
   padding: 0 !important;
-  min-width: 32px;
+  min-width: 30px;
   flex-shrink: 0;
 }
 
 .overlay-buttons :deep(.el-button .iconify) {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .overlay-buttons :deep(.el-button:hover) {
