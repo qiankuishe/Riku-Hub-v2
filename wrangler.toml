@@ -13,6 +13,7 @@ binding = "ASSETS"
 [vars]
 AGGREGATE_TTL_SECONDS = "3600"
 MAX_LOG_ENTRIES = "200"
+PUBLIC_CLIPBOARD_ENABLED = "true"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
