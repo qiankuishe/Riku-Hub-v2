@@ -541,12 +541,29 @@ async function copySnippet(snippet: SnippetRecord) {
         <!-- 搜索筛选 -->
         <div class="flex flex-wrap items-center gap-2">
           <ElTag size="small">{{ filtered.length }} 条</ElTag>
-          <ElRadioGroup v-model="filterType" size="small">
-            <ElRadioButton value="all">全部</ElRadioButton>
-            <ElRadioButton v-for="option in typeOptions" :key="option.key" :value="option.key">
+          
+          <!-- 自定义分段选择器 -->
+          <div class="segmented-control">
+            <button
+              type="button"
+              class="segmented-item"
+              :class="{ 'segmented-item-active': filterType === 'all' }"
+              @click="filterType = 'all'"
+            >
+              全部
+            </button>
+            <button
+              v-for="option in typeOptions"
+              :key="option.key"
+              type="button"
+              class="segmented-item"
+              :class="{ 'segmented-item-active': filterType === option.key }"
+              @click="filterType = option.key"
+            >
               {{ option.label }}
-            </ElRadioButton>
-          </ElRadioGroup>
+            </button>
+          </div>
+          
           <ElInput v-model="searchQuery" size="small" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
         </div>
       </div>
@@ -657,27 +674,37 @@ async function copySnippet(snippet: SnippetRecord) {
   padding: 0 12px;
 }
 
-/* 统一单选按钮组高度 - 强制所有状态 */
-:deep(.el-radio-button--small .el-radio-button__inner) {
-  height: 36px !important;
-  line-height: 34px !important;
-  padding: 0 16px !important;
-  box-sizing: border-box !important;
-  border-width: 1px !important;
-}
-
-/* 确保选中状态也是相同高度 */
-:deep(.el-radio-button--small.is-active .el-radio-button__inner) {
-  height: 36px !important;
-  line-height: 34px !important;
-  box-sizing: border-box !important;
-  border-width: 1px !important;
-}
-
-/* 统一按钮组容器 */
-:deep(.el-radio-group) {
+/* 自定义分段选择器 */
+.segmented-control {
   display: inline-flex;
-  align-items: center;
+  background: #f5f7fa;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.segmented-item {
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: #606266;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.segmented-item:hover {
+  color: #409eff;
+}
+
+.segmented-item-active {
+  background: #fff;
+  color: #303133;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .snippet-cards {
