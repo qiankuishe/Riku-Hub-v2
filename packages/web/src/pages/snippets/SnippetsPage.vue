@@ -523,8 +523,8 @@ async function copySnippet(snippet: SnippetRecord) {
         暂无内容
       </div>
       <div v-else class="snippet-layout">
-        <!-- 使用 masonry 布局：左侧输入框 + 右侧剪贴板自动填充 -->
-        <div class="snippet-masonry-grid">
+        <!-- 第一行：左侧快速收集 + 右侧剪贴板 -->
+        <div class="snippet-first-row">
           <!-- 快速收集表单 -->
           <div class="quick-collect-card content-card">
             <div class="mb-2 flex items-center justify-between">
@@ -575,9 +575,52 @@ async function copySnippet(snippet: SnippetRecord) {
             <ElAlert v-if="draftError" class="mt-2" :closable="false" show-icon type="error" :title="draftError" />
           </div>
 
-          <!-- 剪贴板列表 -->
+          <!-- 右侧剪贴板列表（垂直堆叠） -->
+          <div class="right-snippets">
+            <article
+              v-for="(snippet, index) in filtered.slice(0, 4)"
+              :key="snippet.id"
+              class="content-card"
+              :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
+              :data-snippet-id="snippet.id"
+            >
+              <div class="mb-2 flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
+                  <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
+                </div>
+                <div class="flex flex-shrink-0 gap-1">
+                  <ElButton size="small" text @click="togglePin(snippet)">
+                    <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
+                  </ElButton>
+                  <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                    <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
+                  </ElButton>
+                  <ElButton size="small" text @click="copySnippet(snippet)">
+                    <Icon icon="carbon:copy" />
+                  </ElButton>
+                  <ElButton size="small" text @click="openEditDialog(snippet)">
+                    <Icon icon="carbon:edit" />
+                  </ElButton>
+                  <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
+                    <Icon icon="carbon:trash-can" />
+                  </ElButton>
+                </div>
+              </div>
+
+              <div v-if="snippet.type === 'image'" class="snippet-image-preview">
+                <img :src="snippet.content" alt="snippet" />
+              </div>
+              <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
+              <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
+            </article>
+          </div>
+        </div>
+
+        <!-- 第二行：剩余剪贴板（2列布局） -->
+        <div v-if="filtered.length > 4" class="snippet-remaining-grid">
           <article
-            v-for="snippet in filtered"
+            v-for="snippet in filtered.slice(4)"
             :key="snippet.id"
             class="content-card"
             :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
@@ -709,26 +752,34 @@ async function copySnippet(snippet: SnippetRecord) {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-/* Masonry 瀑布流布局 */
-.snippet-masonry-grid {
+/* 第一行布局：左侧快速收集 + 右侧剪贴板 */
+.snippet-first-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
-  grid-auto-flow: dense; /* 自动填充空白 */
+  margin-bottom: 12px;
 }
 
-/* 快速收集卡片 - 占据左列 */
+/* 快速收集卡片 */
 .quick-collect-card {
   background: rgba(59, 130, 246, 0.04) !important;
   border: 1px solid rgba(59, 130, 246, 0.1);
-  grid-column: 1; /* 固定在第1列 */
-  grid-row: 1; /* 从第1行开始 */
 }
 
-/* 剪贴板卡片 - 自动填充 */
-.snippet-masonry-grid > .content-card:not(.quick-collect-card) {
-  /* 让剪贴板自动填充，不强制列 */
+/* 右侧剪贴板容器 */
+.right-snippets {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 第二行：剩余剪贴板 2 列布局 */
+.snippet-remaining-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
 }
 
 .snippet-card-highlight {
@@ -803,13 +854,12 @@ async function copySnippet(snippet: SnippetRecord) {
 }
 
 @media (max-width: 1024px) {
-  .snippet-masonry-grid {
+  .snippet-first-row {
     grid-template-columns: 1fr;
   }
   
-  .quick-collect-card {
-    grid-column: 1;
-    grid-row: auto;
+  .snippet-remaining-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
