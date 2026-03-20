@@ -16,7 +16,14 @@ interface Env {
   TELEGRAM_CHAT_ID: string;
 }
 
-type Bindings = { Bindings: Env };
+type Variables = {
+  userId: string;
+};
+
+type Bindings = { 
+  Bindings: Env;
+  Variables: Variables;
+};
 
 const images = new Hono<Bindings>();
 
@@ -25,7 +32,7 @@ const images = new Hono<Bindings>();
  * GET /api/images/list
  */
 images.get('/list', async (c) => {
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const params: ImageListParams = {
     limit: Number(c.req.query('limit')) || 100,
     fileType: (c.req.query('fileType') as any) || 'all',
@@ -50,7 +57,7 @@ images.get('/list', async (c) => {
  * POST /api/images/upload
  */
 images.post('/upload', async (c) => {
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const formData = await c.req.formData();
   const file = formData.get('file') as File;
 
@@ -93,7 +100,7 @@ images.post('/upload', async (c) => {
  * GET /api/images/file/:id
  */
 images.get('/file/:id', async (c) => {
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const id = c.req.param('id');
 
   const repository = new ImagesRepository(c.env.DB);
@@ -111,7 +118,7 @@ images.get('/file/:id', async (c) => {
  * DELETE /api/images/:id
  */
 images.delete('/:id', async (c) => {
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const id = c.req.param('id');
 
   const repository = new ImagesRepository(c.env.DB);
@@ -125,7 +132,7 @@ images.delete('/:id', async (c) => {
  * POST /api/images/:id/like
  */
 images.post('/:id/like', async (c) => {
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const id = c.req.param('id');
 
   const repository = new ImagesRepository(c.env.DB);
@@ -143,7 +150,7 @@ images.post('/:id/like', async (c) => {
  * PUT /api/images/:id/name
  */
 images.put('/:id/name', async (c) => {
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const id = c.req.param('id');
   const { name } = await c.req.json<{ name: string }>();
 
@@ -170,7 +177,7 @@ images.put('/:id/name', async (c) => {
  * POST /api/images/:id/block
  */
 images.post('/:id/block', async (c) => {
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const id = c.req.param('id');
 
   const repository = new ImagesRepository(c.env.DB);
@@ -188,7 +195,7 @@ images.post('/:id/block', async (c) => {
  * POST /api/images/:id/unblock
  */
 images.post('/:id/unblock', async (c) => {
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const id = c.req.param('id');
 
   const repository = new ImagesRepository(c.env.DB);

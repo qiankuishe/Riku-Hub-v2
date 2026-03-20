@@ -3,7 +3,10 @@
  * 用于上传文件到 Telegram 并获取文件链接
  */
 
-import type { Env } from '../types';
+export interface Env {
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_CHAT_ID: string;
+}
 
 export interface TelegramFile {
   fileId: string;
