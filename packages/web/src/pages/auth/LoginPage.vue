@@ -89,7 +89,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f5f5f5;
   padding: 20px;
 }
 
@@ -99,11 +99,12 @@ onMounted(() => {
 }
 
 .login-card {
-  border-radius: 18px;
+  border-radius: 12px;
   background: #ffffff;
   color: #1d1d1f;
   padding: 32px;
-  box-shadow: 0 22px 65px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
 }
 
 .login-header {
