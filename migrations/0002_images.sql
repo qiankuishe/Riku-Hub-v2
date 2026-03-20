@@ -12,8 +12,7 @@ CREATE TABLE IF NOT EXISTS images (
   list_type TEXT CHECK(list_type IN ('Block', 'White') OR list_type IS NULL),
   label TEXT,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  updated_at INTEGER NOT NULL
 );
 
 -- 索引优化查询性能

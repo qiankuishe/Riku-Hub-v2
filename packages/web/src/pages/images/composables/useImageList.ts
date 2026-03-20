@@ -20,7 +20,7 @@ export function useImageList() {
 
   // 分页
   const currentPage = ref(1);
-  const pageSize = ref(15);
+  const pageSize = ref(30);
 
   // 选中的文件
   const selectedFiles = ref<Set<string>>(new Set());

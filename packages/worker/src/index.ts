@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { createAuthMiddleware } from './middlewares/auth';
 import { NAVIGATION_SEED } from './navigation-seed';
+import { ImagesRepository } from './repositories/images-repository';
 import { createAuthController, mountAuthRoutes } from './routes/auth';
 import { mountCompatRoutes } from './routes/compat';
 import { mountNavigationRoutes } from './routes/navigation';
@@ -9,6 +10,7 @@ import { mountSettingsRoutes } from './routes/settings';
 import { mountSnippetsRoutes } from './routes/snippets';
 import { mountSubscriptionsRoutes } from './routes/subscriptions';
 import images from './routes/images';
+import { proxyTelegramFile } from './services/telegram-service';
 import { filterClipboardItems, normalizeClipboardType } from './utils/clipboard';
 import {
   mapClipboardItemRow,
@@ -454,6 +456,23 @@ mountSnippetsRoutes<Env>(app, {
 });
 
 app.route('/api/images', images);
+
+// 短路径别名 - 公开访问，不需要认证
+app.get('/i/:id/:filename?', async (c) => {
+  const id = c.req.param('id');
+
+  const repository = new ImagesRepository(c.env.DB!);
+  // 如果 ID 长度是 8，使用短 ID 查询；否则使用完整 ID
+  const image = id.length === 8 
+    ? await repository.getByShortIdPublic(id)
+    : await repository.getByIdPublic(id);
+
+  if (!image) {
+    return c.text('File not found', 404);
+  }
+
+  return proxyTelegramFile(image.telegramFileId, image.fileName, c.env as any);
+});
 
 app.notFound(async (c) => {
   if (c.env.ASSETS) {

@@ -9,9 +9,9 @@ export interface Env {
 }
 
 export interface TelegramFile {
-  fileId: string;
-  fileUniqueId: string;
-  fileSize: number;
+  file_id: string;
+  file_unique_id: string;
+  file_size: number;
 }
 
 export interface TelegramUploadResponse {
@@ -43,6 +43,14 @@ export async function uploadToTelegram(
   file: File,
   env: Env
 ): Promise<string> {
+  // 验证环境变量
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    throw new Error('TELEGRAM_BOT_TOKEN 未配置');
+  }
+  if (!env.TELEGRAM_CHAT_ID) {
+    throw new Error('TELEGRAM_CHAT_ID 未配置');
+  }
+
   const formData = new FormData();
   formData.append('chat_id', env.TELEGRAM_CHAT_ID);
   formData.append('document', file);
@@ -55,17 +63,18 @@ export async function uploadToTelegram(
     }
   );
 
-  if (!response.ok) {
-    throw new Error(`Telegram API error: ${response.status}`);
-  }
-
   const data = (await response.json()) as TelegramUploadResponse;
 
-  if (!data.ok || !data.result?.document) {
-    throw new Error(data.description || 'Failed to upload to Telegram');
+  if (!response.ok || !data.ok) {
+    const errorMsg = data.description || `HTTP ${response.status}`;
+    throw new Error(`Telegram API 错误: ${errorMsg}`);
   }
 
-  return data.result.document.fileId;
+  if (!data.result?.document) {
+    throw new Error('Telegram 响应中缺少文件信息');
+  }
+
+  return data.result.document.file_id;
 }
 
 /**
@@ -98,6 +107,7 @@ export async function getFileUrl(
  */
 export async function proxyTelegramFile(
   fileId: string,
+  fileName: string,
   env: Env
 ): Promise<Response> {
   try {
@@ -108,10 +118,44 @@ export async function proxyTelegramFile(
       throw new Error('File not found');
     }
 
+    // 根据文件扩展名确定 Content-Type
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    let contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+    
+    // 如果 Telegram 返回的是通用类型，根据扩展名设置正确的类型
+    if (contentType === 'application/octet-stream' || !contentType.includes('/')) {
+      const mimeTypes: Record<string, string> = {
+        // 图片
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'svg': 'image/svg+xml',
+        'bmp': 'image/bmp',
+        'ico': 'image/x-icon',
+        // 视频
+        'mp4': 'video/mp4',
+        'webm': 'video/webm',
+        'ogg': 'video/ogg',
+        'avi': 'video/x-msvideo',
+        'mov': 'video/quicktime',
+        // 音频
+        'mp3': 'audio/mpeg',
+        'wav': 'audio/wav',
+        'flac': 'audio/flac',
+        'aac': 'audio/aac',
+        'm4a': 'audio/mp4'
+      };
+      
+      contentType = mimeTypes[ext] || 'application/octet-stream';
+    }
+
     return new Response(response.body, {
       status: response.status,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'application/octet-stream',
+        'Content-Type': contentType,
+        'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
         'Cache-Control': 'public, max-age=31536000',
         'Access-Control-Allow-Origin': '*'
       }

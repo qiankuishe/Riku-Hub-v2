@@ -74,6 +74,7 @@ export class ImagesRepository {
 
     const result = await this.db.prepare(query).bind(...bindings).all<{
       id: string;
+      short_id: string;
       user_id: string;
       file_name: string;
       file_size: number;
@@ -100,6 +101,7 @@ export class ImagesRepository {
 
     const images = result.results.map((row) => ({
       id: row.id,
+      shortId: row.short_id,
       userId: row.user_id,
       fileName: row.file_name,
       fileSize: row.file_size,
@@ -124,6 +126,7 @@ export class ImagesRepository {
       .bind(id, userId)
       .first<{
         id: string;
+        short_id: string;
         user_id: string;
         file_name: string;
         file_size: number;
@@ -142,6 +145,91 @@ export class ImagesRepository {
 
     return {
       id: result.id,
+      shortId: result.short_id,
+      userId: result.user_id,
+      fileName: result.file_name,
+      fileSize: result.file_size,
+      fileType: result.file_type,
+      telegramFileId: result.telegram_file_id,
+      isLiked: result.is_liked === 1,
+      listType: result.list_type,
+      label: result.label,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    };
+  }
+
+  /**
+   * 根据短 ID 获取图片（公开访问，不验证用户）
+   */
+  async getByShortIdPublic(shortId: string): Promise<ImageRecord | null> {
+    const result = await this.db
+      .prepare('SELECT * FROM images WHERE short_id = ?')
+      .bind(shortId)
+      .first<{
+        id: string;
+        short_id: string;
+        user_id: string;
+        file_name: string;
+        file_size: number;
+        file_type: FileType;
+        telegram_file_id: string;
+        is_liked: number;
+        list_type: ListType;
+        label: string | null;
+        created_at: number;
+        updated_at: number;
+      }>();
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      id: result.id,
+      shortId: result.short_id,
+      userId: result.user_id,
+      fileName: result.file_name,
+      fileSize: result.file_size,
+      fileType: result.file_type,
+      telegramFileId: result.telegram_file_id,
+      isLiked: result.is_liked === 1,
+      listType: result.list_type,
+      label: result.label,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    };
+  }
+
+  /**
+   * 根据完整 ID 获取图片（公开访问，不验证用户）
+   */
+  async getByIdPublic(id: string): Promise<ImageRecord | null> {
+    const result = await this.db
+      .prepare('SELECT * FROM images WHERE id = ?')
+      .bind(id)
+      .first<{
+        id: string;
+        short_id: string;
+        user_id: string;
+        file_name: string;
+        file_size: number;
+        file_type: FileType;
+        telegram_file_id: string;
+        is_liked: number;
+        list_type: ListType;
+        label: string | null;
+        created_at: number;
+        updated_at: number;
+      }>();
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      id: result.id,
+      shortId: result.short_id,
       userId: result.user_id,
       fileName: result.file_name,
       fileSize: result.file_size,
@@ -160,22 +248,26 @@ export class ImagesRepository {
    */
   async create(data: CreateImageData): Promise<ImageRecord> {
     const id = crypto.randomUUID();
+    const shortId = id.substring(0, 8); // 取前 8 位作为短 ID
     const now = Date.now();
 
     await this.db
       .prepare(
         `INSERT INTO images (
-          id, user_id, file_name, file_size, file_type, telegram_file_id,
+          id, short_id, user_id, file_name, file_size, file_type, telegram_file_id,
           is_liked, list_type, label, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         id,
+        shortId,
         data.userId,
         data.fileName,
         data.fileSize,
         data.fileType,
         data.telegramFileId,
+        0,
+        null,
         data.label || null,
         now,
         now
@@ -184,6 +276,7 @@ export class ImagesRepository {
 
     return {
       id,
+      shortId,
       userId: data.userId,
       fileName: data.fileName,
       fileSize: data.fileSize,

@@ -9,6 +9,7 @@ export type FilterOption = 'all' | 'favorites' | 'blocked' | 'unblocked' | 'adul
 
 export interface ImageRecord {
   id: string;
+  shortId: string;
   userId: string;
   fileName: string;
   fileSize: number;

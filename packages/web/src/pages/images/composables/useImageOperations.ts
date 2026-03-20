@@ -146,9 +146,23 @@ export function useImageOperations() {
    */
   async function copyLink(image: ImageRecord): Promise<void> {
     try {
-      const url = `${window.location.origin}${imagesApi.getFileUrl(image.id)}`;
+      const url = `${window.location.origin}${imagesApi.getFileUrl(image.id, image.shortId, image.fileName)}`;
       await navigator.clipboard.writeText(url);
       ElMessage.success('链接已复制');
+    } catch (error) {
+      ElMessage.error('复制失败');
+    }
+  }
+
+  /**
+   * 复制 Markdown 格式
+   */
+  async function copyMarkdown(image: ImageRecord): Promise<void> {
+    try {
+      const url = `${window.location.origin}${imagesApi.getFileUrl(image.id, image.shortId, image.fileName)}`;
+      const markdown = `![](${url})`;
+      await navigator.clipboard.writeText(markdown);
+      ElMessage.success('Markdown 已复制');
     } catch (error) {
       ElMessage.error('复制失败');
     }
@@ -165,7 +179,7 @@ export function useImageOperations() {
 
     try {
       const links = images
-        .map(img => `${window.location.origin}${imagesApi.getFileUrl(img.id)}`)
+        .map(img => `${window.location.origin}${imagesApi.getFileUrl(img.id, img.shortId, img.fileName)}`)
         .join('\n');
       
       await navigator.clipboard.writeText(links);
@@ -189,7 +203,7 @@ export function useImageOperations() {
     images.forEach((image, index) => {
       setTimeout(() => {
         const link = document.createElement('a');
-        link.href = imagesApi.getFileUrl(image.id);
+        link.href = imagesApi.getFileUrl(image.id, image.shortId, image.fileName);
         link.download = image.fileName;
         link.click();
       }, index * 800);
@@ -274,6 +288,7 @@ export function useImageOperations() {
     toggleLike,
     updateName,
     copyLink,
+    copyMarkdown,
     batchCopyLinks,
     batchDownload,
     updateListType,

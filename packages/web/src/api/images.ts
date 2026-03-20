@@ -139,10 +139,16 @@ export async function updateListType(id: string, listType: ListType): Promise<Im
 }
 
 /**
- * 获取文件 URL
+ * 获取文件 URL（带文件名）
+ * 使用短路径 /i/ 和短 ID
  */
-export function getFileUrl(id: string): string {
-  return `${BASE_URL}/file/${id}`;
+export function getFileUrl(id: string, shortId: string, fileName?: string): string {
+  // 优先使用短 ID（8 位），如果没有则使用完整 ID
+  const idToUse = shortId || id;
+  if (fileName) {
+    return `/i/${idToUse}/${encodeURIComponent(fileName)}`;
+  }
+  return `/i/${idToUse}`;
 }
 
 export const imagesApi = {

@@ -58,6 +58,10 @@ images.get('/list', async (c) => {
  */
 images.post('/upload', async (c) => {
   const userId = c.get('userId');
+  
+  // 调试日志
+  console.log('Upload request - userId:', userId, 'type:', typeof userId);
+  
   const formData = await c.req.formData();
   const file = formData.get('file') as File;
 
@@ -74,32 +78,39 @@ images.post('/upload', async (c) => {
   try {
     // 上传到 Telegram
     const telegramFileId = await uploadToTelegram(file, c.env);
+    console.log('Telegram upload success - fileId:', telegramFileId);
 
     // 检测文件类型
     const fileType = detectFileType(file.name, file.type);
+    console.log('File type detected:', fileType);
 
     // 保存到数据库
     const repository = new ImagesRepository(c.env.DB);
-    const image = await repository.create({
+    const createData = {
       userId,
       fileName: file.name,
       fileSize: file.size,
       fileType,
       telegramFileId
-    });
+    };
+    console.log('Creating image record:', JSON.stringify(createData));
+    
+    const image = await repository.create(createData);
+    console.log('Image created successfully:', image.id);
 
     return c.json({ image });
   } catch (error) {
     console.error('Upload error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     return c.json({ error: error instanceof Error ? error.message : '上传失败' }, 500);
   }
 });
 
 /**
  * 获取文件（代理到 Telegram）
- * GET /api/images/file/:id
+ * GET /api/images/file/:id/:filename (完整路径，兼容旧链接)
  */
-images.get('/file/:id', async (c) => {
+images.get('/file/:id/:filename?', async (c) => {
   const userId = c.get('userId');
   const id = c.req.param('id');
 
@@ -110,7 +121,7 @@ images.get('/file/:id', async (c) => {
     return c.json({ error: '文件不存在' }, 404);
   }
 
-  return proxyTelegramFile(image.telegramFileId, c.env);
+  return proxyTelegramFile(image.telegramFileId, image.fileName, c.env);
 });
 
 /**
