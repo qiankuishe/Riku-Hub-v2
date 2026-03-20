@@ -774,19 +774,18 @@ onMounted(() => {
 /* 悬浮操作层 */
 .image-overlay {
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
-  padding: 0 12px;
-  z-index: 10;
+  padding: 48px 12px 12px;
+  z-index: 5;
 }
 
 .image-card:hover .image-overlay {
@@ -797,7 +796,7 @@ onMounted(() => {
 .overlay-buttons {
   display: flex;
   flex-wrap: nowrap;
-  gap: 5px;
+  gap: 6px;
   justify-content: center;
   align-items: center;
   max-width: 100%;
@@ -810,15 +809,15 @@ onMounted(() => {
 .overlay-buttons :deep(.el-button) {
   background: white;
   border-color: white;
-  width: 30px !important;
-  height: 30px !important;
+  width: 32px !important;
+  height: 32px !important;
   padding: 0 !important;
-  min-width: 30px;
+  min-width: 32px;
   flex-shrink: 0;
 }
 
 .overlay-buttons :deep(.el-button .iconify) {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .overlay-buttons :deep(.el-button:hover) {
@@ -888,16 +887,16 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  background: #f9fafb;
-  border-radius: 8px;
-  padding: 16px;
+  background: #000000;
+  border-radius: 4px;
+  padding: 8px;
 }
 
 .preview-media {
   max-width: 100%;
-  max-height: 70vh;
+  max-height: 75vh;
   object-fit: contain;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .preview-audio {
