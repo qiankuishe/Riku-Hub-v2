@@ -649,9 +649,14 @@ onMounted(() => {
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.image-card > *:not(.image-overlay) {
+  overflow: hidden;
+  border-radius: 8px;
 }
 
 .image-card:hover {
@@ -780,7 +785,8 @@ onMounted(() => {
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
-  padding: 16px;
+  padding: 0;
+  z-index: 10;
 }
 
 .image-card:hover .image-overlay {
@@ -794,12 +800,7 @@ onMounted(() => {
   gap: 6px;
   justify-content: center;
   align-items: center;
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding: 0 4px;
+  padding: 0 8px;
 }
 
 .overlay-buttons::-webkit-scrollbar {
