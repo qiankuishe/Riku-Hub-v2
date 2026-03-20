@@ -514,7 +514,11 @@ function layoutMasonry() {
   let leftHeight = 0;
   let rightHeight = 0;
 
-  // 遍历所有剪贴板，放到高度更低的那一列
+  // 左列第一个位置是快速收集表单，估算其高度
+  const quickCollectHeight = 350; // 快速收集表单的估算高度
+  leftHeight = quickCollectHeight;
+
+  // 按顺序遍历所有剪贴板，放到高度更低的那一列
   for (const snippet of filtered.value) {
     const height = estimateHeight(snippet);
     
