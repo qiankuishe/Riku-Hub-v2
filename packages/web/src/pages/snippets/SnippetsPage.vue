@@ -657,19 +657,27 @@ async function copySnippet(snippet: SnippetRecord) {
   padding: 0 12px;
 }
 
-/* 统一单选按钮组高度 - 所有状态 */
+/* 统一单选按钮组高度 - 强制所有状态 */
 :deep(.el-radio-button--small .el-radio-button__inner) {
-  height: 36px;
-  line-height: 34px;
-  padding: 0 16px;
-  box-sizing: border-box;
+  height: 36px !important;
+  line-height: 34px !important;
+  padding: 0 16px !important;
+  box-sizing: border-box !important;
+  border-width: 1px !important;
 }
 
 /* 确保选中状态也是相同高度 */
 :deep(.el-radio-button--small.is-active .el-radio-button__inner) {
-  height: 36px;
-  line-height: 34px;
-  box-sizing: border-box;
+  height: 36px !important;
+  line-height: 34px !important;
+  box-sizing: border-box !important;
+  border-width: 1px !important;
+}
+
+/* 统一按钮组容器 */
+:deep(.el-radio-group) {
+  display: inline-flex;
+  align-items: center;
 }
 
 .snippet-cards {
