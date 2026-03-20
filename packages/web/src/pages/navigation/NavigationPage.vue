@@ -733,6 +733,7 @@ async function moveCategoryDown(category: NavigationCategory) {
           <ElButton
             v-if="editMode"
             type="primary"
+            size="small"
             :loading="saving"
             :disabled="!pendingDragChanges || saving"
             @click="saveDragChanges"
@@ -740,19 +741,19 @@ async function moveCategoryDown(category: NavigationCategory) {
             <Icon icon="carbon:save" class="mr-1" />
             保存排序
           </ElButton>
-          <ElButton v-if="editMode" :disabled="loading || saving" @click="openCategoryDialog()">
+          <ElButton v-if="editMode" size="small" :disabled="loading || saving" @click="openCategoryDialog()">
             <Icon icon="carbon:folder-add" class="mr-1" />
             新增分类
           </ElButton>
-          <ElButton v-if="editMode && hasCategories" type="primary" :disabled="loading || saving" @click="openLinkDialog()">
+          <ElButton v-if="editMode && hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增站点
           </ElButton>
-          <ElButton :loading="loading" @click="loadAll">
+          <ElButton size="small" :loading="loading" @click="loadAll">
             <Icon icon="carbon:renew" class="mr-1" />
             {{ loading ? '刷新中...' : '刷新' }}
           </ElButton>
-          <ElButton :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
+          <ElButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
             <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
             {{ editMode ? '完成编辑' : '进入编辑' }}
           </ElButton>
@@ -769,11 +770,12 @@ async function moveCategoryDown(category: NavigationCategory) {
           <ElInput
             v-model="searchQuery"
             clearable
+            size="small"
             class="min-w-[220px] flex-1"
             :placeholder="searchEngine === 'local' ? '搜索站内内容...' : `搜索 ${searchEngines[searchEngine].name}...`"
             @keydown.enter.prevent="handleSearch"
           />
-          <ElButton v-if="searchEngine !== 'local'" type="primary" @click="handleSearch">
+          <ElButton v-if="searchEngine !== 'local'" type="primary" size="small" @click="handleSearch">
             <Icon icon="carbon:search" class="mr-1" />
             搜索
           </ElButton>
@@ -960,14 +962,14 @@ async function moveCategoryDown(category: NavigationCategory) {
     >
       <ElForm label-position="top">
         <ElFormItem label="分类名称">
-          <ElInput v-model="categoryFormName" placeholder="请输入分类名称" />
+          <ElInput v-model="categoryFormName" size="small" placeholder="请输入分类名称" />
         </ElFormItem>
       </ElForm>
       <ElAlert v-if="formErrorMessage" class="mt-2" :closable="false" show-icon type="error" :title="formErrorMessage" />
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton @click="closeCategoryDialog">取消</ElButton>
-          <ElButton type="primary" :loading="saving" :disabled="saving || !categoryFormValid" @click="saveCategory">保存</ElButton>
+          <ElButton size="small" @click="closeCategoryDialog">取消</ElButton>
+          <ElButton type="primary" size="small" :loading="saving" :disabled="saving || !categoryFormValid" @click="saveCategory">保存</ElButton>
         </div>
       </template>
     </ElDialog>
@@ -982,25 +984,25 @@ async function moveCategoryDown(category: NavigationCategory) {
     >
       <ElForm label-position="top" class="grid gap-2">
         <ElFormItem label="分类">
-          <ElSelect v-model="linkForm.categoryId" class="w-full" placeholder="选择分类">
+          <ElSelect v-model="linkForm.categoryId" size="small" class="w-full" placeholder="选择分类">
             <ElOption v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="名称">
-          <ElInput v-model="linkForm.title" placeholder="站点名称" />
+          <ElInput v-model="linkForm.title" size="small" placeholder="站点名称" />
         </ElFormItem>
         <ElFormItem label="链接">
-          <ElInput v-model="linkForm.url" placeholder="https://example.com" />
+          <ElInput v-model="linkForm.url" size="small" placeholder="https://example.com" />
         </ElFormItem>
         <ElFormItem label="描述">
-          <ElInput v-model="linkForm.description" type="textarea" :rows="4" placeholder="可选的链接说明" />
+          <ElInput v-model="linkForm.description" size="small" type="textarea" :rows="4" placeholder="可选的链接说明" />
         </ElFormItem>
       </ElForm>
       <ElAlert v-if="formErrorMessage" class="mt-2" :closable="false" show-icon type="error" :title="formErrorMessage" />
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton @click="closeLinkDialog">取消</ElButton>
-          <ElButton type="primary" :loading="saving" :disabled="saving || !linkFormValid" @click="saveLink">保存</ElButton>
+          <ElButton size="small" @click="closeLinkDialog">取消</ElButton>
+          <ElButton type="primary" size="small" :loading="saving" :disabled="saving || !linkFormValid" @click="saveLink">保存</ElButton>
         </div>
       </template>
     </ElDialog>
@@ -1045,9 +1047,9 @@ async function moveCategoryDown(category: NavigationCategory) {
 
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton @click="cancelExitEdit">取消</ElButton>
-          <ElButton @click="confirmExitEdit(false)">放弃更改</ElButton>
-          <ElButton type="primary" @click="confirmExitEdit(true)">保存更改</ElButton>
+          <ElButton size="small" @click="cancelExitEdit">取消</ElButton>
+          <ElButton size="small" @click="confirmExitEdit(false)">放弃更改</ElButton>
+          <ElButton type="primary" size="small" @click="confirmExitEdit(true)">保存更改</ElButton>
         </div>
       </template>
     </ElDialog>
