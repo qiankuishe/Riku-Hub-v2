@@ -657,6 +657,13 @@ async function copySnippet(snippet: SnippetRecord) {
   padding: 0 12px;
 }
 
+/* 统一单选按钮组高度 */
+:deep(.el-radio-button--small .el-radio-button__inner) {
+  height: 36px;
+  line-height: 34px;
+  padding: 0 16px;
+}
+
 .snippet-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
