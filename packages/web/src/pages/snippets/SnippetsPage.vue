@@ -650,6 +650,13 @@ async function copySnippet(snippet: SnippetRecord) {
 </template>
 
 <style scoped>
+/* 统一筛选栏组件高度 */
+:deep(.el-tag--small) {
+  height: 36px;
+  line-height: 34px;
+  padding: 0 12px;
+}
+
 .snippet-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

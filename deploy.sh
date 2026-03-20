@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Riku-Hub 一键部署脚本
-# 功能：构建前端 -> 提交代码 -> 推送到 GitHub -> 部署到 Cloudflare
+# 功能：构建前端 -> 部署到 Cloudflare -> 提交代码 -> 推送到 GitHub
 
 set -e  # 遇到错误立即退出
 
@@ -16,8 +16,19 @@ cd ../..
 echo "✅ 前端构建完成"
 echo ""
 
-# 2. 提交代码
-echo "💾 步骤 2/4: 提交代码..."
+# 2. 部署到 Cloudflare
+echo "☁️  步骤 2/4: 部署到 Cloudflare Workers..."
+npx wrangler deploy
+echo "✅ 部署完成"
+echo ""
+
+# 等待 2 秒
+echo "⏳ 等待 2 秒后提交代码..."
+sleep 2
+echo ""
+
+# 3. 提交代码
+echo "💾 步骤 3/4: 提交代码..."
 git add -A
 
 # 检查是否有改动
@@ -36,16 +47,11 @@ else
 fi
 echo ""
 
-# 3. 推送到 GitHub
-echo "📤 步骤 3/4: 推送到 GitHub..."
+# 4. 推送到 GitHub
+echo "📤 步骤 4/4: 推送到 GitHub..."
 git push
 echo "✅ 代码已推送"
 echo ""
 
-# 4. 部署到 Cloudflare
-echo "☁️  步骤 4/4: 部署到 Cloudflare Workers..."
-npx wrangler deploy
-echo ""
-
-echo "🎉 部署完成！"
+echo "🎉 全部完成！"
 echo "🌐 访问地址: https://dh.300031.xyz"
