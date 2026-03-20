@@ -782,6 +782,7 @@ onMounted(() => {
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
+  padding: 12px;
 }
 
 .image-card:hover .image-overlay {
@@ -791,12 +792,25 @@ onMounted(() => {
 
 .overlay-buttons {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  max-width: 100%;
 }
 
 .overlay-buttons :deep(.el-button) {
   background: white;
   border-color: white;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+.overlay-buttons :deep(.el-button .iconify) {
+  font-size: 16px;
 }
 
 .overlay-buttons :deep(.el-button:hover) {
