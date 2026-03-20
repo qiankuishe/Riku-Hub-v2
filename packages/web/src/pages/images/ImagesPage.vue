@@ -180,32 +180,21 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="images-page">
-    <!-- 顶部工具栏 -->
-    <header class="images-header">
-      <div class="header-left">
-        <h1 class="title" @click="refresh">图床管理</h1>
-        <span class="stats">{{ total }} 个文件</span>
+  <div class="card">
+    <!-- 顶部标题和操作 -->
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-semibold text-gray-900">图床</h2>
+        <p class="text-sm text-gray-500">管理你的图片、视频、音频和文件。{{ total }} 个文件</p>
       </div>
-
-      <div class="header-center">
-        <ElInput
-          v-model="searchQuery"
-          placeholder="搜索文件名或 ID..."
-          clearable
-          class="search-input"
-          @input="() => handlePageChange(1)"
-        >
-          <template #prefix>
-            <Icon icon="carbon:search" />
-          </template>
-        </ElInput>
-      </div>
-
-      <div class="header-right">
-        <ElButton type="primary" :loading="uploading" @click="handleUploadClick">
+      <div class="flex flex-wrap gap-2">
+        <ElButton type="primary" size="small" :loading="uploading" @click="handleUploadClick">
           <Icon icon="carbon:upload" class="mr-1" />
           上传文件
+        </ElButton>
+        <ElButton size="small" :loading="loading" @click="refresh">
+          <Icon icon="carbon:renew" class="mr-1" />
+          刷新
         </ElButton>
         <input
           ref="fileInput"
@@ -215,11 +204,29 @@ onMounted(() => {
           style="display: none"
           @change="onFileSelect"
         />
+      </div>
+    </div>
 
+    <!-- 搜索和筛选工具栏 -->
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <ElInput
+        v-model="searchQuery"
+        clearable
+        placeholder="搜索文件名或 ID..."
+        style="width: 240px"
+        @input="() => handlePageChange(1)"
+      >
+        <template #prefix>
+          <Icon icon="carbon:search" />
+        </template>
+      </ElInput>
+
+      <div class="flex flex-wrap items-center gap-2">
         <!-- 文件类型 -->
         <ElDropdown @command="switchFileType">
-          <ElButton>
-            <Icon :icon="fileTypeIcon" />
+          <ElButton size="small">
+            <Icon :icon="fileTypeIcon" class="mr-1" />
+            文件类型
           </ElButton>
           <template #dropdown>
             <ElDropdownMenu>
@@ -249,8 +256,9 @@ onMounted(() => {
 
         <!-- 排序 -->
         <ElDropdown @command="switchSort">
-          <ElButton>
-            <Icon :icon="sortIcon" />
+          <ElButton size="small">
+            <Icon :icon="sortIcon" class="mr-1" />
+            排序
           </ElButton>
           <template #dropdown>
             <ElDropdownMenu>
@@ -272,8 +280,9 @@ onMounted(() => {
 
         <!-- 筛选 -->
         <ElDropdown @command="switchFilter">
-          <ElButton>
-            <Icon :icon="filterIcon" />
+          <ElButton size="small">
+            <Icon :icon="filterIcon" class="mr-1" />
+            筛选
           </ElButton>
           <template #dropdown>
             <ElDropdownMenu>
@@ -299,8 +308,9 @@ onMounted(() => {
 
         <!-- 批量操作 -->
         <ElDropdown @command="handleBatchOperation">
-          <ElButton :disabled="selectedImages.length === 0">
-            <Icon icon="carbon:task" />
+          <ElButton size="small" :disabled="selectedImages.length === 0">
+            <Icon icon="carbon:task" class="mr-1" />
+            批量操作
           </ElButton>
           <template #dropdown>
             <ElDropdownMenu>
@@ -330,7 +340,7 @@ onMounted(() => {
 
         <!-- 工具箱 -->
         <ElDropdown>
-          <ElButton>
+          <ElButton size="small">
             <Icon icon="carbon:tools" />
           </ElButton>
           <template #dropdown>
@@ -347,249 +357,146 @@ onMounted(() => {
           </template>
         </ElDropdown>
       </div>
-    </header>
+    </div>
 
     <!-- 文件网格 -->
-    <main class="images-content">
-      <div v-if="loading" class="loading-state">
-        <Icon icon="carbon:renew" class="loading-icon" />
-        <p>加载中...</p>
-      </div>
+    <div v-if="loading" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+      加载中...
+    </div>
 
-      <div v-else-if="error" class="error-state">
-        <Icon icon="carbon:warning" class="error-icon" />
-        <p>{{ error }}</p>
-        <ElButton @click="refresh">重试</ElButton>
-      </div>
+    <div v-else-if="error" class="rounded-lg border border-dashed border-red-300 bg-red-50 px-4 py-8 text-center">
+      <p class="text-sm text-red-600 mb-3">{{ error }}</p>
+      <ElButton size="small" @click="refresh">重试</ElButton>
+    </div>
 
-      <div v-else-if="paginatedImages.length === 0" class="empty-state">
-        <Icon icon="carbon:image" class="empty-icon" />
-        <p>暂无文件</p>
-        <ElButton type="primary" @click="handleUploadClick">上传文件</ElButton>
-      </div>
+    <div v-else-if="paginatedImages.length === 0" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
+      <p class="text-sm text-gray-500 mb-3">暂无文件</p>
+      <ElButton type="primary" size="small" @click="handleUploadClick">上传文件</ElButton>
+    </div>
 
-      <div v-else class="images-grid">
-        <div
-          v-for="image in paginatedImages"
-          :key="image.id"
-          class="image-card"
-          :class="{ 'is-selected': selectedFiles.has(image.id) }"
+    <div v-else class="images-grid">
+      <div
+        v-for="image in paginatedImages"
+        :key="image.id"
+        class="content-card image-card"
+        :class="{ 'is-selected': selectedFiles.has(image.id) }"
+      >
+        <!-- 收藏图标 -->
+        <button
+          class="collect-icon"
+          :class="{ liked: image.isLiked }"
+          @click.stop="handleToggleLike(image)"
         >
-          <!-- 收藏图标 -->
-          <button
-            class="collect-icon"
-            :class="{ liked: image.isLiked }"
-            @click.stop="handleToggleLike(image)"
-          >
-            <Icon :icon="image.isLiked ? 'carbon:star-filled' : 'carbon:star'" />
-          </button>
+          <Icon :icon="image.isLiked ? 'carbon:star-filled' : 'carbon:star'" />
+        </button>
 
-          <!-- 选择框 -->
-          <button
-            class="select-checkbox"
-            @click.stop="toggleSelect(image.id)"
-          >
-            <Icon :icon="selectedFiles.has(image.id) ? 'carbon:checkbox-checked' : 'carbon:checkbox'" />
-          </button>
+        <!-- 选择框 -->
+        <button
+          class="select-checkbox"
+          @click.stop="toggleSelect(image.id)"
+        >
+          <Icon :icon="selectedFiles.has(image.id) ? 'carbon:checkbox-checked' : 'carbon:checkbox'" />
+        </button>
 
-          <!-- 图片预览 -->
-          <div v-if="image.fileType === 'image'" class="image-preview">
-            <img :src="getFileUrl(image.id)" :alt="image.fileName" />
-          </div>
+        <!-- 图片预览 -->
+        <div v-if="image.fileType === 'image'" class="image-preview">
+          <img :src="getFileUrl(image.id)" :alt="image.fileName" />
+        </div>
 
-          <!-- 视频预览 -->
-          <div v-else-if="image.fileType === 'video'" class="video-preview">
-            <video :src="getFileUrl(image.id)" controls />
-          </div>
+        <!-- 视频预览 -->
+        <div v-else-if="image.fileType === 'video'" class="video-preview">
+          <video :src="getFileUrl(image.id)" controls />
+        </div>
 
-          <!-- 音频预览 -->
-          <div v-else-if="image.fileType === 'audio'" class="audio-preview">
-            <Icon icon="carbon:music" class="file-icon" />
-            <audio :src="getFileUrl(image.id)" controls class="audio-player" />
-          </div>
+        <!-- 音频预览 -->
+        <div v-else-if="image.fileType === 'audio'" class="audio-preview">
+          <Icon icon="carbon:music" class="file-icon" />
+          <audio :src="getFileUrl(image.id)" controls class="audio-player" />
+        </div>
 
-          <!-- 文件预览 -->
-          <div v-else class="file-preview">
-            <Icon icon="carbon:document" class="file-icon" />
-          </div>
+        <!-- 文件预览 -->
+        <div v-else class="file-preview">
+          <Icon icon="carbon:document" class="file-icon" />
+        </div>
 
-          <!-- 操作按钮 -->
-          <div class="image-overlay">
-            <div class="overlay-buttons">
-              <ElButton size="small" @click.stop="handleUpdateName(image)">
-                <Icon icon="carbon:edit" />
-              </ElButton>
-              <ElButton size="small" type="primary" @click.stop="copyLink(image)">
-                <Icon icon="carbon:copy" />
-              </ElButton>
-              <ElButton size="small" type="danger" @click.stop="handleDelete(image)">
-                <Icon icon="carbon:trash-can" />
-              </ElButton>
-            </div>
-          </div>
-
-          <!-- 文件信息 -->
-          <div class="card-footer">
-            <span class="file-name" :title="image.fileName">{{ image.fileName }}</span>
-            <span class="file-size">{{ formatFileSize(image.fileSize) }}</span>
+        <!-- 操作按钮 -->
+        <div class="image-overlay">
+          <div class="overlay-buttons">
+            <ElButton size="small" text @click.stop="handleUpdateName(image)">
+              <Icon icon="carbon:edit" />
+            </ElButton>
+            <ElButton size="small" text @click.stop="copyLink(image)">
+              <Icon icon="carbon:copy" />
+            </ElButton>
+            <ElButton size="small" text type="danger" @click.stop="handleDelete(image)">
+              <Icon icon="carbon:trash-can" />
+            </ElButton>
           </div>
         </div>
+
+        <!-- 文件信息 -->
+        <div class="card-footer">
+          <span class="file-name" :title="image.fileName">{{ image.fileName }}</span>
+          <span class="file-size">{{ formatFileSize(image.fileSize) }}</span>
+        </div>
       </div>
-    </main>
+    </div>
 
     <!-- 分页 -->
-    <footer v-if="paginatedImages.length > 0" class="images-footer">
+    <div v-if="paginatedImages.length > 0" class="mt-4 flex justify-center">
       <ElPagination
         v-model:current-page="currentPage"
         :page-size="pageSize"
         :total="filteredImages.length"
         layout="prev, pager, next"
         background
+        small
         @current-change="handlePageChange"
       />
-    </footer>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.images-page {
-  min-height: 100vh;
-  background: linear-gradient(90deg, #ffd7e4 0%, #c8f1ff 100%);
-  padding: 0;
-}
-
-.images-header {
-  position: sticky;
-  top: 0;
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  gap: 16px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.title {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin: 0;
-  cursor: pointer;
-  transition: color 0.3s;
-}
-
-.title:hover {
-  color: #B39DDB;
-}
-
-.stats {
-  font-size: 0.9rem;
-  color: #666;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 4px 12px;
-  border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.header-center {
-  flex: 1;
-  max-width: 400px;
-}
-
-.search-input {
-  width: 100%;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.images-content {
-  padding: 24px;
-  min-height: calc(100vh - 200px);
-}
-
-.loading-state,
-.error-state,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-  gap: 16px;
-}
-
-.loading-icon,
-.error-icon,
-.empty-icon {
-  font-size: 48px;
-  color: #999;
-}
-
-.loading-icon {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 .images-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
 }
 
 .image-card {
   position: relative;
   aspect-ratio: 4 / 3;
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  transition: transform 0.3s, box-shadow 0.3s;
   cursor: pointer;
+  transition: all 0.15s;
 }
 
 .image-card:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .image-card.is-selected {
-  box-shadow: 0 0 0 3px #409EFF;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.16);
 }
 
 .collect-icon {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 8px;
+  left: 8px;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   border: none;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s;
-  font-size: 18px;
-  color: #999;
+  transition: all 0.15s;
+  font-size: 16px;
+  color: #6b7280;
 }
 
 .collect-icon:hover {
@@ -598,26 +505,26 @@ onMounted(() => {
 }
 
 .collect-icon.liked {
-  color: #FFD700;
+  color: #f59e0b;
 }
 
 .select-checkbox {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   border: none;
   border-radius: 4px;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s;
-  font-size: 18px;
-  color: #409EFF;
+  transition: all 0.15s;
+  font-size: 16px;
+  color: #111827;
 }
 
 .select-checkbox:hover {
@@ -635,6 +542,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  background: #f9fafb;
 }
 
 .image-preview img {
@@ -651,24 +559,23 @@ onMounted(() => {
 
 .audio-preview {
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-  background: linear-gradient(135deg, #8EC5FC 0%, #E0C3FC 100%);
+  gap: 12px;
+  padding: 16px;
+  background: #f3f4f6;
 }
 
 .file-preview {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #e5e7eb;
 }
 
 .file-icon {
-  font-size: 64px;
-  color: white;
+  font-size: 48px;
+  color: #6b7280;
 }
 
 .audio-player {
   width: 100%;
-  height: 42px;
-  border-radius: 21px;
+  height: 36px;
 }
 
 .image-overlay {
@@ -680,9 +587,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: opacity 0.15s;
   pointer-events: none;
 }
 
@@ -693,7 +600,22 @@ onMounted(() => {
 
 .overlay-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+}
+
+.overlay-buttons :deep(.el-button) {
+  background: white;
+  border-color: white;
+  color: #111827;
+}
+
+.overlay-buttons :deep(.el-button:hover) {
+  background: #f3f4f6;
+  border-color: #f3f4f6;
+}
+
+.overlay-buttons :deep(.el-button.is-text) {
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .card-footer {
@@ -701,8 +623,8 @@ onMounted(() => {
   bottom: 0;
   left: 0;
   width: 100%;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.7);
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.75);
   color: white;
   display: flex;
   flex-direction: column;
@@ -710,7 +632,7 @@ onMounted(() => {
 }
 
 .file-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -718,14 +640,8 @@ onMounted(() => {
 }
 
 .file-size {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.8);
-}
-
-.images-footer {
-  display: flex;
-  justify-content: center;
-  padding: 24px;
 }
 
 .mr-1 {
@@ -733,30 +649,15 @@ onMounted(() => {
 }
 
 .is-active {
-  background: rgba(64, 158, 255, 0.1);
-  color: #409EFF;
+  background: rgba(0, 0, 0, 0.04);
+  color: #111827;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
-  .images-header {
-    flex-wrap: wrap;
-    padding: 12px 16px;
-  }
-
-  .header-center {
-    order: 3;
-    width: 100%;
-    max-width: none;
-    margin-top: 12px;
-  }
-
   .images-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .images-content {
-    padding: 16px;
+    gap: 12px;
   }
 }
 </style>
