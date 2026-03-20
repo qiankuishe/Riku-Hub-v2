@@ -121,6 +121,22 @@ export interface SettingsExportStats {
   clipboardItems: number;
 }
 
+export type SettingsImportSkipReason = 'illegal_protocol' | 'unsafe_url';
+
+export interface NavigationImportSkippedDetail {
+  categoryName: string;
+  linkTitle: string;
+  url: string;
+  reason: SettingsImportSkipReason;
+}
+
+export interface SettingsImportSkipped {
+  navigation: {
+    count: number;
+    details: NavigationImportSkippedDetail[];
+  };
+}
+
 export interface SettingsBackupPayload {
   version?: string;
   exportedAt?: string;

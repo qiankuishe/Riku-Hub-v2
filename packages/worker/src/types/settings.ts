@@ -15,6 +15,27 @@ export interface SettingsExportStats {
   clipboardItems: number;
 }
 
+export type SettingsImportSkipReason = 'illegal_protocol' | 'unsafe_url';
+
+export interface NavigationImportSkippedDetail {
+  categoryName: string;
+  linkTitle: string;
+  url: string;
+  reason: SettingsImportSkipReason;
+}
+
+export interface SettingsImportSkipped {
+  navigation: {
+    count: number;
+    details: NavigationImportSkippedDetail[];
+  };
+}
+
+export interface SettingsImportResult {
+  imported: SettingsExportStats;
+  skipped: SettingsImportSkipped;
+}
+
 export interface SettingsBackupPayload {
   version?: string;
   exportedAt?: string;
@@ -35,7 +56,6 @@ export interface SettingsRepositoryDeps<TEnv> {
   getAllNotes: (env: TEnv) => Promise<NoteRecord[]>;
   getAllSnippets: (env: TEnv) => Promise<SnippetRecord[]>;
   getAllClipboardItems: (env: TEnv) => Promise<ClipboardItemRecord[]>;
-  importSettingsBackup: (env: TEnv, backup: SettingsBackupPayload) => Promise<SettingsExportStats>;
+  importSettingsBackup: (env: TEnv, backup: SettingsBackupPayload) => Promise<SettingsImportResult>;
   clearSettingsScope: (env: TEnv, scope: SettingsDangerScope) => Promise<void>;
 }
-

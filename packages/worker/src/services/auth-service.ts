@@ -16,7 +16,7 @@ export class AuthService {
     private readonly repository: AuthRepository
   ) {}
 
-  async login(input: AuthLoginInput, ip: string): Promise<AuthLoginResult> {
+  async login(input: AuthLoginInput, ip: string, request: Request): Promise<AuthLoginResult> {
     const username = (input.username ?? input.email?.split('@')[0] ?? '').trim();
     const password = (input.password ?? '').trim();
 
@@ -35,6 +35,14 @@ export class AuthService {
     const providedHash = await sha256Hex(password);
     if (username === expectedUser && expectedHash && safeEqual(providedHash, expectedHash)) {
       await this.repository.clearLoginAttempt(ip);
+      
+      // 防止会话固定攻击：删除旧 session（如果存在）
+      const oldToken = getCookie(request, 'session');
+      if (oldToken) {
+        await this.repository.deleteSession(oldToken);
+      }
+      
+      // 生成新 session
       const session = await this.repository.createSession(username, SESSION_TTL_SECONDS, expectedHash);
       return {
         ok: true,

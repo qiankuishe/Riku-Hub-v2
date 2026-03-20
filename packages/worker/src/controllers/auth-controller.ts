@@ -14,7 +14,7 @@ export class AuthController {
     const service = this.serviceFor(c.env);
     const body = await readJson<AuthLoginInput>(c.req.raw);
     const ip = getClientIp(c.req.raw);
-    const result = await service.login(body, ip);
+    const result = await service.login(body, ip, c.req.raw);
 
     if (result.ok) {
       await this.appendLog(c.env, 'login', `用户 ${result.username} 登录成功`);

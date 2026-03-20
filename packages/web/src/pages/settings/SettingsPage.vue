@@ -116,7 +116,9 @@ async function importData(event: Event) {
     const text = await file.text();
     const parsed = JSON.parse(text) as SettingsBackupPayload;
     const data = await settingsApi.importData(parsed);
-    uiStore.showToast(data.message || '导入完成');
+    const skippedNavigationCount = data.skipped?.navigation?.count ?? 0;
+    const baseMessage = data.message || '导入完成';
+    uiStore.showToast(skippedNavigationCount > 0 ? `${baseMessage}，跳过 ${skippedNavigationCount} 条非法导航链接` : baseMessage);
     await loadStats();
   } catch (error) {
     importError.value = error instanceof Error ? error.message : '导入失败';

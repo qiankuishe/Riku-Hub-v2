@@ -15,6 +15,7 @@ const SESSION_TTL_SECONDS = 24 * 60 * 60;
 export class CompatController {
   async register(c: Context<{ Bindings: CompatBindings }>): Promise<Response> {
     return this.handle(c, async () => {
+      // 1. 环境变量强制校验
       if (!isEnabledFlag(c.env.COMPAT_ALLOW_REGISTER)) {
         throw new CompatHttpError(403, {
           success: false,
@@ -22,8 +23,7 @@ export class CompatController {
         });
       }
 
-      const service = this.serviceFor(c.env);
-      const body = await readJson<CompatRegisterInput>(c.req.raw);
+      // 2. 密钥强度校验
       const requiredRegisterKey = c.env.COMPAT_REGISTER_KEY?.trim();
       if (!requiredRegisterKey) {
         throw new CompatHttpError(403, {
@@ -31,14 +31,74 @@ export class CompatController {
           error: '兼容注册需要设置 COMPAT_REGISTER_KEY，未配置时禁止开放注册'
         });
       }
+      
+      if (requiredRegisterKey.length < 32) {
+        throw new CompatHttpError(500, {
+          success: false,
+          error: 'COMPAT_REGISTER_KEY 长度必须至少 32 个字符，请联系管理员'
+        });
+      }
+
+      // 3. IP 限流检查（5 次/小时）
+      const clientIp = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'unknown';
+      const rateLimitKey = `rate_limit:compat_register:${clientIp}`;
+      const rateLimitWindow = 3600; // 1 hour in seconds
+      const rateLimitMax = 5;
+      
+      const currentCount = await getRateLimitCount(c.env.CACHE_KV, rateLimitKey);
+      if (currentCount >= rateLimitMax) {
+        // 审计日志：限流触发
+        await logSecurityEvent(c.env, {
+          type: 'COMPAT_REGISTER_RATE_LIMIT',
+          ip: clientIp,
+          userAgent: c.req.header('User-Agent') || 'unknown',
+          timestamp: Date.now()
+        });
+        
+        throw new CompatHttpError(429, {
+          success: false,
+          error: '注册请求过于频繁，请 1 小时后重试'
+        });
+      }
+
+      // 4. 密钥验证
+      const service = this.serviceFor(c.env);
+      const body = await readJson<CompatRegisterInput>(c.req.raw);
       const providedRegisterKey = body.register_key?.trim() || body.registerKey?.trim() || c.req.header('x-register-key')?.trim() || '';
+      
       if (providedRegisterKey !== requiredRegisterKey) {
+        // 审计日志：密钥错误
+        await logSecurityEvent(c.env, {
+          type: 'COMPAT_REGISTER_INVALID_KEY',
+          ip: clientIp,
+          userAgent: c.req.header('User-Agent') || 'unknown',
+          timestamp: Date.now()
+        });
+        
+        // 增加限流计数
+        await incrementRateLimitCount(c.env.CACHE_KV, rateLimitKey, rateLimitWindow);
+        
         throw new CompatHttpError(403, {
           success: false,
           error: '注册密钥无效，请在请求体 register_key 或请求头 x-register-key 中提供正确密钥'
         });
       }
+
+      // 5. 执行注册
       const result = await service.register(body);
+
+      // 6. 审计日志：注册成功
+      await logSecurityEvent(c.env, {
+        type: 'COMPAT_REGISTER_SUCCESS',
+        username: result.user.username,
+        email: result.user.email,
+        ip: clientIp,
+        userAgent: c.req.header('User-Agent') || 'unknown',
+        timestamp: Date.now()
+      });
+
+      // 7. 增加限流计数（成功也计数，防止暴力注册）
+      await incrementRateLimitCount(c.env.CACHE_KV, rateLimitKey, rateLimitWindow);
 
       c.header('Set-Cookie', serializeSessionCookie(result.token));
       return c.json({
@@ -189,4 +249,65 @@ function isEnabledFlag(value: string | undefined): boolean {
   }
   const normalized = value.trim().toLowerCase();
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+async function getRateLimitCount(kv: KVNamespace, key: string): Promise<number> {
+  const value = await kv.get(key);
+  return value ? Number.parseInt(value, 10) || 0 : 0;
+}
+
+async function incrementRateLimitCount(kv: KVNamespace, key: string, ttlSeconds: number): Promise<void> {
+  const current = await getRateLimitCount(kv, key);
+  await kv.put(key, String(current + 1), { expirationTtl: ttlSeconds });
+}
+
+async function logSecurityEvent(env: CompatBindings, event: {
+  type: string;
+  username?: string;
+  email?: string;
+  ip: string;
+  userAgent: string;
+  timestamp: number;
+}): Promise<void> {
+  // 记录到日志系统（如果有 D1 数据库）
+  if (env.DB) {
+    try {
+      // 使用 app_logs 表（应用级日志），而不是 logs 表（设置相关日志）
+      await env.DB.prepare(
+        'INSERT INTO app_logs (id, action, detail, created_at) VALUES (?, ?, ?, ?)'
+      ).bind(
+        randomToken(16), // 生成唯一 ID
+        event.type,
+        JSON.stringify({
+          username: event.username,
+          email: event.email,
+          ip: event.ip,
+          userAgent: event.userAgent
+        }),
+        new Date(event.timestamp).toISOString()
+      ).run();
+    } catch (error) {
+      // 日志记录失败不应影响主流程，仅输出到控制台
+      console.error('[Security] Failed to log event:', error);
+    }
+  }
+  
+  // 同时输出到控制台
+  console.warn(`[Security] ${event.type}:`, {
+    username: event.username,
+    email: event.email,
+    ip: event.ip,
+    userAgent: event.userAgent,
+    timestamp: new Date(event.timestamp).toISOString()
+  });
+}
+
+// 生成随机 token（用于 ID 生成）
+function randomToken(length: number): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }

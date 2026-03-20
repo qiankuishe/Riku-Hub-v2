@@ -12,6 +12,8 @@ export class SubscriptionsHttpError extends Error {
 }
 
 export class SubscriptionsService<TEnv> {
+  private static readonly MAX_SOURCE_CONTENT_SIZE = 10 * 1024 * 1024; // 10MB
+
   constructor(private readonly repository: SubscriptionsRepository<TEnv>) {}
 
   async listSources(): Promise<{ sources: SourceRecord[]; lastSaveTime: string }> {
@@ -39,6 +41,10 @@ export class SubscriptionsService<TEnv> {
     const content = input.content?.trim();
     if (!name || !content) {
       throw new SubscriptionsHttpError(400, '名称和内容不能为空');
+    }
+
+    if (getByteLength(content) > SubscriptionsService.MAX_SOURCE_CONTENT_SIZE) {
+      throw new SubscriptionsHttpError(400, '订阅源内容过大（最大 10MB）');
     }
 
     const validation = await this.repository.validateContent(content);
@@ -87,7 +93,11 @@ export class SubscriptionsService<TEnv> {
 
     let nodeCount = existing.nodeCount;
     if (typeof input.content === 'string') {
-      const validation = await this.repository.validateContent(input.content);
+      const trimmedContent = input.content.trim();
+      if (getByteLength(trimmedContent) > SubscriptionsService.MAX_SOURCE_CONTENT_SIZE) {
+        throw new SubscriptionsHttpError(400, '订阅源内容过大（最大 10MB）');
+      }
+      const validation = await this.repository.validateContent(trimmedContent);
       nodeCount = validation.nodeCount;
     }
 
@@ -175,4 +185,8 @@ export class SubscriptionsService<TEnv> {
       fromStaleCache: cacheResult.payload.fromStaleCache
     };
   }
+}
+
+function getByteLength(text: string): number {
+  return new TextEncoder().encode(text).byteLength;
 }

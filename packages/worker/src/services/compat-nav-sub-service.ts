@@ -28,7 +28,6 @@ const MAX_SUBSCRIPTION_BYTES = 5 * 1024 * 1024;
 const MAX_SUBSCRIPTION_EXPANSION_DEPTH = 2;
 const MAX_SUBSCRIPTION_FETCH_CONCURRENCY = 8;
 const MAX_SUBSCRIPTION_URLS_PER_SOURCE = 64;
-let compatAggregateRefreshInFlight = false;
 
 export class CompatNavSubHttpError extends Error {
   constructor(
@@ -453,27 +452,6 @@ export class CompatNavSubService {
     | { ok: true; payload: CachedNodesPayload; sources: SourceRecord[] }
     | { ok: false; error: string }
   > {
-    if (compatAggregateRefreshInFlight) {
-      if (force) {
-        const baseline = await this.repository.getCachedNodes();
-        const waited = await this.waitForNodesCache(6000, baseline?.refreshedAt ?? null);
-        if (waited) {
-          const sources = await this.repository.getAllSources();
-          return { ok: true, payload: waited, sources };
-        }
-        return { ok: false, error: '刷新正在进行中' };
-      }
-
-      const cached = await this.repository.getCachedNodes();
-      if (cached) {
-        const sources = await this.repository.getAllSources();
-        return { ok: true, payload: cached, sources };
-      }
-      return { ok: false, error: '刷新正在进行中' };
-    }
-
-    compatAggregateRefreshInFlight = true;
-
     try {
       const sources = await this.repository.getAllSources();
       const enabledSources = sources.filter((source) => source.enabled);
@@ -550,8 +528,6 @@ export class CompatNavSubService {
         return { ok: true, payload: oldCache, sources };
       }
       return { ok: false, error: `刷新聚合缓存失败: ${String(error)}` };
-    } finally {
-      compatAggregateRefreshInFlight = false;
     }
   }
 

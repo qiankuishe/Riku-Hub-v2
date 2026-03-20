@@ -2,7 +2,13 @@ import type { LogRecord, SourceRecord } from '@riku-hub/shared';
 import type { ClipboardItemRecord } from '../types/clipboard';
 import type { NavigationCategoryPayload } from '../types/navigation';
 import type { NoteRecord } from '../types/notes';
-import type { SettingsBackupPayload, SettingsDangerScope, SettingsExportStats, SettingsRepositoryDeps } from '../types/settings';
+import type {
+  SettingsBackupPayload,
+  SettingsDangerScope,
+  SettingsExportStats,
+  SettingsImportResult,
+  SettingsRepositoryDeps
+} from '../types/settings';
 import type { SnippetRecord } from '../types/snippets';
 
 export class SettingsRepository<TEnv> {
@@ -39,7 +45,7 @@ export class SettingsRepository<TEnv> {
     return this.deps.getAllClipboardItems(this.env);
   }
 
-  importSettingsBackup(backup: SettingsBackupPayload): Promise<SettingsExportStats> {
+  importSettingsBackup(backup: SettingsBackupPayload): Promise<SettingsImportResult> {
     return this.deps.importSettingsBackup(this.env, backup);
   }
 
@@ -47,4 +53,3 @@ export class SettingsRepository<TEnv> {
     return this.deps.clearSettingsScope(this.env, scope);
   }
 }
-

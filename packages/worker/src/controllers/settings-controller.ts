@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { SettingsHttpError, SettingsService } from '../services/settings-service';
-import type { SettingsBackupPayload, SettingsExportStats } from '../types/settings';
+import type { SettingsBackupPayload, SettingsExportStats, SettingsImportSkipped } from '../types/settings';
 
 const MAX_IMPORT_REQUEST_BYTES = 100 * 1024 * 1024;
 
@@ -39,7 +39,7 @@ export class SettingsController<TEnv extends object> {
     return this.handle(c, async () => {
       const body = await readJsonWithLimit<{ backup?: unknown }>(c.req.raw, MAX_IMPORT_REQUEST_BYTES);
       const data = await this.serviceFor(c.env).importBackup(body as { backup?: SettingsBackupPayload });
-      await this.appendLog(c.env, 'settings_import', formatImportLog(data.imported));
+      await this.appendLog(c.env, 'settings_import', formatImportLog(data.imported, data.skipped));
       return c.json(data);
     });
   }
@@ -70,8 +70,8 @@ export class SettingsController<TEnv extends object> {
   }
 }
 
-function formatImportLog(imported: SettingsExportStats): string {
-  return `导入数据：订阅源 ${imported.sources}，导航分类 ${imported.navigationCategories}，笔记 ${imported.notes}，片段 ${imported.snippets}，剪贴板 ${imported.clipboardItems}`;
+function formatImportLog(imported: SettingsExportStats, skipped: SettingsImportSkipped): string {
+  return `导入数据：订阅源 ${imported.sources}，导航分类 ${imported.navigationCategories}，笔记 ${imported.notes}，片段 ${imported.snippets}，剪贴板 ${imported.clipboardItems}，跳过导航链接 ${skipped.navigation.count}`;
 }
 
 async function readJsonWithLimit<T>(request: Request, maxBytes: number): Promise<T> {

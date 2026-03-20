@@ -1,11 +1,11 @@
 import { request } from './client';
-import type { SettingsBackupPayload, SettingsExportStats } from './types';
+import type { SettingsBackupPayload, SettingsExportStats, SettingsImportSkipped } from './types';
 
 export const settingsApi = {
   getExportStats: () => request<{ stats: SettingsExportStats }>('/api/settings/export/stats'),
   exportData: () => request<{ backup: SettingsBackupPayload }>('/api/settings/export'),
   importData: (backup: SettingsBackupPayload) =>
-    request<{ success: boolean; message: string; imported: SettingsExportStats }>('/api/settings/import', {
+    request<{ success: boolean; message: string; imported: SettingsExportStats; skipped: SettingsImportSkipped }>('/api/settings/import', {
       method: 'POST',
       body: JSON.stringify({ backup })
     }),

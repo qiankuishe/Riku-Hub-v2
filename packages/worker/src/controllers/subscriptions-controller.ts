@@ -71,6 +71,13 @@ export class SubscriptionsController<TEnv extends object> {
 
   async refreshSources(c: SubscriptionsContext<TEnv>): Promise<Response> {
     return this.handle(c, async () => {
+      // Rate Limiting: 5分钟内最多刷新3次
+      const username = await this.getUsernameFromContext(c);
+      const canRefresh = await this.checkRefreshRateLimit(c.env, username);
+      if (!canRefresh) {
+        throw new SubscriptionsHttpError(429, '刷新过于频繁，请稍后再试（5分钟内最多3次）');
+      }
+      
       const data = await this.serviceFor(c.env).refreshSources();
       await this.appendLog(c.env, 'source_refresh', `手动刷新订阅缓存，共 ${data.nodeCount} 条节点`);
       return c.json({
@@ -78,6 +85,40 @@ export class SubscriptionsController<TEnv extends object> {
         lastSaveTime: data.lastSaveTime
       });
     });
+  }
+
+  private async getUsernameFromContext(c: SubscriptionsContext<TEnv>): Promise<string> {
+    // 从 Cookie 中获取 session token，然后获取用户名
+    // 这里简化处理，使用 IP 作为标识
+    const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || '0.0.0.0';
+    return ip;
+  }
+
+  private async checkRefreshRateLimit(env: TEnv, identifier: string): Promise<boolean> {
+    // 检查是否有 CACHE_KV
+    const cacheKv = (env as any).CACHE_KV as KVNamespace | undefined;
+    if (!cacheKv) {
+      return true; // 如果没有 KV，不限流
+    }
+
+    const key = `ratelimit:refresh:${identifier}`;
+    const now = Date.now();
+    const window = 5 * 60 * 1000; // 5分钟
+    const maxAttempts = 3;
+    
+    const data = await cacheKv.get(key, 'json') as { attempts: number; resetAt: number } | null;
+    
+    if (!data || now > data.resetAt) {
+      await cacheKv.put(key, JSON.stringify({ attempts: 1, resetAt: now + window }), { expirationTtl: 300 });
+      return true;
+    }
+    
+    if (data.attempts >= maxAttempts) {
+      return false;
+    }
+    
+    await cacheKv.put(key, JSON.stringify({ attempts: data.attempts + 1, resetAt: data.resetAt }), { expirationTtl: 300 });
+    return true;
   }
 
   async subscription(c: SubscriptionsContext<TEnv>): Promise<Response> {

@@ -29,6 +29,38 @@ import {
   setAppMetaValue
 } from './utils/runtime';
 import { getByteLength, getDefaultSnippetTitle, isSnippetType } from './utils/snippets';
+import { sleep, mapWithConcurrency } from './utils/async';
+import { getErrorStatusCode, formatError } from './utils/error';
+import {
+  isEnabledFlag,
+  resolvePageAssetPath,
+  enforceHttps,
+  readResponseTextWithLimit,
+  readResponseBytesWithLimit
+} from './utils/http';
+import { fetchAndCacheFavicon } from './utils/favicon';
+import { assertSafeUrl } from './utils/ssrf';
+import {
+  refreshAggregateCache,
+  ensureAggregateCache,
+  waitForNodesCache,
+  getAggregateMeta,
+  saveAggregateMeta,
+  getCachedNodes,
+  getCachedFormat
+} from './services/aggregate-service';
+import { expandSourceContent, resolveNodesFromInput } from './services/subscription-fetch-service';
+import {
+  getSource,
+  getAllSources,
+  getSourceIndex,
+  saveSourceIndex,
+  createSource,
+  saveSource,
+  saveSourceNodeCount,
+  deleteSource,
+  getLastSaveTime
+} from './repositories/sources-repository';
 import type { ClipboardItemRecord, ClipboardItemType } from './types/clipboard';
 import type {
   ClipboardItemRow,
@@ -41,7 +73,13 @@ import type {
 } from './types/db-rows';
 import type { NavigationCategoryPayload, NavigationCategoryRecord, NavigationLinkRecord } from './types/navigation';
 import type { NoteRecord } from './types/notes';
-import type { SettingsBackupPayload, SettingsDangerScope, SettingsExportStats } from './types/settings';
+import type {
+  NavigationImportSkippedDetail,
+  SettingsBackupPayload,
+  SettingsDangerScope,
+  SettingsExportStats,
+  SettingsImportResult
+} from './types/settings';
 import type { SnippetRecord, SnippetType } from './types/snippets';
 import {
   detectFormatFromUserAgent,
@@ -107,16 +145,10 @@ type Bindings = { Bindings: Env };
 
 const app = new Hono<Bindings>();
 
-const MAX_REDIRECTS = 3;
-const MAX_SUBSCRIPTION_EXPANSION_DEPTH = 2;
-const MAX_SUBSCRIPTION_FETCH_CONCURRENCY = 8;
-const MAX_SUBSCRIPTION_URLS_PER_SOURCE = 64;
-const MAX_SUBSCRIPTION_BYTES = 5 * 1024 * 1024;
 const MAX_IMPORT_WRITE_CONCURRENCY = 16;
 const MAX_IMAGE_SNIPPET_BYTES = 350 * 1024;
 const MAX_FAVICON_BYTES = 64 * 1024;
 const FAVICON_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
-const DNS_QUERY_TIMEOUT_MS = 4_000;
 
 const APP_KEYS = {
   subToken: 'config:sub-token',
@@ -252,7 +284,6 @@ const D1_SCHEMA_STATEMENTS = [
 ] as const;
 
 let d1SchemaReady: Promise<void> | null = null;
-let aggregateRefreshInFlight = false;
 
 app.onError((error, c) => {
   const status = getErrorStatusCode(error);
@@ -314,10 +345,12 @@ mountSubscriptionsRoutes<Env>(app, {
     saveSource,
     saveSourceIndex,
     deleteSource,
-    refreshAggregateCache,
+    refreshAggregateCache: (env, force) =>
+      refreshAggregateCache(env, force, getAllSources, expandSourceContent, saveSourceNodeCount, appendLog),
     getLastSaveTime,
     getSubToken,
-    ensureAggregateCache,
+    ensureAggregateCache: (env, format) =>
+      ensureAggregateCache(env, format, getAllSources, expandSourceContent, saveSourceNodeCount, appendLog),
     invalidateCache,
     detectFormatFromUserAgent,
     parseSubQuery
@@ -433,7 +466,14 @@ export default {
   scheduled: async (_controller: ScheduledController, env: Env, _ctx: ExecutionContext) => {
     await ensureDatabaseSchema(env);
     try {
-      const refreshed = await refreshAggregateCache(env, false);
+      const refreshed = await refreshAggregateCache(
+        env,
+        false,
+        getAllSources,
+        expandSourceContent,
+        saveSourceNodeCount,
+        appendLog
+      );
       if (!refreshed.ok && refreshed.error !== '刷新正在进行中') {
         await appendLog(env, 'aggregate_refresh_failed', `定时刷新失败: ${refreshed.error}`);
       }
@@ -446,80 +486,6 @@ export default {
 
 export { app };
 
-function getErrorStatusCode(error: unknown): number | null {
-  const status = (error as { status?: unknown })?.status;
-  if (typeof status !== 'number' || !Number.isFinite(status)) {
-    return null;
-  }
-  return status;
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function isEnabledFlag(value: string | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-  const normalized = value.trim().toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
-}
-
-function resolvePageAssetPath(request: Request): string | null {
-  if (request.method !== 'GET') {
-    return null;
-  }
-
-  const url = new URL(request.url);
-  const pathname = url.pathname;
-
-  if (
-    pathname.startsWith('/api/') ||
-    pathname === '/sub' ||
-    pathname === '/health' ||
-    pathname.startsWith('/assets/') ||
-    pathname === '/favicon.ico' ||
-    pathname === '/logo.png'
-  ) {
-    return null;
-  }
-
-  const pageMap: Record<string, string> = {
-    '/': '/index.html',
-    '/reset': '/reset.html',
-    '/login': '/login.html',
-    '/nav': '/nav.html',
-    '/navigation': '/navigation.html',
-    '/subscriptions': '/subscriptions.html',
-    '/notes': '/notes.html',
-    '/snippets': '/snippets.html',
-    '/clipboard': '/clipboard.html',
-    '/logs': '/logs.html',
-    '/settings': '/settings.html'
-  };
-
-  return pageMap[pathname] ?? null;
-}
-
-function enforceHttps(request: Request): Response | null {
-  const url = new URL(request.url);
-  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-    return null;
-  }
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const cfVisitor = request.headers.get('cf-visitor');
-  const isHttps =
-    url.protocol === 'https:' ||
-    forwardedProto === 'https' ||
-    (cfVisitor ? cfVisitor.includes('"scheme":"https"') : false);
-
-  if (isHttps) {
-    return null;
-  }
-
-  return Response.redirect(ensureHttpsUrl(url.toString()), 308);
-}
 
 async function validateContent(env: Env, content: string): Promise<ValidationSummary> {
   const resolved = await resolveNodesFromInput(env, content);
@@ -532,892 +498,6 @@ async function validateContent(env: Env, content: string): Promise<ValidationSum
     duplicateCount,
     warnings: resolved.warnings
   };
-}
-
-async function refreshAggregateCache(env: Env, force: boolean): Promise<
-  | { ok: true; payload: CachedNodesPayload; sources: SourceRecord[] }
-  | { ok: false; error: string }
-> {
-  if (aggregateRefreshInFlight) {
-    if (force) {
-      const baseline = await getCachedNodes(env);
-      const waited = await waitForNodesCache(env, 6000, baseline?.refreshedAt ?? null);
-      if (waited) {
-        const sources = await getAllSources(env);
-        return { ok: true, payload: waited, sources };
-      }
-      return { ok: false, error: '刷新正在进行中' };
-    }
-
-    const cached = await getCachedNodes(env);
-    if (cached) {
-      const sources = await getAllSources(env);
-      return { ok: true, payload: cached, sources };
-    }
-    return { ok: false, error: '刷新正在进行中' };
-  }
-
-  aggregateRefreshInFlight = true;
-
-  // 尝试获取锁，避免并发刷新
-  const lockKey = APP_KEYS.refreshLock;
-  const lockValue = `${randomToken(8)}-${Date.now()}`;
-  const lockTtl = 120; // 2分钟锁超时
-  let lockAcquired = false;
-
-  try {
-    // 检查是否已有锁
-    const existingLock = await env.CACHE_KV.get(lockKey);
-    if (existingLock) {
-      // 检查锁是否过期（防止死锁）
-      const lockParts = existingLock.split('-');
-      const lockTime = lockParts.length > 1 ? Number.parseInt(lockParts[1], 10) : 0;
-      const isExpired = Date.now() - lockTime > lockTtl * 1000;
-      
-      if (!isExpired) {
-        if (force) {
-          const baseline = await getCachedNodes(env);
-          const waited = await waitForNodesCache(env, 6000, baseline?.refreshedAt ?? null);
-          if (waited) {
-            const sources = await getAllSources(env);
-            return { ok: true, payload: waited, sources };
-          }
-          return { ok: false, error: '刷新正在进行中' };
-        }
-
-        // 记录锁竞争日志
-        await appendLog(env, 'refresh_lock_contention', `检测到并发刷新请求，返回缓存（锁持有时间: ${Date.now() - lockTime}ms）`);
-        
-        // 已有其他进程在刷新，直接返回当前缓存
-        const cached = await getCachedNodes(env);
-        if (cached) {
-          const sources = await getAllSources(env);
-          return { ok: true, payload: cached, sources };
-        }
-        return { ok: false, error: '刷新正在进行中' };
-      } else {
-        // 记录锁过期日志
-        await appendLog(env, 'refresh_lock_expired', `检测到过期锁，强制获取（锁持有时间: ${Date.now() - lockTime}ms）`);
-      }
-    }
-    
-    // 获取锁（即使有竞争，也只是重复刷新，不会破坏数据）
-    await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtl });
-    lockAcquired = true;
-    const confirmedLock = await env.CACHE_KV.get(lockKey);
-    if (confirmedLock !== lockValue) {
-      if (force) {
-        const baseline = await getCachedNodes(env);
-        const waited = await waitForNodesCache(env, 6000, baseline?.refreshedAt ?? null);
-        if (waited) {
-          const sources = await getAllSources(env);
-          return { ok: true, payload: waited, sources };
-        }
-        return { ok: false, error: '刷新正在进行中' };
-      }
-
-      const cached = await getCachedNodes(env);
-      if (cached) {
-        const sources = await getAllSources(env);
-        return { ok: true, payload: cached, sources };
-      }
-      return { ok: false, error: '刷新正在进行中' };
-    }
-
-    const sources = await getAllSources(env);
-    // 只聚合启用的订阅源
-    const enabledSources = sources.filter(s => s.enabled);
-    
-    if (enabledSources.length === 0) {
-      const meta = await saveAggregateMeta(env, {
-        cacheStatus: 'missing',
-        totalNodes: 0,
-        warningCount: 0,
-        lastRefreshTime: '',
-        lastRefreshError: '没有启用的订阅源'
-      });
-      void meta;
-      return { ok: false, error: '没有启用的订阅源' };
-    }
-
-    const aggregated: NormalizedNode[] = [];
-    const warnings: AggregateWarning[] = [];
-    const updatedSources: SourceRecord[] = [];
-
-    for (const source of enabledSources) {
-      const expanded = await expandSourceContent(env, source.content);
-      aggregated.push(...expanded.uniqueNodes);
-      warnings.push(...expanded.warnings);
-      
-      // 只在节点数变化时才更新 source 记录，避免写放大
-      if (expanded.uniqueNodes.length !== source.nodeCount) {
-        const updatedSource = await saveSourceNodeCount(env, source, expanded.uniqueNodes.length);
-        updatedSources.push(updatedSource);
-      } else {
-        updatedSources.push(source);
-      }
-    }
-    
-    // 将禁用的订阅源也加入返回列表（但不参与聚合）
-    const disabledSources = sources.filter(s => !s.enabled);
-    const allSources = [...updatedSources, ...disabledSources].sort((a, b) => a.sortOrder - b.sortOrder);
-
-    const deduped = deduplicateNodes(aggregated);
-    const payload: CachedNodesPayload = {
-      nodes: deduped.nodes,
-      warnings,
-      refreshedAt: new Date().toISOString()
-    };
-
-    await env.CACHE_KV.put(CACHE_KEYS.nodes, JSON.stringify(payload));
-    for (const format of ['base64', 'clash', 'stash', 'surge', 'loon', 'qx', 'singbox'] satisfies OutputFormat[]) {
-      const rendered = renderFormat(payload.nodes, format);
-      const cachedFormat: CachedFormatPayload = {
-        format,
-        content: rendered.content,
-        warnings: rendered.warnings,
-        refreshedAt: payload.refreshedAt
-      };
-      await env.CACHE_KV.put(CACHE_KEYS.format(format), JSON.stringify(cachedFormat));
-    }
-
-    await saveAggregateMeta(env, {
-      cacheStatus: 'fresh',
-      totalNodes: payload.nodes.length,
-      warningCount: warnings.length,
-      lastRefreshTime: payload.refreshedAt,
-      lastRefreshError: '',
-      nextRefreshAfter: new Date(Date.now() + getAggregateTtlSeconds(env) * 1000).toISOString()
-    });
-
-    return { ok: true, payload, sources: allSources };
-  } catch (error) {
-    const oldCache = await getCachedNodes(env);
-    await saveAggregateMeta(env, {
-      cacheStatus: oldCache ? 'stale' : 'missing',
-      totalNodes: oldCache?.nodes.length ?? 0,
-      warningCount: oldCache?.warnings.length ?? 0,
-      lastRefreshTime: oldCache?.refreshedAt ?? '',
-      lastRefreshError: String(error)
-    });
-    if (!force && oldCache) {
-      const sources = await getAllSources(env);
-      return { ok: true, payload: oldCache, sources };
-    }
-    return { ok: false, error: `刷新聚合缓存失败: ${String(error)}` };
-  } finally {
-    aggregateRefreshInFlight = false;
-    if (lockAcquired) {
-      // 释放锁
-      const currentLock = await env.CACHE_KV.get(lockKey);
-      if (currentLock === lockValue) {
-        await env.CACHE_KV.delete(lockKey);
-      }
-    }
-  }
-}
-
-async function ensureAggregateCache(
-  env: Env,
-  format: OutputFormat
-): Promise<
-  | {
-      ok: true;
-      payload: { content: string; warnings: AggregateWarning[]; fromStaleCache: boolean };
-      meta: AggregateMeta;
-    }
-  | { ok: false; error: string; status?: number }
-> {
-  const ttlSeconds = getAggregateTtlSeconds(env);
-  const meta = await getAggregateMeta(env);
-  const cachedFormat = await getCachedFormat(env, format);
-  const cachedNodes = await getCachedNodes(env);
-  const isFresh = cachedNodes ? Date.now() - Date.parse(cachedNodes.refreshedAt) < ttlSeconds * 1000 : false;
-  const hasConsistentPair = isCachePairConsistent(cachedNodes, cachedFormat);
-
-  if (hasConsistentPair && isFresh && cachedFormat) {
-    return {
-      ok: true,
-      payload: { content: cachedFormat.content, warnings: cachedFormat.warnings, fromStaleCache: false },
-      meta: { ...meta, cacheStatus: 'fresh' }
-    };
-  }
-
-  const refreshed = await refreshAggregateCache(env, false);
-  if (refreshed.ok) {
-    const [latest, latestNodes] = await Promise.all([getCachedFormat(env, format), getCachedNodes(env)]);
-    const nextMeta = await getAggregateMeta(env);
-    if (latest && latestNodes && isCachePairConsistent(latestNodes, latest)) {
-      return {
-        ok: true,
-        payload: { content: latest.content, warnings: latest.warnings, fromStaleCache: nextMeta.cacheStatus === 'stale' },
-        meta: nextMeta
-      };
-    }
-  }
-
-  if (!refreshed.ok && refreshed.error === '刷新正在进行中') {
-    const waited = await waitForFreshenedCache(env, format);
-    if (waited) {
-      return waited;
-    }
-    return { ok: false, error: '订阅缓存正在初始化中，请稍后重试', status: 503 };
-  }
-
-  if (hasConsistentPair && cachedFormat) {
-    return {
-      ok: true,
-      payload: { content: cachedFormat.content, warnings: cachedFormat.warnings, fromStaleCache: true },
-      meta: { ...meta, cacheStatus: 'stale' }
-    };
-  }
-
-  return {
-    ok: false,
-    error: refreshed.ok ? '订阅缓存不可用' : refreshed.error,
-    status: refreshed.ok ? 500 : refreshed.error === '刷新正在进行中' ? 503 : 500
-  };
-}
-
-async function waitForNodesCache(
-  env: Env,
-  timeoutMs: number,
-  baselineRefreshedAt: string | null
-): Promise<CachedNodesPayload | null> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const cached = await getCachedNodes(env);
-    if (cached && (!baselineRefreshedAt || cached.refreshedAt !== baselineRefreshedAt)) {
-      return cached;
-    }
-    await sleep(200);
-  }
-  return null;
-}
-
-async function waitForFreshenedCache(
-  env: Env,
-  format: OutputFormat
-): Promise<
-  | {
-      ok: true;
-      payload: { content: string; warnings: AggregateWarning[]; fromStaleCache: boolean };
-      meta: AggregateMeta;
-    }
-  | null
-> {
-  const deadline = Date.now() + 3000;
-  while (Date.now() < deadline) {
-    await sleep(200);
-    const [cachedFormat, cachedNodes, meta] = await Promise.all([
-      getCachedFormat(env, format),
-      getCachedNodes(env),
-      getAggregateMeta(env)
-    ]);
-    if (cachedFormat && cachedNodes && isCachePairConsistent(cachedNodes, cachedFormat)) {
-      return {
-        ok: true,
-        payload: { content: cachedFormat.content, warnings: cachedFormat.warnings, fromStaleCache: meta.cacheStatus === 'stale' },
-        meta
-      };
-    }
-  }
-  return null;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isCachePairConsistent(nodes: CachedNodesPayload | null, format: CachedFormatPayload | null): boolean {
-  if (!nodes || !format) {
-    return false;
-  }
-  return nodes.refreshedAt === format.refreshedAt;
-}
-
-async function mapWithConcurrency<TInput, TOutput>(
-  inputs: TInput[],
-  concurrency: number,
-  mapper: (input: TInput, index: number) => Promise<TOutput>
-): Promise<TOutput[]> {
-  if (inputs.length === 0) {
-    return [];
-  }
-  const limit = Math.max(1, Math.min(concurrency, inputs.length));
-  const results = new Array<TOutput>(inputs.length);
-  let nextIndex = 0;
-
-  const workers = Array.from({ length: limit }, async () => {
-    while (true) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      if (currentIndex >= inputs.length) {
-        return;
-      }
-      results[currentIndex] = await mapper(inputs[currentIndex], currentIndex);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
-}
-
-async function readResponseTextWithLimit(
-  response: Response,
-  maxBytes: number,
-  controller?: AbortController
-): Promise<string> {
-  if (!response.body) {
-    const text = await response.text();
-    const bytes = getByteLength(text);
-    if (bytes > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytes} 字节（限制 ${maxBytes}）`);
-    }
-    return text;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let bytesRead = 0;
-  let text = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    if (!value) {
-      continue;
-    }
-    bytesRead += value.byteLength;
-    if (bytesRead > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-
-  text += decoder.decode();
-  return text;
-}
-
-async function readResponseBytesWithLimit(
-  response: Response,
-  maxBytes: number,
-  controller?: AbortController
-): Promise<Uint8Array> {
-  if (!response.body) {
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytes.byteLength} 字节（限制 ${maxBytes}）`);
-    }
-    return bytes;
-  }
-
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let bytesRead = 0;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    if (!value) {
-      continue;
-    }
-    bytesRead += value.byteLength;
-    if (bytesRead > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
-    }
-    chunks.push(value);
-  }
-
-  const bytes = new Uint8Array(bytesRead);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
-
-async function expandSourceContent(env: Env, content: string): Promise<{
-  uniqueNodes: NormalizedNode[];
-  warnings: AggregateWarning[];
-}> {
-  const resolved = await resolveNodesFromInput(env, content);
-  const deduped = deduplicateNodes(resolved.nodes);
-  return { uniqueNodes: deduped.nodes, warnings: resolved.warnings };
-}
-
-async function resolveNodesFromInput(
-  env: Env,
-  content: string,
-  depth = 0,
-  visitedUrls?: Set<string>
-): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return { nodes: [], warnings: [], urlCount: 0 };
-  }
-
-  const mixed = parseMixedInput(trimmed);
-  if (mixed.urls.length === 0 && mixed.nodes.length === 0) {
-    const format = detectInputFormat(trimmed);
-    const parsed = parseContent(trimmed, format);
-    return { nodes: parsed.nodes, warnings: parsed.warnings, urlCount: 0 };
-  }
-
-  const nodes = [...mixed.nodes];
-  const warnings = [...mixed.warnings];
-  const urlsToProcess = mixed.urls.slice(0, MAX_SUBSCRIPTION_URLS_PER_SOURCE);
-  if (mixed.urls.length > MAX_SUBSCRIPTION_URLS_PER_SOURCE) {
-    warnings.push({
-      code: 'fetch-failed',
-      message: `订阅链接数量超过限制（${MAX_SUBSCRIPTION_URLS_PER_SOURCE}），已忽略多余链接`,
-      context: String(mixed.urls.length)
-    });
-  }
-  let urlCount = urlsToProcess.length;
-  const seen = visitedUrls ?? new Set<string>();
-
-  if (depth >= MAX_SUBSCRIPTION_EXPANSION_DEPTH) {
-    for (const rawUrl of urlsToProcess) {
-      warnings.push({
-        code: 'fetch-failed',
-        message: `订阅嵌套层级超过限制（${MAX_SUBSCRIPTION_EXPANSION_DEPTH}）`,
-        context: rawUrl
-      });
-    }
-    return { nodes, warnings, urlCount };
-  }
-
-  const results = await mapWithConcurrency(
-    urlsToProcess,
-    MAX_SUBSCRIPTION_FETCH_CONCURRENCY,
-    async (rawUrl): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> => {
-      const normalizedUrl = fixUrl(rawUrl);
-      if (seen.has(normalizedUrl)) {
-        return { nodes: [], warnings: [], urlCount: 0 };
-      }
-
-      seen.add(normalizedUrl);
-      try {
-        const fetched = await fetchSubscription(env, normalizedUrl);
-        return await resolveNodesFromInput(env, fetched.text, depth + 1, seen);
-      } catch (error) {
-        return {
-          nodes: [],
-          warnings: [
-            {
-              code: 'fetch-failed',
-              message: formatSubscriptionFetchError(rawUrl, error),
-              context: rawUrl
-            }
-          ],
-          urlCount: 0
-        };
-      }
-    }
-  );
-
-  for (const result of results) {
-    nodes.push(...result.nodes);
-    warnings.push(...result.warnings);
-    urlCount += result.urlCount;
-  }
-
-  return { nodes, warnings, urlCount };
-}
-
-async function fetchSubscription(env: Env, rawUrl: string, depth = 0): Promise<{ text: string }> {
-  if (depth > MAX_REDIRECTS) {
-    throw new Error(`重定向次数超过 ${MAX_REDIRECTS} 次`);
-  }
-
-  const url = new URL(fixUrl(rawUrl));
-  await assertSafeUrl(env, url);
-
-  // 添加 30 秒超时控制
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-  try {
-    const response = await fetch(url.toString(), {
-      headers: { 'User-Agent': 'Riku-Hub/0.1' },
-      redirect: 'manual',
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (!location) {
-        throw new Error('上游返回重定向但缺少 Location');
-      }
-      const redirected = new URL(location, url);
-      return fetchSubscription(env, redirected.toString(), depth + 1);
-    }
-
-    if (!response.ok) {
-      const statusText = response.statusText?.trim() || '<none>';
-      throw new Error(`HTTP ${response.status}: ${statusText} (${url.hostname})`);
-    }
-
-    // 检查响应大小，限制为 5MB
-    const contentLength = response.headers.get('content-length');
-    if (contentLength && Number.parseInt(contentLength, 10) > MAX_SUBSCRIPTION_BYTES) {
-      throw new Error(`响应过大: ${contentLength} 字节（限制 ${MAX_SUBSCRIPTION_BYTES}）`);
-    }
-
-    const text = await readResponseTextWithLimit(response, MAX_SUBSCRIPTION_BYTES, controller);
-
-    return { text };
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('请求超时（30秒）');
-    }
-    throw error;
-  }
-}
-
-function formatSubscriptionFetchError(rawUrl: string, error: unknown): string {
-  const reason = formatError(error);
-  return `拉取订阅失败 [${rawUrl}]: ${reason}`;
-}
-
-async function fetchAndCacheFavicon(env: Env, hostname: string): Promise<string | null> {
-  const faviconSources = [
-    `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(hostname)}`,
-    `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(`https://${hostname}`)}&size=64`
-  ];
-
-  for (const source of faviconSources) {
-    try {
-      const result = await fetchFaviconSource(env, source);
-      if (!result) {
-        continue;
-      }
-
-      const payload = JSON.stringify({ dataUrl: result.dataUrl, cachedAt: Date.now(), source });
-      await env.CACHE_KV.put(CACHE_KEYS.favicon(hostname), payload, { expirationTtl: FAVICON_CACHE_TTL_SECONDS });
-      return result.dataUrl;
-    } catch {
-      // ignore favicon source failures and try the next one
-    }
-  }
-
-  return null;
-}
-
-async function fetchFaviconSource(env: Env, rawUrl: string): Promise<{ dataUrl: string } | null> {
-  const url = new URL(rawUrl);
-  await assertSafeUrl(env, url);
-
-  const response = await fetch(url.toString(), {
-    headers: { 'User-Agent': 'Riku-Hub/0.1' },
-    redirect: 'manual'
-  });
-
-  if (response.status >= 300 && response.status < 400) {
-    return null;
-  }
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const contentType = (response.headers.get('content-type') || '').toLowerCase();
-  if (!looksLikeFaviconContentType(contentType)) {
-    return null;
-  }
-
-  const contentLength = response.headers.get('content-length');
-  if (contentLength && Number.parseInt(contentLength, 10) > MAX_FAVICON_BYTES) {
-    return null;
-  }
-
-  const bytes = await readResponseBytesWithLimit(response, MAX_FAVICON_BYTES);
-  if (!bytes.byteLength || bytes.byteLength > MAX_FAVICON_BYTES) {
-    return null;
-  }
-
-  const mimeType = normalizeFaviconContentType(contentType);
-  return {
-    dataUrl: `data:${mimeType};base64,${toBase64(bytes)}`
-  };
-}
-
-function looksLikeFaviconContentType(contentType: string): boolean {
-  if (!contentType) {
-    return true;
-  }
-
-  return (
-    contentType.startsWith('image/') ||
-    contentType.includes('icon') ||
-    contentType.includes('svg') ||
-    contentType.includes('octet-stream')
-  );
-}
-
-function normalizeFaviconContentType(contentType: string): string {
-  if (!contentType) {
-    return 'image/png';
-  }
-
-  return contentType.split(';', 1)[0]?.trim() || 'image/png';
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-  return btoa(binary);
-}
-
-async function assertSafeUrl(_env: Env, url: URL): Promise<void> {
-  if (!['http:', 'https:'].includes(url.protocol)) {
-    throw new Error(`禁止协议: ${url.protocol}`);
-  }
-
-  const hostname = url.hostname.toLowerCase();
-  if (['localhost', 'localhost.localdomain', '0.0.0.0', '::1', '[::1]', '[::]'].includes(hostname)) {
-    throw new Error(`禁止访问内网主机: ${hostname}`);
-  }
-
-  if (isInternalHostname(hostname)) {
-    throw new Error(`禁止访问内网域名: ${hostname}`);
-  }
-
-  if (isIpAddress(hostname)) {
-    if (isBlockedIp(hostname)) {
-      throw new Error(`禁止访问保留地址: ${hostname}`);
-    }
-    return;
-  }
-
-  const addresses = await resolveAddresses(hostname);
-  for (const address of addresses) {
-    if (isBlockedIp(address)) {
-      throw new Error(`域名解析命中保留地址: ${hostname} -> ${address}`);
-    }
-  }
-}
-
-async function resolveAddresses(hostname: string): Promise<string[]> {
-  const [aRecords, aaaaRecords] = await Promise.all([resolveDnsType(hostname, 'A'), resolveDnsType(hostname, 'AAAA')]);
-  return [...aRecords, ...aaaaRecords];
-}
-
-async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<string[]> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DNS_QUERY_TIMEOUT_MS);
-  try {
-    const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
-      headers: { Accept: 'application/dns-json' },
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      throw new Error(`DNS 查询失败: HTTP ${response.status}`);
-    }
-    const data = (await response.json()) as { Answer?: Array<{ data?: string; type?: number }> };
-    return (data.Answer ?? [])
-      .filter((record) => Boolean(record.data))
-      .map((record) => String(record.data))
-      .filter((value) => (type === 'A' ? isIpv4(value) : isIpv6(value)));
-  } catch (error) {
-    // DNS 查询失败时抛出错误，而不是返回空数组放行
-    throw new Error(`DNS 解析失败 (${hostname} ${type}): ${formatError(error)}`);
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function isInternalHostname(hostname: string): boolean {
-  return ['.local', '.internal', '.lan', '.home', '.corp', '.intranet'].some((suffix) => hostname.endsWith(suffix));
-}
-
-function isIpAddress(value: string): boolean {
-  return isIpv4(value) || isIpv6(value);
-}
-
-function isIpv4(value: string): boolean {
-  return /^(\d{1,3}\.){3}\d{1,3}$/.test(value);
-}
-
-function isIpv6(value: string): boolean {
-  return /^[a-fA-F0-9:]+$/.test(value) && value.includes(':');
-}
-
-function isBlockedIp(value: string): boolean {
-  if (isIpv4(value)) {
-    return [
-      /^127\./,
-      /^10\./,
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
-      /^192\.168\./,
-      /^169\.254\./,
-      /^0\./,
-      /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./,
-      /^192\.0\.0\./,
-      /^192\.0\.2\./,
-      /^198\.18\./,
-      /^198\.51\.100\./,
-      /^203\.0\.113\./,
-      /^224\./,
-      /^240\./,
-      /^255\./
-    ].some((pattern) => pattern.test(value));
-  }
-
-  const normalized = value.toLowerCase();
-  return (
-    normalized === '::1' ||
-    normalized.startsWith('fc') ||
-    normalized.startsWith('fd') ||
-    normalized.startsWith('fe80:') ||
-    normalized.startsWith('::ffff:127.')
-  );
-}
-
-async function getSource(env: Env, id: string): Promise<SourceRecord | null> {
-  if (hasD1(env)) {
-    const row = await env.DB.prepare(
-      'SELECT id, name, content, node_count, sort_order, enabled, created_at, updated_at FROM sources WHERE id = ?'
-    )
-      .bind(id)
-      .first<SourceRow>();
-    return row ? mapSourceRow(row) : null;
-  }
-
-  const source = await env.APP_KV.get(`source:${id}`, 'json');
-  return source as SourceRecord | null;
-}
-
-async function getAllSources(env: Env): Promise<SourceRecord[]> {
-  const ids = await getSourceIndex(env);
-  const records = await Promise.all(ids.map((id) => getSource(env, id)));
-  return records.filter((record): record is SourceRecord => Boolean(record)).sort((a, b) => a.sortOrder - b.sortOrder);
-}
-
-async function getSourceIndex(env: Env): Promise<string[]> {
-  if (hasD1(env)) {
-    const result = await env.DB.prepare('SELECT id FROM sources ORDER BY sort_order ASC').all<{ id: string }>();
-    return (result.results ?? []).map((row) => row.id);
-  }
-
-  const ids = await env.APP_KV.get(APP_KEYS.sourceIndex, 'json');
-  return Array.isArray(ids) ? ids.filter((value): value is string => typeof value === 'string') : [];
-}
-
-async function saveSourceIndex(env: Env, ids: string[]): Promise<void> {
-  if (hasD1(env)) {
-    return;
-  }
-
-  await env.APP_KV.put(APP_KEYS.sourceIndex, JSON.stringify(ids));
-}
-
-async function createSource(env: Env, name: string, content: string, nodeCount: number): Promise<SourceRecord> {
-  const ids = await getSourceIndex(env);
-  const now = new Date().toISOString();
-  const source: SourceRecord = {
-    id: randomToken(8),
-    name,
-    content,
-    nodeCount,
-    sortOrder: ids.length,
-    enabled: true,
-    createdAt: now,
-    updatedAt: now
-  };
-  await saveSource(env, source);
-  await saveSourceIndex(env, [...ids, source.id]);
-  return source;
-}
-
-async function saveSource(env: Env, source: SourceRecord): Promise<SourceRecord> {
-  if (hasD1(env)) {
-    await env.DB.prepare(
-      `INSERT INTO sources (id, name, content, node_count, sort_order, enabled, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         name = excluded.name,
-         content = excluded.content,
-         node_count = excluded.node_count,
-         sort_order = excluded.sort_order,
-         enabled = excluded.enabled,
-         created_at = excluded.created_at,
-         updated_at = excluded.updated_at`
-    )
-      .bind(source.id, source.name, source.content, source.nodeCount, source.sortOrder, source.enabled ? 1 : 0, source.createdAt, source.updatedAt)
-      .run();
-    return source;
-  }
-
-  await env.APP_KV.put(`source:${source.id}`, JSON.stringify(source));
-  return source;
-}
-
-async function saveSourceNodeCount(env: Env, source: SourceRecord, nodeCount: number): Promise<SourceRecord> {
-  const now = new Date().toISOString();
-
-  if (hasD1(env)) {
-    await env.DB.prepare('UPDATE sources SET node_count = ?, updated_at = ? WHERE id = ? AND node_count = ?')
-      .bind(nodeCount, now, source.id, source.nodeCount)
-      .run();
-  }
-
-  const latest = await getSource(env, source.id);
-  if (!latest) {
-    const fallback: SourceRecord = {
-      ...source,
-      nodeCount,
-      updatedAt: now
-    };
-    await saveSource(env, fallback);
-    return fallback;
-  }
-
-  if (latest.nodeCount === nodeCount) {
-    return latest;
-  }
-
-  const updated: SourceRecord = {
-    ...latest,
-    nodeCount,
-    updatedAt: now
-  };
-  await saveSource(env, updated);
-  return updated;
-}
-
-async function deleteSource(env: Env, id: string): Promise<void> {
-  if (hasD1(env)) {
-    await env.DB.prepare('DELETE FROM sources WHERE id = ?').bind(id).run();
-    return;
-  }
-
-  const ids = await getSourceIndex(env);
-  await env.APP_KV.delete(`source:${id}`);
-  await saveSourceIndex(
-    env,
-    ids.filter((value) => value !== id)
-  );
-}
-
-function getLastSaveTime(sources: SourceRecord[]): string {
-  return sources.reduce((latest, source) => (source.updatedAt > latest ? source.updatedAt : latest), '');
 }
 
 async function getSettingsExportStats(env: Env): Promise<SettingsExportStats> {
@@ -1545,20 +625,30 @@ async function restoreSettingsImportSnapshot(env: Env, snapshot: SettingsImportS
   }
 }
 
-async function importSettingsBackup(env: Env, backup: SettingsBackupPayload): Promise<SettingsExportStats> {
+async function importSettingsBackup(env: Env, backup: SettingsBackupPayload): Promise<SettingsImportResult> {
+  const skippedNavigationDetails: NavigationImportSkippedDetail[] = [];
   const payload: SettingsImportPayloadNormalized = {
     sources: normalizeSourceBackup(backup.sources),
-    navigation: normalizeNavigationBackup(backup.navigation ?? backup.categories),
+    navigation: normalizeNavigationBackup(backup.navigation ?? backup.categories, skippedNavigationDetails),
     notes: normalizeNoteBackup(backup.notes),
     snippets: normalizeSnippetBackup(backup.snippets),
     clipboardItems: normalizeClipboardBackup(backup.clipboard ?? backup.clipboard_items)
   };
   const stats = buildSettingsImportStats(payload);
+  const skipped = {
+    navigation: {
+      count: skippedNavigationDetails.length,
+      details: skippedNavigationDetails
+    }
+  };
 
   return withSettingsImportLock(env, async () => {
     if (hasD1(env)) {
       await importSettingsBackupWithD1Transaction(env, payload);
-      return stats;
+      return {
+        imported: stats,
+        skipped
+      };
     }
 
     const snapshot = await captureSettingsImportSnapshot(env);
@@ -1586,7 +676,10 @@ async function importSettingsBackup(env: Env, backup: SettingsBackupPayload): Pr
         await replaceClipboardItems(env, payload.clipboardItems);
       }
 
-      return stats;
+      return {
+        imported: stats,
+        skipped
+      };
     } catch (error) {
       try {
         await restoreSettingsImportSnapshot(env, snapshot);
@@ -1763,40 +856,6 @@ async function getSubToken(env: Env): Promise<string> {
   const created = randomToken(32);
   await setAppMetaValue(env, APP_KEYS.subToken, created);
   return created;
-}
-
-async function getAggregateMeta(env: Env): Promise<AggregateMeta> {
-  const raw = await getAppMetaValue(env, APP_KEYS.aggregateMeta);
-  if (raw) {
-    try {
-      const meta = JSON.parse(raw) as AggregateMeta;
-      if (meta && typeof meta === 'object') {
-        return meta;
-      }
-    } catch {
-      // ignore malformed meta and fall back to defaults
-    }
-  }
-  return {
-    cacheStatus: 'missing',
-    totalNodes: 0,
-    warningCount: 0,
-    lastRefreshTime: '',
-    lastRefreshError: ''
-  };
-}
-
-async function saveAggregateMeta(env: Env, meta: AggregateMeta): Promise<AggregateMeta> {
-  await setAppMetaValue(env, APP_KEYS.aggregateMeta, JSON.stringify(meta));
-  return meta;
-}
-
-async function getCachedNodes(env: Env): Promise<CachedNodesPayload | null> {
-  return env.CACHE_KV.get(CACHE_KEYS.nodes, 'json');
-}
-
-async function getCachedFormat(env: Env, format: OutputFormat): Promise<CachedFormatPayload | null> {
-  return env.CACHE_KV.get(CACHE_KEYS.format(format), 'json');
 }
 
 async function invalidateCache(env: Env): Promise<void> {
@@ -2704,7 +1763,10 @@ function normalizeSourceBackup(records: SourceRecord[] | undefined): SourceRecor
   });
 }
 
-function normalizeNavigationBackup(records: NavigationCategoryPayload[] | undefined): NavigationCategoryPayload[] {
+function normalizeNavigationBackup(
+  records: NavigationCategoryPayload[] | undefined,
+  skippedDetails?: NavigationImportSkippedDetail[]
+): NavigationCategoryPayload[] {
   if (!Array.isArray(records)) {
     return [];
   }
@@ -2720,18 +1782,50 @@ function normalizeNavigationBackup(records: NavigationCategoryPayload[] | undefi
       sortOrder: typeof category?.sortOrder === 'number' ? category.sortOrder : categoryIndex,
       createdAt: typeof category?.createdAt === 'string' && category.createdAt ? category.createdAt : now,
       updatedAt: typeof category?.updatedAt === 'string' && category.updatedAt ? category.updatedAt : now,
-      links: links.map((link, linkIndex) => ({
-        id: typeof link?.id === 'string' && link.id ? link.id : randomToken(8),
-        categoryId,
-        title: typeof link?.title === 'string' ? link.title : `链接 ${linkIndex + 1}`,
-        url: typeof link?.url === 'string' ? link.url : '',
-        description: typeof link?.description === 'string' ? link.description : '',
-        sortOrder: typeof link?.sortOrder === 'number' ? link.sortOrder : linkIndex,
-        visitCount: typeof link?.visitCount === 'number' ? link.visitCount : 0,
-        lastVisitedAt: typeof link?.lastVisitedAt === 'string' ? link.lastVisitedAt : null,
-        createdAt: typeof link?.createdAt === 'string' && link.createdAt ? link.createdAt : now,
-        updatedAt: typeof link?.updatedAt === 'string' && link.updatedAt ? link.updatedAt : now
-      }))
+      links: links
+        .map((link, linkIndex) => {
+          const rawUrl = typeof link?.url === 'string' ? link.url : '';
+
+          // 先检查原始 URL 是否包含非法协议（在规范化之前）
+          if (rawUrl && /^(javascript|data|file|vbscript|about):/i.test(rawUrl)) {
+            skippedDetails?.push({
+              categoryName: typeof category?.name === 'string' ? category.name : `导入分类 ${categoryIndex + 1}`,
+              linkTitle: typeof link?.title === 'string' ? link.title : `链接 ${linkIndex + 1}`,
+              url: rawUrl,
+              reason: 'illegal_protocol'
+            });
+            console.warn(`[Import] Skipping unsafe URL with illegal protocol: ${rawUrl}`);
+            return null;
+          }
+
+          const normalizedUrl = normalizeNavigationUrl(rawUrl);
+
+          // 再次校验规范化后的 URL
+          if (normalizedUrl && !isSafeNavigationUrl(normalizedUrl)) {
+            skippedDetails?.push({
+              categoryName: typeof category?.name === 'string' ? category.name : `导入分类 ${categoryIndex + 1}`,
+              linkTitle: typeof link?.title === 'string' ? link.title : `链接 ${linkIndex + 1}`,
+              url: rawUrl || normalizedUrl,
+              reason: 'unsafe_url'
+            });
+            console.warn(`[Import] Skipping unsafe URL after normalization: ${rawUrl} (normalized: ${normalizedUrl})`);
+            return null;
+          }
+
+          return {
+            id: typeof link?.id === 'string' && link.id ? link.id : randomToken(8),
+            categoryId,
+            title: typeof link?.title === 'string' ? link.title : `链接 ${linkIndex + 1}`,
+            url: normalizedUrl,
+            description: typeof link?.description === 'string' ? link.description : '',
+            sortOrder: typeof link?.sortOrder === 'number' ? link.sortOrder : linkIndex,
+            visitCount: typeof link?.visitCount === 'number' ? link.visitCount : 0,
+            lastVisitedAt: typeof link?.lastVisitedAt === 'string' ? link.lastVisitedAt : null,
+            createdAt: typeof link?.createdAt === 'string' && link.createdAt ? link.createdAt : now,
+            updatedAt: typeof link?.updatedAt === 'string' && link.updatedAt ? link.updatedAt : now
+          };
+        })
+        .filter((link): link is NonNullable<typeof link> => link !== null)
     };
   });
 }

@@ -1,11 +1,27 @@
 import { SettingsRepository } from '../repositories/settings-repository';
-import type { SettingsBackupPayload, SettingsDangerScope, SettingsExportStats } from '../types/settings';
+import type { SettingsBackupPayload, SettingsDangerScope, SettingsExportStats, SettingsImportSkipped } from '../types/settings';
 
 const SETTINGS_DANGER_SCOPES: SettingsDangerScope[] = ['sources', 'navigation', 'notes', 'snippets', 'clipboard', 'all'];
-const MAX_BACKUP_BYTES = 100 * 1024 * 1024;
-const MAX_BACKUP_ITEMS_PER_SECTION = 2_000;
-const MAX_BACKUP_TOTAL_NAV_LINKS = 6_000;
-const MAX_BACKUP_TEXT_LENGTH = 120_000;
+
+// 按类型分类的内容大小限制（字节）
+// 遵循用户体验优先原则：限制应该宽松，避免功能障碍
+const CONTENT_SIZE_LIMITS = {
+  // 订阅源内容：10MB（兼容大型订阅源）
+  source: 10 * 1024 * 1024,
+  // 纯文本内容：5MB（支持长文档）
+  text: 5 * 1024 * 1024,
+  // 代码片段：1MB（支持完整代码文件）
+  code: 1 * 1024 * 1024,
+  // 图片内容：10MB（支持高清截图，base64 编码后约 7.5MB 原图）
+  image: 10 * 1024 * 1024,
+  // 链接数据：10KB（足够存储链接元数据）
+  link: 10 * 1024
+} as const;
+
+// 数量限制
+const MAX_BACKUP_BYTES = 100 * 1024 * 1024; // 总备份大小：100MB
+const MAX_BACKUP_ITEMS_PER_SECTION = 2_000; // 每个分类的条目数
+const MAX_BACKUP_TOTAL_NAV_LINKS = 10_000; // 导航链接总数（从 6000 提升到 10000，满足重度用户）
 
 export class SettingsHttpError extends Error {
   constructor(
@@ -71,6 +87,7 @@ export class SettingsService<TEnv> {
     success: true;
     message: string;
     imported: SettingsExportStats;
+    skipped: SettingsImportSkipped;
   }> {
     const backup = input.backup;
     if (!backup || typeof backup !== 'object') {
@@ -79,11 +96,12 @@ export class SettingsService<TEnv> {
     validateBackupPayload(backup);
 
     try {
-      const imported = await this.repository.importSettingsBackup(backup);
+      const result = await this.repository.importSettingsBackup(backup);
       return {
         success: true,
         message: '导入完成，当前数据已替换',
-        imported
+        imported: result.imported,
+        skipped: result.skipped
       };
     } catch (error) {
       const status = typeof (error as { status?: unknown })?.status === 'number' ? Number((error as { status: number }).status) : 400;
@@ -109,7 +127,7 @@ export class SettingsService<TEnv> {
 function validateBackupPayload(backup: SettingsBackupPayload): void {
   const payloadBytes = new TextEncoder().encode(JSON.stringify(backup)).byteLength;
   if (payloadBytes > MAX_BACKUP_BYTES) {
-    throw new SettingsHttpError(413, `导入文件过大，最大允许 ${MAX_BACKUP_BYTES} 字节`);
+    throw new SettingsHttpError(413, `导入文件过大，最大允许 ${formatBytes(MAX_BACKUP_BYTES)}`);
   }
 
   const sources = Array.isArray(backup.sources) ? backup.sources : [];
@@ -118,6 +136,7 @@ function validateBackupPayload(backup: SettingsBackupPayload): void {
   const snippets = Array.isArray(backup.snippets) ? backup.snippets : [];
   const clipboard = Array.isArray(backup.clipboard) ? backup.clipboard : Array.isArray(backup.clipboard_items) ? backup.clipboard_items : [];
 
+  // 数量限制检查
   if (sources.length > MAX_BACKUP_ITEMS_PER_SECTION) {
     throw new SettingsHttpError(400, `订阅源数量超过限制（${MAX_BACKUP_ITEMS_PER_SECTION}）`);
   }
@@ -139,24 +158,71 @@ function validateBackupPayload(backup: SettingsBackupPayload): void {
     throw new SettingsHttpError(400, `导航链接数量超过限制（${MAX_BACKUP_TOTAL_NAV_LINKS}）`);
   }
 
+  // 按类型检查内容大小（使用字节而不是字符长度）
   for (const source of sources) {
-    if (typeof source.content === 'string' && source.content.length > MAX_BACKUP_TEXT_LENGTH) {
-      throw new SettingsHttpError(400, `订阅源内容超长，单条最大 ${MAX_BACKUP_TEXT_LENGTH} 字符`);
+    if (typeof source.content === 'string') {
+      const contentBytes = new TextEncoder().encode(source.content).byteLength;
+      if (contentBytes > CONTENT_SIZE_LIMITS.source) {
+        throw new SettingsHttpError(400, `订阅源内容过大，单条最大 ${formatBytes(CONTENT_SIZE_LIMITS.source)}（当前 ${formatBytes(contentBytes)}）`);
+      }
     }
   }
+
   for (const note of notes) {
-    if (typeof note.content === 'string' && note.content.length > MAX_BACKUP_TEXT_LENGTH) {
-      throw new SettingsHttpError(400, `笔记内容超长，单条最大 ${MAX_BACKUP_TEXT_LENGTH} 字符`);
+    if (typeof note.content === 'string') {
+      const contentBytes = new TextEncoder().encode(note.content).byteLength;
+      if (contentBytes > CONTENT_SIZE_LIMITS.text) {
+        throw new SettingsHttpError(400, `笔记内容过大，单条最大 ${formatBytes(CONTENT_SIZE_LIMITS.text)}（当前 ${formatBytes(contentBytes)}）`);
+      }
     }
   }
+
   for (const snippet of snippets) {
-    if (typeof snippet.content === 'string' && snippet.content.length > MAX_BACKUP_TEXT_LENGTH) {
-      throw new SettingsHttpError(400, `片段内容超长，单条最大 ${MAX_BACKUP_TEXT_LENGTH} 字符`);
+    if (typeof snippet.content === 'string') {
+      const contentBytes = new TextEncoder().encode(snippet.content).byteLength;
+      // 根据类型选择限制
+      const limit =
+        snippet.type === 'image'
+          ? CONTENT_SIZE_LIMITS.image
+          : snippet.type === 'code'
+          ? CONTENT_SIZE_LIMITS.code
+          : snippet.type === 'link'
+          ? CONTENT_SIZE_LIMITS.link
+          : CONTENT_SIZE_LIMITS.text;
+      
+      if (contentBytes > limit) {
+        const typeName =
+          snippet.type === 'image' ? '图片' : snippet.type === 'code' ? '代码' : snippet.type === 'link' ? '链接' : '文本';
+        throw new SettingsHttpError(400, `${typeName}片段内容过大，单条最大 ${formatBytes(limit)}（当前 ${formatBytes(contentBytes)}）`);
+      }
     }
   }
+
   for (const item of clipboard) {
-    if (typeof item.content === 'string' && item.content.length > MAX_BACKUP_TEXT_LENGTH) {
-      throw new SettingsHttpError(400, `剪贴板内容超长，单条最大 ${MAX_BACKUP_TEXT_LENGTH} 字符`);
+    if (typeof item.content === 'string') {
+      const contentBytes = new TextEncoder().encode(item.content).byteLength;
+      // 根据类型选择限制
+      const limit =
+        item.type === 'image'
+          ? CONTENT_SIZE_LIMITS.image
+          : item.type === 'code'
+          ? CONTENT_SIZE_LIMITS.code
+          : item.type === 'link'
+          ? CONTENT_SIZE_LIMITS.link
+          : CONTENT_SIZE_LIMITS.text;
+      
+      if (contentBytes > limit) {
+        const typeName =
+          item.type === 'image' ? '图片' : item.type === 'code' ? '代码' : item.type === 'link' ? '链接' : '文本';
+        throw new SettingsHttpError(400, `剪贴板${typeName}内容过大，单条最大 ${formatBytes(limit)}（当前 ${formatBytes(contentBytes)}）`);
+      }
     }
   }
+}
+
+// 格式化字节大小为可读格式
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

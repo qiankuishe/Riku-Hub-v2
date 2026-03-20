@@ -79,6 +79,12 @@ export class NavigationService<TEnv> {
     if (!categoryId || !title || !url) {
       throw new NavigationHttpError(400, '分类、标题和链接不能为空');
     }
+    if (title.length > 200) {
+      throw new NavigationHttpError(400, '标题长度不能超过 200 字符');
+    }
+    if (url.length > 2000) {
+      throw new NavigationHttpError(400, 'URL 长度不能超过 2000 字符');
+    }
     if (!this.repository.isSafeUrl(url)) {
       throw new NavigationHttpError(400, '站点链接必须是 http 或 https 地址');
     }
@@ -86,11 +92,15 @@ export class NavigationService<TEnv> {
     if (!category) {
       throw new NavigationHttpError(404, '分类不存在');
     }
+    const description = input.description?.trim() ?? '';
+    if (description.length > 500) {
+      throw new NavigationHttpError(400, '描述长度不能超过 500 字符');
+    }
     return this.repository.createLink({
       categoryId,
       title,
       url,
-      description: input.description?.trim() ?? ''
+      description
     });
   }
 
@@ -140,12 +150,25 @@ export class NavigationService<TEnv> {
     if (!this.repository.isSafeUrl(nextUrl)) {
       throw new NavigationHttpError(400, '站点链接必须是 http 或 https 地址');
     }
+    if (nextUrl.length > 2000) {
+      throw new NavigationHttpError(400, 'URL 长度不能超过 2000 字符');
+    }
+
+    const nextTitle = input.title?.trim() ?? link.title;
+    if (nextTitle.length > 200) {
+      throw new NavigationHttpError(400, '标题长度不能超过 200 字符');
+    }
+
+    const nextDescription = input.description?.trim() ?? link.description;
+    if (nextDescription.length > 500) {
+      throw new NavigationHttpError(400, '描述长度不能超过 500 字符');
+    }
 
     return this.repository.updateLink(link, {
       categoryId: nextCategoryId,
-      title: input.title?.trim() ?? link.title,
+      title: nextTitle,
       url: nextUrl,
-      description: input.description?.trim() ?? link.description
+      description: nextDescription
     });
   }
 
