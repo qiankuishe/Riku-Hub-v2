@@ -33,8 +33,8 @@ const dangerActions: DangerAction[] = [
   { scope: 'sources', title: '清空订阅源', description: '删除全部订阅源数据。' },
   { scope: 'navigation', title: '清空导航', description: '删除全部分类与链接。' },
   { scope: 'notes', title: '清空笔记', description: '删除全部笔记内容。' },
-  { scope: 'snippets', title: '清空片段', description: '删除全部片段数据。' },
-  { scope: 'clipboard', title: '清空剪贴板', description: '删除全部剪贴板条目。' },
+  { scope: 'snippets', title: '清空剪贴板（主）', description: '删除主剪贴板页面使用的数据。' },
+  { scope: 'clipboard', title: '清空剪贴板（兼容）', description: '删除兼容接口使用的剪贴板条目。' },
   { scope: 'all', title: '全部清空', description: '删除所有业务数据。' }
 ];
 
