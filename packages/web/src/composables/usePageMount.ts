@@ -117,6 +117,10 @@ export async function mountLoginPage(component: Component) {
   mount(component);
 }
 
+export function mountHomePage(component: Component) {
+  mount(component);
+}
+
 export function mountLauncherPage() {
   window.location.replace(resolveAppRoute(null));
 }

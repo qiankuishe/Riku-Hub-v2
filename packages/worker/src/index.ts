@@ -311,13 +311,25 @@ app.use('*', async (c, next) => {
 });
 
 app.get('/app', (c) => c.redirect('/', 302));
-app.get('/app/nav', (c) => c.redirect('/nav', 302));
-app.get('/app/subscriptions', (c) => c.redirect('/subscriptions', 302));
-app.get('/app/notes', (c) => c.redirect('/notes', 302));
-app.get('/app/snippets', (c) => c.redirect('/snippets', 302));
-app.get('/app/images', (c) => c.redirect('/images', 302));
-app.get('/app/logs', (c) => c.redirect('/logs', 302));
-app.get('/app/settings', (c) => c.redirect('/settings', 302));
+app.get('/app/nav', (c) => c.redirect('/riku/nav', 302));
+app.get('/app/subscriptions', (c) => c.redirect('/riku/subscriptions', 302));
+app.get('/app/notes', (c) => c.redirect('/riku/notes', 302));
+app.get('/app/snippets', (c) => c.redirect('/riku/snippets', 302));
+app.get('/app/images', (c) => c.redirect('/riku/images', 302));
+app.get('/app/logs', (c) => c.redirect('/riku/logs', 302));
+app.get('/app/settings', (c) => c.redirect('/riku/settings', 302));
+
+// 旧路径重定向到新路径
+app.get('/login', (c) => c.redirect('/riku/login', 302));
+app.get('/nav', (c) => c.redirect('/riku/nav', 302));
+app.get('/navigation', (c) => c.redirect('/riku/nav', 302));
+app.get('/subscriptions', (c) => c.redirect('/riku/subscriptions', 302));
+app.get('/notes', (c) => c.redirect('/riku/notes', 302));
+app.get('/snippets', (c) => c.redirect('/riku/snippets', 302));
+app.get('/clipboard', (c) => c.redirect('/riku/snippets', 302));
+app.get('/images', (c) => c.redirect('/riku/images', 302));
+app.get('/logs', (c) => c.redirect('/riku/logs', 302));
+app.get('/settings', (c) => c.redirect('/riku/settings', 302));
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
