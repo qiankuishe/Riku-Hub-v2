@@ -762,7 +762,7 @@ async function moveCategoryDown(category: NavigationCategory) {
 
       <div class="mb-3 flex justify-center">
         <div class="flex items-center gap-2 w-full max-w-2xl">
-          <ElRadioGroup v-model="searchEngine" size="small">
+          <ElRadioGroup v-model="searchEngine" size="small" class="search-engine-group">
             <ElRadioButton v-for="engine in searchEngineKeys" :key="engine" :value="engine">
               {{ searchEngines[engine].name }}
             </ElRadioButton>
@@ -1057,6 +1057,16 @@ async function moveCategoryDown(category: NavigationCategory) {
 </template>
 
 <style scoped>
+.search-engine-group :deep(.el-radio-button) {
+  flex: 1;
+}
+
+.search-engine-group :deep(.el-radio-button__inner) {
+  width: 100%;
+  min-width: 60px;
+  padding: 0 12px;
+}
+
 .nav-link-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
