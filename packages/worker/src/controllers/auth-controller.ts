@@ -1,9 +1,9 @@
 import type { Context, Next } from 'hono';
 import { AuthRepository } from '../repositories/auth-repository';
 import { AuthService } from '../services/auth-service';
-import type { AuthBindings, AuthLoginInput } from '../types/auth';
+import type { AuthBindings, AuthLoginInput, AuthVariables } from '../types/auth';
 
-type AuthContext = Context<{ Bindings: AuthBindings }>;
+type AuthContext = Context<{ Bindings: AuthBindings; Variables: AuthVariables }>;
 
 export type AuthAppendLog = (env: AuthBindings, action: string, detail?: string) => Promise<void>;
 
@@ -59,6 +59,9 @@ export class AuthController {
     if (!session) {
       return c.json({ error: '未登录或登录已过期' }, 401);
     }
+    
+    // Set userId in context for downstream routes
+    c.set('userId', session.username);
     await next();
   }
 

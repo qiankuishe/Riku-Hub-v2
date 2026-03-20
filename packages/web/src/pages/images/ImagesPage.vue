@@ -21,6 +21,7 @@ const {
   currentPage,
   pageSize,
   selectedFiles,
+  filteredImages,
   paginatedImages,
   fileTypeStats,
   selectedImages,

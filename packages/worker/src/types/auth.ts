@@ -5,6 +5,10 @@ export interface AuthBindings {
   ADMIN_PASSWORD_HASH?: string;
 }
 
+export interface AuthVariables {
+  userId: string;
+}
+
 export interface AuthSession {
   token: string;
   username: string;

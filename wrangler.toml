@@ -1,4 +1,4 @@
-name = "rikuhub"
+name = "rikuhubv2"
 main = "packages/worker/src/index.ts"
 compatibility_date = "2025-03-01"
 workers_dev = true
@@ -16,10 +16,12 @@ MAX_LOG_ENTRIES = "200"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
+id = "4337ceae0a8b43e88b70e6faba60a1b2"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "riku-hub-db"
+database_id = "1ef1f211-c388-4147-b26b-ab2939bbcd71"
 
 [triggers]
-crons = ["0 * * * *"]
+crons = [ "0 * * * *" ]
