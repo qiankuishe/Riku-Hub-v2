@@ -760,13 +760,13 @@ async function moveCategoryDown(category: NavigationCategory) {
         </div>
       </div>
 
-      <div class="mb-3 flex justify-center">
+      <div class="mb-3 flex flex-col items-center gap-3">
+        <ElRadioGroup v-model="searchEngine" size="small" class="search-engine-group">
+          <ElRadioButton v-for="engine in searchEngineKeys" :key="engine" :value="engine">
+            {{ searchEngines[engine].name }}
+          </ElRadioButton>
+        </ElRadioGroup>
         <div class="flex items-center gap-2 w-full max-w-2xl">
-          <ElRadioGroup v-model="searchEngine" size="small" class="search-engine-group">
-            <ElRadioButton v-for="engine in searchEngineKeys" :key="engine" :value="engine">
-              {{ searchEngines[engine].name }}
-            </ElRadioButton>
-          </ElRadioGroup>
           <ElInput
             v-model="searchQuery"
             clearable
