@@ -51,6 +51,13 @@ const selectedNote = computed(() => notes.value.find((note) => note.id === selec
 const characterCount = computed(() => editContent.value.trim().length);
 const lineCount = computed(() => (editContent.value ? editContent.value.split(/\r?\n/).length : 0));
 
+watch(selectedNoteId, (nextId, previousId) => {
+  if (!previousId || previousId === nextId) {
+    return;
+  }
+  void flushPendingSaveFor(previousId, true);
+});
+
 watch(selectedNote, (note) => {
   hydrating = true;
   editTitle.value = note?.title ?? '';
@@ -197,6 +204,14 @@ function queueSave() {
 async function flushPendingSave(silent = true) {
   const payload = pendingSavePayload;
   if (!payload) {
+    return;
+  }
+  await flushPendingSaveFor(payload.noteId, silent);
+}
+
+async function flushPendingSaveFor(noteId: string, silent = true) {
+  const payload = pendingSavePayload;
+  if (!payload || payload.noteId !== noteId) {
     return;
   }
   if (saveTimer) {
