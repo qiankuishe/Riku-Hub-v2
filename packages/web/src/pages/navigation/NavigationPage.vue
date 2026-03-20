@@ -760,18 +760,18 @@ async function moveCategoryDown(category: NavigationCategory) {
         </div>
       </div>
 
-      <div class="mb-3 grid gap-3">
-        <ElRadioGroup v-model="searchEngine" size="small" class="w-fit">
-          <ElRadioButton v-for="engine in searchEngineKeys" :key="engine" :value="engine">
-            {{ searchEngines[engine].name }}
-          </ElRadioButton>
-        </ElRadioGroup>
-        <div class="flex flex-wrap items-center gap-2">
+      <div class="mb-3 flex justify-center">
+        <div class="flex items-center gap-2 w-full max-w-2xl">
+          <ElRadioGroup v-model="searchEngine" size="small">
+            <ElRadioButton v-for="engine in searchEngineKeys" :key="engine" :value="engine">
+              {{ searchEngines[engine].name }}
+            </ElRadioButton>
+          </ElRadioGroup>
           <ElInput
             v-model="searchQuery"
             clearable
             size="small"
-            class="min-w-[220px] flex-1"
+            class="flex-1"
             :placeholder="searchEngine === 'local' ? '搜索站内内容...' : `搜索 ${searchEngines[searchEngine].name}...`"
             @keydown.enter.prevent="handleSearch"
           />
