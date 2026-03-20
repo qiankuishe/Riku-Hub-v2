@@ -1057,14 +1057,12 @@ async function moveCategoryDown(category: NavigationCategory) {
 </template>
 
 <style scoped>
-.search-engine-group :deep(.el-radio-button) {
-  flex: 1;
-}
-
 .search-engine-group :deep(.el-radio-button__inner) {
-  width: 100%;
-  min-width: 60px;
-  padding: 0 12px;
+  height: 36px;
+  line-height: 34px;
+  min-width: 70px;
+  padding: 0 16px;
+  text-align: center;
 }
 
 .nav-link-grid {
