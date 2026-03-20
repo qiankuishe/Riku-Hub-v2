@@ -1013,7 +1013,13 @@ async function resolveNodesFromInput(
       } catch (error) {
         return {
           nodes: [],
-          warnings: [{ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl }],
+          warnings: [
+            {
+              code: 'fetch-failed',
+              message: formatSubscriptionFetchError(rawUrl, error),
+              context: rawUrl
+            }
+          ],
           urlCount: 0
         };
       }
@@ -1060,7 +1066,8 @@ async function fetchSubscription(env: Env, rawUrl: string, depth = 0): Promise<{
     }
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const statusText = response.statusText?.trim() || '<none>';
+      throw new Error(`HTTP ${response.status}: ${statusText} (${url.hostname})`);
     }
 
     // 检查响应大小，限制为 5MB
@@ -1079,6 +1086,11 @@ async function fetchSubscription(env: Env, rawUrl: string, depth = 0): Promise<{
     }
     throw error;
   }
+}
+
+function formatSubscriptionFetchError(rawUrl: string, error: unknown): string {
+  const reason = formatError(error);
+  return `拉取订阅失败 [${rawUrl}]: ${reason}`;
 }
 
 async function fetchAndCacheFavicon(env: Env, hostname: string): Promise<string | null> {

@@ -265,6 +265,13 @@ async function openQr(name: string, url: string) {
   qrDataUrl.value = await toDataURL(url, { width: 280, margin: 1 });
   qrDialogVisible.value = true;
 }
+
+function formatValidationWarning(warning: { message: string; context?: string | null }) {
+  if (!warning.context) {
+    return warning.message;
+  }
+  return `${warning.message}（目标: ${warning.context}）`;
+}
 </script>
 
 <template>
@@ -400,7 +407,7 @@ async function openQr(name: string, url: string) {
           重复 {{ validation.duplicateCount }}
         </p>
         <p v-if="validation.warnings.length" class="mt-1 text-xs text-amber-700">
-          警告 {{ validation.warnings.length }} 条：{{ validation.warnings[0].message }}
+          警告 {{ validation.warnings.length }} 条：{{ formatValidationWarning(validation.warnings[0]) }}
         </p>
       </div>
 

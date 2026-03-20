@@ -674,7 +674,8 @@ async function fetchSubscription(repository: CompatNavSubRepository, rawUrl: str
     }
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const statusText = response.statusText?.trim() || '<none>';
+      throw new Error(`HTTP ${response.status}: ${statusText} (${url.hostname})`);
     }
 
     const contentLength = response.headers.get('content-length');
@@ -764,7 +765,7 @@ async function resolveNodesFromInput(
       } catch (error) {
         return {
           nodes: [],
-          warnings: [{ code: 'fetch-failed', message: `拉取订阅失败: ${String(error)}`, context: rawUrl }],
+          warnings: [{ code: 'fetch-failed', message: formatSubscriptionFetchError(rawUrl, error), context: rawUrl }],
           urlCount: 0
         };
       }
@@ -906,6 +907,10 @@ async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<str
 
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function formatSubscriptionFetchError(rawUrl: string, error: unknown): string {
+  return `拉取订阅失败 [${rawUrl}]: ${formatError(error)}`;
 }
 
 function isInternalHostname(hostname: string): boolean {
