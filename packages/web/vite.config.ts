@@ -28,6 +28,7 @@ export default defineConfig({
         clipboard: resolve(__dirname, 'clipboard.html'),
         snippets: resolve(__dirname, 'snippets.html'),
         notes: resolve(__dirname, 'notes.html'),
+        images: resolve(__dirname, 'images.html'),
         logs: resolve(__dirname, 'logs.html'),
         settings: resolve(__dirname, 'settings.html')
       }

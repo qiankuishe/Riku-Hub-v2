@@ -9,8 +9,14 @@ This page can't be found
 HTTP ERROR 404
 ```
 
+或者浏览器显示：
+```
+Unsafe attempt to load URL https://xxx.workers.dev/images from frame with URL chrome-error://chromewebdata/
+```
+
 ### 原因
-Worker 没有正确路由 `/images` 路径到 `images.html` 文件。
+1. Worker 没有正确路由 `/images` 路径到 `images.html` 文件
+2. Vite 构建配置中缺少 `images.html` 入口，导致该文件未被打包到 dist 目录
 
 ### 解决方案 ✅
 
@@ -21,6 +27,10 @@ Worker 没有正确路由 `/images` 路径到 `images.html` 文件。
 
 2. **`packages/worker/src/index.ts`**
    - 添加了 `/app/images` 到 `/images` 的重定向
+
+3. **`packages/web/vite.config.ts`** ⭐ 关键修复
+   - 在 `rollupOptions.input` 中添加了 `images: resolve(__dirname, 'images.html')`
+   - 这确保 Vite 在构建时将 images.html 打包到 dist 目录
 
 ### 重新部署步骤
 
