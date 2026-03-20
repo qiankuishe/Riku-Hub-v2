@@ -3,6 +3,6 @@ import SubscriptionsPage from '../pages/subscriptions/SubscriptionsPage.vue';
 
 void mountProtectedPage({
   component: SubscriptionsPage,
-  currentPath: '/subscriptions',
+  currentPath: '/riku/subscriptions',
   title: '订阅聚合'
 });

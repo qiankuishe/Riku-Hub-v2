@@ -3,6 +3,6 @@ import NotesPage from '../pages/notes/NotesPage.vue';
 
 void mountProtectedPage({
   component: NotesPage,
-  currentPath: '/notes',
+  currentPath: '/riku/notes',
   title: '笔记'
 });

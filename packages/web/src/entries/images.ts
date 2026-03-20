@@ -3,6 +3,6 @@ import ImagesPage from '../pages/images/ImagesPage.vue';
 
 void mountProtectedPage({
   component: ImagesPage,
-  currentPath: '/images',
+  currentPath: '/riku/images',
   title: '图床'
 });

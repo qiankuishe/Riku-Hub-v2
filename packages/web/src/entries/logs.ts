@@ -3,6 +3,6 @@ import LogsPage from '../pages/logs/LogsPage.vue';
 
 void mountProtectedPage({
   component: LogsPage,
-  currentPath: '/logs',
+  currentPath: '/riku/logs',
   title: '运行日志'
 });

@@ -123,7 +123,7 @@ watch(
         }))
       ]
     });
-    uiStore.expandSidebarSection('/nav');
+    uiStore.expandSidebarSection('/riku/nav');
   },
   { deep: true, immediate: true }
 );
@@ -151,7 +151,7 @@ watch(searchEngine, (value) => {
 });
 
 onMounted(() => {
-  uiStore.expandSidebarSection('/nav');
+  uiStore.expandSidebarSection('/riku/nav');
   void loadAll();
 });
 

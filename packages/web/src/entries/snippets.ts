@@ -3,6 +3,6 @@ import SnippetsPage from '../pages/snippets/SnippetsPage.vue';
 
 void mountProtectedPage({
   component: SnippetsPage,
-  currentPath: '/snippets',
+  currentPath: '/riku/snippets',
   title: '剪贴板'
 });
