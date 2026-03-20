@@ -472,7 +472,7 @@ async function copySnippet(snippet: SnippetRecord) {
           <h2 class="text-xl font-semibold text-gray-900">剪贴板</h2>
           <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片。</p>
         </div>
-        <ElButton :loading="loading" @click="loadAll">
+        <ElButton size="small" :loading="loading" @click="loadAll">
           <Icon icon="carbon:renew" class="mr-1" />
           {{ loading ? '刷新中...' : '刷新' }}
         </ElButton>
@@ -488,19 +488,19 @@ async function copySnippet(snippet: SnippetRecord) {
         <div class="grid gap-3 md:grid-cols-2">
           <div class="grid gap-2">
             <label class="text-sm text-gray-600">类型</label>
-            <ElSelect v-model="draftType">
+            <ElSelect v-model="draftType" size="small">
               <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
             </ElSelect>
           </div>
           <div class="grid gap-2">
             <label class="text-sm text-gray-600">标题</label>
-            <ElInput v-model="draftTitle" placeholder="可选，留空自动生成" />
+            <ElInput v-model="draftTitle" size="small" placeholder="可选，留空自动生成" />
           </div>
         </div>
 
         <div class="mt-3 grid gap-2">
           <label class="text-sm text-gray-600">内容</label>
-          <ElInput v-if="draftType !== 'image'" v-model="draftContent" type="textarea" :rows="7" placeholder="输入内容" />
+          <ElInput v-if="draftType !== 'image'" v-model="draftContent" size="small" type="textarea" :rows="7" placeholder="输入内容" />
           <div v-else class="rounded-xl border border-gray-200 bg-white p-3">
             <div v-if="draftContent" class="snippet-image-preview">
               <img :src="draftContent" alt="draft" />
@@ -510,19 +510,19 @@ async function copySnippet(snippet: SnippetRecord) {
         </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
+          <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
             <Icon icon="carbon:paste" class="mr-1" />
             {{ clipboardBusy === 'text' ? '读取中...' : '读取文本' }}
           </ElButton>
-          <ElButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
+          <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
             <Icon icon="carbon:image-search" class="mr-1" />
             {{ clipboardBusy === 'image' ? '读取中...' : '读取图片' }}
           </ElButton>
-          <ElButton @click="triggerImageUpload">
+          <ElButton size="small" @click="triggerImageUpload">
             <Icon icon="carbon:upload" class="mr-1" />
             上传图片
           </ElButton>
-          <ElButton type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
+          <ElButton size="small" type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
             <Icon icon="carbon:save" class="mr-1" />
             保存片段
           </ElButton>
@@ -547,7 +547,7 @@ async function copySnippet(snippet: SnippetRecord) {
               {{ option.label }}
             </ElRadioButton>
           </ElRadioGroup>
-          <ElInput v-model="searchQuery" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
+          <ElInput v-model="searchQuery" size="small" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
         </div>
       </div>
 
@@ -610,17 +610,17 @@ async function copySnippet(snippet: SnippetRecord) {
       <div class="grid gap-3">
         <div class="grid gap-2">
           <label class="text-sm text-gray-600">类型</label>
-          <ElSelect v-model="editType">
+          <ElSelect v-model="editType" size="small">
             <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
           </ElSelect>
         </div>
         <div class="grid gap-2">
           <label class="text-sm text-gray-600">标题</label>
-          <ElInput v-model="editTitle" />
+          <ElInput v-model="editTitle" size="small" />
         </div>
         <div class="grid gap-2">
           <label class="text-sm text-gray-600">内容</label>
-          <ElInput v-if="editType !== 'image'" v-model="editContent" type="textarea" :rows="8" />
+          <ElInput v-if="editType !== 'image'" v-model="editContent" size="small" type="textarea" :rows="8" />
           <div v-else class="rounded-xl border border-gray-200 bg-white p-3">
             <div v-if="editContent" class="snippet-image-preview">
               <img :src="editContent" alt="snippet-preview" />
@@ -632,8 +632,8 @@ async function copySnippet(snippet: SnippetRecord) {
       <ElAlert v-if="editErrorMessage" class="mt-3" :closable="false" show-icon type="error" :title="editErrorMessage" />
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton @click="closeEditDialog">取消</ElButton>
-          <ElButton type="primary" :loading="saving" :disabled="saving" @click="saveEdit">保存</ElButton>
+          <ElButton size="small" @click="closeEditDialog">取消</ElButton>
+          <ElButton size="small" type="primary" :loading="saving" :disabled="saving" @click="saveEdit">保存</ElButton>
         </div>
       </template>
     </ElDialog>
