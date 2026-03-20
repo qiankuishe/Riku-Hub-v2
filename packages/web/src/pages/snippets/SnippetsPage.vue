@@ -677,9 +677,9 @@ async function copySnippet(snippet: SnippetRecord) {
 /* 自定义分段选择器 */
 .segmented-control {
   display: inline-flex;
-  background: #f5f7fa;
-  border-radius: 6px;
-  padding: 2px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 3px;
   gap: 2px;
 }
 
@@ -688,23 +688,24 @@ async function copySnippet(snippet: SnippetRecord) {
   padding: 0 16px;
   border: none;
   background: transparent;
-  color: #606266;
+  color: #6b7280;
   font-size: 14px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .segmented-item:hover {
-  color: #409eff;
+  color: #111827;
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .segmented-item-active {
   background: #fff;
-  color: #303133;
+  color: #111827;
   font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .snippet-cards {
