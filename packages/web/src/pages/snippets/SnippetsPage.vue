@@ -541,24 +541,12 @@ async function copySnippet(snippet: SnippetRecord) {
         <!-- 搜索筛选 -->
         <div class="flex flex-wrap items-center gap-2">
           <ElTag size="small">{{ filtered.length }} 条</ElTag>
-          <div class="flex gap-1">
-            <ElButton 
-              size="small" 
-              :type="filterType === 'all' ? 'primary' : ''"
-              @click="filterType = 'all'"
-            >
-              全部
-            </ElButton>
-            <ElButton 
-              v-for="option in typeOptions" 
-              :key="option.key" 
-              size="small"
-              :type="filterType === option.key ? 'primary' : ''"
-              @click="filterType = option.key"
-            >
+          <ElRadioGroup v-model="filterType" size="small">
+            <ElRadioButton value="all">全部</ElRadioButton>
+            <ElRadioButton v-for="option in typeOptions" :key="option.key" :value="option.key">
               {{ option.label }}
-            </ElButton>
-          </div>
+            </ElRadioButton>
+          </ElRadioGroup>
           <ElInput v-model="searchQuery" size="small" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
         </div>
       </div>
@@ -667,6 +655,29 @@ async function copySnippet(snippet: SnippetRecord) {
   height: 36px;
   line-height: 34px;
   padding: 0 12px;
+}
+
+/* 统一单选按钮组高度 - 强制所有状态 */
+:deep(.el-radio-button--small .el-radio-button__inner) {
+  height: 36px !important;
+  line-height: 34px !important;
+  padding: 0 16px !important;
+  box-sizing: border-box !important;
+  border-width: 1px !important;
+}
+
+/* 确保选中状态也是相同高度 */
+:deep(.el-radio-button--small.is-active .el-radio-button__inner) {
+  height: 36px !important;
+  line-height: 34px !important;
+  box-sizing: border-box !important;
+  border-width: 1px !important;
+}
+
+/* 统一按钮组容器 */
+:deep(.el-radio-group) {
+  display: inline-flex;
+  align-items: center;
 }
 
 .snippet-cards {
