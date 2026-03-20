@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElDialog, ElInput, ElOption, ElRadioButton, ElRadioGroup, ElSelect, ElTag } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { SnippetRecord, SnippetType } from '../../api';
@@ -41,6 +41,10 @@ const editContent = ref('');
 const editErrorMessage = ref('');
 const deleteTarget = ref<SnippetRecord | null>(null);
 const IMAGE_LIMIT_BYTES = 340 * 1024;
+
+// 瀑布流布局
+const leftColumn = ref<SnippetRecord[]>([]);
+const rightColumn = ref<SnippetRecord[]>([]);
 
 const typeOptions: Array<{ key: SnippetType; label: string; icon: string }> = [
   { key: 'text', label: '文本', icon: 'carbon:text-align-left' },
@@ -103,10 +107,16 @@ onMounted(async () => {
       highlightedId.value = null;
     }, 2400);
   }
+  // 初始化瀑布流布局
+  await nextTick();
+  layoutMasonry();
+  // 监听窗口大小变化
+  window.addEventListener('resize', layoutMasonry);
 });
 
 onUnmounted(() => {
   uiStore.clearSecondaryNav();
+  window.removeEventListener('resize', layoutMasonry);
 });
 
 async function loadAll() {
@@ -115,6 +125,9 @@ async function loadAll() {
   try {
     const data = await snippetsApi.getAll({ type: 'all' });
     snippets.value = data.snippets;
+    // 重新布局
+    await nextTick();
+    layoutMasonry();
   } catch (error) {
     pageErrorMessage.value = error instanceof Error ? error.message : '加载失败';
   } finally {
@@ -282,6 +295,9 @@ async function createSnippet() {
     draftTitle.value = '';
     draftContent.value = '';
     uiStore.showToast('片段已创建');
+    // 重新布局
+    await nextTick();
+    layoutMasonry();
   } catch (error) {
     draftError.value = error instanceof Error ? error.message : '创建失败';
   } finally {
@@ -462,6 +478,64 @@ async function copySnippet(snippet: SnippetRecord) {
     uiStore.showToast(error instanceof Error ? error.message : '复制失败');
   }
 }
+
+// 瀑布流布局函数
+function layoutMasonry() {
+  if (!filtered.value.length) {
+    leftColumn.value = [];
+    rightColumn.value = [];
+    return;
+  }
+
+  // 估算每个剪贴板的高度
+  const estimateHeight = (snippet: SnippetRecord): number => {
+    // 基础高度：标题 + 操作按钮 + padding
+    let height = 80;
+    
+    if (snippet.type === 'image') {
+      // 图片预览高度
+      height += 220;
+    } else if (snippet.type === 'code') {
+      // 代码块高度（最多6行）
+      const lines = Math.min(6, snippet.content.split('\n').length);
+      height += lines * 22 + 24; // 行高 + padding
+    } else {
+      // 文本高度（最多180px）
+      const textLength = snippet.content.length;
+      const estimatedLines = Math.ceil(textLength / 50); // 假设每行50字符
+      height += Math.min(180, estimatedLines * 22 + 24);
+    }
+    
+    return height;
+  };
+
+  const left: SnippetRecord[] = [];
+  const right: SnippetRecord[] = [];
+  let leftHeight = 0;
+  let rightHeight = 0;
+
+  // 遍历所有剪贴板，放到高度更低的那一列
+  for (const snippet of filtered.value) {
+    const height = estimateHeight(snippet);
+    
+    if (leftHeight <= rightHeight) {
+      left.push(snippet);
+      leftHeight += height + 12; // 12px gap
+    } else {
+      right.push(snippet);
+      rightHeight += height + 12;
+    }
+  }
+
+  leftColumn.value = left;
+  rightColumn.value = right;
+}
+
+// 监听筛选变化，重新布局
+watch([searchQuery, filterType], async () => {
+  await nextTick();
+  layoutMasonry();
+});
 </script>
 
 <template>
@@ -523,62 +597,63 @@ async function copySnippet(snippet: SnippetRecord) {
         暂无内容
       </div>
       <div v-else class="snippet-layout">
-        <!-- 第一行：左侧快速收集 + 右侧剪贴板 -->
-        <div class="snippet-first-row">
-          <!-- 快速收集表单 -->
-          <div class="quick-collect-card content-card">
-            <div class="mb-2 flex items-center justify-between">
-              <h4 class="text-sm font-semibold text-gray-900">快速收集</h4>
-              <ElTag size="small" type="info">{{ draftSizeText }}</ElTag>
-            </div>
-
-            <div class="grid gap-2">
-              <label class="text-xs text-gray-600">类型</label>
-              <ElSelect v-model="draftType" size="small">
-                <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
-              </ElSelect>
-            </div>
-
-            <div class="mt-2 grid gap-2">
-              <label class="text-xs text-gray-600">标题</label>
-              <ElInput v-model="draftTitle" size="small" placeholder="可选，留空自动生成" />
-            </div>
-
-            <div class="mt-2 grid gap-2">
-              <label class="text-xs text-gray-600">内容</label>
-              <ElInput v-if="draftType !== 'image'" v-model="draftContent" size="small" type="textarea" :rows="5" placeholder="输入内容" />
-              <div v-else class="rounded-lg border border-gray-200 bg-white p-2 min-h-[140px] flex items-center justify-center">
-                <div v-if="draftContent" class="snippet-image-preview-small">
-                  <img :src="draftContent" alt="draft" />
-                </div>
-                <p v-else class="text-xs text-gray-500">未选择图片</p>
+        <!-- 瀑布流布局：左右两列 -->
+        <div class="masonry-container">
+          <!-- 左列 -->
+          <div class="masonry-column">
+            <!-- 快速收集表单固定在左列顶部 -->
+            <div class="quick-collect-card content-card">
+              <div class="mb-2 flex items-center justify-between">
+                <h4 class="text-sm font-semibold text-gray-900">快速收集</h4>
+                <ElTag size="small" type="info">{{ draftSizeText }}</ElTag>
               </div>
+
+              <div class="grid gap-2">
+                <label class="text-xs text-gray-600">类型</label>
+                <ElSelect v-model="draftType" size="small">
+                  <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
+                </ElSelect>
+              </div>
+
+              <div class="mt-2 grid gap-2">
+                <label class="text-xs text-gray-600">标题</label>
+                <ElInput v-model="draftTitle" size="small" placeholder="可选，留空自动生成" />
+              </div>
+
+              <div class="mt-2 grid gap-2">
+                <label class="text-xs text-gray-600">内容</label>
+                <ElInput v-if="draftType !== 'image'" v-model="draftContent" size="small" type="textarea" :rows="5" placeholder="输入内容" />
+                <div v-else class="rounded-lg border border-gray-200 bg-white p-2 min-h-[140px] flex items-center justify-center">
+                  <div v-if="draftContent" class="snippet-image-preview-small">
+                    <img :src="draftContent" alt="draft" />
+                  </div>
+                  <p v-else class="text-xs text-gray-500">未选择图片</p>
+                </div>
+              </div>
+
+              <div class="mt-2 flex flex-wrap items-center gap-1">
+                <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
+                  <Icon icon="carbon:paste" class="text-sm" />
+                </ElButton>
+                <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
+                  <Icon icon="carbon:image-search" class="text-sm" />
+                </ElButton>
+                <ElButton size="small" @click="triggerImageUpload">
+                  <Icon icon="carbon:upload" class="text-sm" />
+                </ElButton>
+                <ElButton size="small" type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
+                  <Icon icon="carbon:save" class="mr-1 text-sm" />
+                  保存
+                </ElButton>
+              </div>
+
+              <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
+              <ElAlert v-if="draftError" class="mt-2" :closable="false" show-icon type="error" :title="draftError" />
             </div>
 
-            <div class="mt-2 flex flex-wrap items-center gap-1">
-              <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
-                <Icon icon="carbon:paste" class="text-sm" />
-              </ElButton>
-              <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
-                <Icon icon="carbon:image-search" class="text-sm" />
-              </ElButton>
-              <ElButton size="small" @click="triggerImageUpload">
-                <Icon icon="carbon:upload" class="text-sm" />
-              </ElButton>
-              <ElButton size="small" type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
-                <Icon icon="carbon:save" class="mr-1 text-sm" />
-                保存
-              </ElButton>
-            </div>
-
-            <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
-            <ElAlert v-if="draftError" class="mt-2" :closable="false" show-icon type="error" :title="draftError" />
-          </div>
-
-          <!-- 右侧剪贴板列表（垂直堆叠） -->
-          <div class="right-snippets">
+            <!-- 左列剪贴板 -->
             <article
-              v-for="(snippet, index) in filtered.slice(0, 4)"
+              v-for="snippet in leftColumn"
               :key="snippet.id"
               class="content-card"
               :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
@@ -615,47 +690,47 @@ async function copySnippet(snippet: SnippetRecord) {
               <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
             </article>
           </div>
-        </div>
 
-        <!-- 第二行：剩余剪贴板（2列布局） -->
-        <div v-if="filtered.length > 4" class="snippet-remaining-grid">
-          <article
-            v-for="snippet in filtered.slice(4)"
-            :key="snippet.id"
-            class="content-card"
-            :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
-            :data-snippet-id="snippet.id"
-          >
-            <div class="mb-2 flex items-start justify-between gap-3">
-              <div class="min-w-0 flex-1">
-                <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
-                <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
+          <!-- 右列剪贴板 -->
+          <div class="masonry-column">
+            <article
+              v-for="snippet in rightColumn"
+              :key="snippet.id"
+              class="content-card"
+              :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
+              :data-snippet-id="snippet.id"
+            >
+              <div class="mb-2 flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
+                  <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
+                </div>
+                <div class="flex flex-shrink-0 gap-1">
+                  <ElButton size="small" text @click="togglePin(snippet)">
+                    <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
+                  </ElButton>
+                  <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                    <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
+                  </ElButton>
+                  <ElButton size="small" text @click="copySnippet(snippet)">
+                    <Icon icon="carbon:copy" />
+                  </ElButton>
+                  <ElButton size="small" text @click="openEditDialog(snippet)">
+                    <Icon icon="carbon:edit" />
+                  </ElButton>
+                  <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
+                    <Icon icon="carbon:trash-can" />
+                  </ElButton>
+                </div>
               </div>
-              <div class="flex flex-shrink-0 gap-1">
-                <ElButton size="small" text @click="togglePin(snippet)">
-                  <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
-                </ElButton>
-                <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
-                  <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
-                </ElButton>
-                <ElButton size="small" text @click="copySnippet(snippet)">
-                  <Icon icon="carbon:copy" />
-                </ElButton>
-                <ElButton size="small" text @click="openEditDialog(snippet)">
-                  <Icon icon="carbon:edit" />
-                </ElButton>
-                <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
-                  <Icon icon="carbon:trash-can" />
-                </ElButton>
-              </div>
-            </div>
 
-            <div v-if="snippet.type === 'image'" class="snippet-image-preview">
-              <img :src="snippet.content" alt="snippet" />
-            </div>
-            <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
-            <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
-          </article>
+              <div v-if="snippet.type === 'image'" class="snippet-image-preview">
+                <img :src="snippet.content" alt="snippet" />
+              </div>
+              <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
+              <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
+            </article>
+          </div>
         </div>
       </div>
     </section>
@@ -752,34 +827,25 @@ async function copySnippet(snippet: SnippetRecord) {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-/* 第一行布局：左侧快速收集 + 右侧剪贴板 */
-.snippet-first-row {
+/* 瀑布流容器 */
+.masonry-container {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
-  margin-bottom: 12px;
+}
+
+/* 瀑布流列 */
+.masonry-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* 快速收集卡片 */
 .quick-collect-card {
   background: rgba(59, 130, 246, 0.04) !important;
   border: 1px solid rgba(59, 130, 246, 0.1);
-}
-
-/* 右侧剪贴板容器 */
-.right-snippets {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* 第二行：剩余剪贴板 2 列布局 */
-.snippet-remaining-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  align-items: start;
 }
 
 .snippet-card-highlight {
@@ -854,11 +920,7 @@ async function copySnippet(snippet: SnippetRecord) {
 }
 
 @media (max-width: 1024px) {
-  .snippet-first-row {
-    grid-template-columns: 1fr;
-  }
-  
-  .snippet-remaining-grid {
+  .masonry-container {
     grid-template-columns: 1fr;
   }
 }
