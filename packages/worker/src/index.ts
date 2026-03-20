@@ -313,6 +313,7 @@ app.get('/app/nav', (c) => c.redirect('/nav', 302));
 app.get('/app/subscriptions', (c) => c.redirect('/subscriptions', 302));
 app.get('/app/notes', (c) => c.redirect('/notes', 302));
 app.get('/app/snippets', (c) => c.redirect('/snippets', 302));
+app.get('/app/images', (c) => c.redirect('/images', 302));
 app.get('/app/logs', (c) => c.redirect('/logs', 302));
 app.get('/app/settings', (c) => c.redirect('/settings', 302));
 

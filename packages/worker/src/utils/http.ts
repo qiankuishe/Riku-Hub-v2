@@ -38,6 +38,7 @@ export function resolvePageAssetPath(request: Request): string | null {
     '/subscriptions': '/subscriptions.html',
     '/notes': '/notes.html',
     '/snippets': '/snippets.html',
+    '/images': '/images.html',
     '/clipboard': '/clipboard.html',
     '/logs': '/logs.html',
     '/settings': '/settings.html'
