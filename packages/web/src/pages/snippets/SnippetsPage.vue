@@ -715,18 +715,20 @@ async function copySnippet(snippet: SnippetRecord) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
+  grid-auto-flow: dense; /* 自动填充空白 */
 }
 
-/* 快速收集卡片 - 占据左列，高度自适应 */
+/* 快速收集卡片 - 占据左列 */
 .quick-collect-card {
   background: rgba(59, 130, 246, 0.04) !important;
   border: 1px solid rgba(59, 130, 246, 0.1);
-  grid-row: span 999; /* 让它尽可能占据多行 */
+  grid-column: 1; /* 固定在第1列 */
+  grid-row: 1; /* 从第1行开始 */
 }
 
-/* 剪贴板卡片 - 自动填充右列 */
+/* 剪贴板卡片 - 自动填充 */
 .snippet-masonry-grid > .content-card:not(.quick-collect-card) {
-  grid-column: 2; /* 强制所有剪贴板卡片在第2列 */
+  /* 让剪贴板自动填充，不强制列 */
 }
 
 .snippet-card-highlight {
@@ -806,11 +808,8 @@ async function copySnippet(snippet: SnippetRecord) {
   }
   
   .quick-collect-card {
-    grid-row: span 1;
-  }
-  
-  .snippet-masonry-grid > .content-card:not(.quick-collect-card) {
     grid-column: 1;
+    grid-row: auto;
   }
 }
 </style>
