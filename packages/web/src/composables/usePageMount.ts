@@ -75,6 +75,24 @@ function ensureElementThemeStyles() {
       font-size: 14px;
     }
     
+    /* 圆形按钮保持正圆 */
+    .el-button.is-circle {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border-radius: 50%;
+    }
+    
+    .el-button--large.is-circle {
+      width: 48px;
+      height: 48px;
+    }
+    
+    .el-button--small.is-circle {
+      width: 36px;
+      height: 36px;
+    }
+    
     .el-button--default {
       background-color: #ffffff;
       border-color: #d2d2d7;
