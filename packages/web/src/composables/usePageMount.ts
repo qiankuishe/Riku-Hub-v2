@@ -193,6 +193,17 @@ function ensureElementThemeStyles() {
       background-color: #f5f5f7;
     }
     
+    /* 移除下拉按钮的高亮边框效果 */
+    .el-dropdown .el-button:focus,
+    .el-dropdown .el-button:focus-visible {
+      outline: none;
+      box-shadow: none;
+    }
+    
+    .el-dropdown .el-button:active {
+      box-shadow: none;
+    }
+    
     /* 对话框统一样式 */
     .el-dialog {
       border-radius: 16px;

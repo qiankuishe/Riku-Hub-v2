@@ -298,7 +298,7 @@ onMounted(() => {
         </ElInput>
 
         <!-- 批量操作（选中时显示） -->
-        <ElDropdown v-if="selectedImages.length > 0">
+        <ElDropdown v-if="selectedImages.length > 0" trigger="click">
           <ElButton size="small" type="primary">
             <Icon icon="carbon:task" class="mr-1" />
             批量 ({{ selectedImages.length }})
@@ -336,7 +336,7 @@ onMounted(() => {
         </ElButton>
 
         <!-- 排序 -->
-        <ElDropdown @command="switchSort">
+        <ElDropdown trigger="click" @command="switchSort">
           <ElButton size="small">
             <Icon :icon="sortIcon" class="mr-1" />
             排序
@@ -351,7 +351,7 @@ onMounted(() => {
         </ElDropdown>
 
         <!-- 筛选 -->
-        <ElDropdown @command="switchFilter">
+        <ElDropdown trigger="click" @command="switchFilter">
           <ElButton size="small">
             <Icon :icon="filterIcon" class="mr-1" />
             筛选
@@ -367,7 +367,7 @@ onMounted(() => {
         </ElDropdown>
 
         <!-- 分类（文件类型） -->
-        <ElDropdown @command="switchFileType">
+        <ElDropdown trigger="click" @command="switchFileType">
           <ElButton size="small">
             <Icon :icon="fileTypeIcon" class="mr-1" />
             {{ fileType === 'all' ? '分类' : fileTypeConfig[fileType as FileType]?.name }}
@@ -384,7 +384,7 @@ onMounted(() => {
         </ElDropdown>
 
         <!-- 工具 -->
-        <ElDropdown>
+        <ElDropdown trigger="click">
           <ElButton size="small">
             <Icon icon="carbon:tools" class="mr-1" />
             工具
@@ -403,15 +403,13 @@ onMounted(() => {
                 <Icon icon="carbon:warning" class="mr-1" />
                 检测失效文件
               </ElDropdownItem>
+              <ElDropdownItem divided @click="showSettingsDialog = true">
+                <Icon icon="carbon:settings" class="mr-1" />
+                设置
+              </ElDropdownItem>
             </ElDropdownMenu>
           </template>
         </ElDropdown>
-
-        <!-- 设置 -->
-        <ElButton size="small" @click="showSettingsDialog = true">
-          <Icon icon="carbon:settings" class="mr-1" />
-          设置
-        </ElButton>
       </div>
     </div>
 
@@ -782,7 +780,7 @@ onMounted(() => {
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
-  padding: 12px;
+  padding: 16px;
 }
 
 .image-card:hover .image-overlay {
@@ -801,6 +799,7 @@ onMounted(() => {
   overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  padding: 0 4px;
 }
 
 .overlay-buttons::-webkit-scrollbar {
