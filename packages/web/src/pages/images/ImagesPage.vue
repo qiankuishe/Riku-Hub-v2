@@ -774,17 +774,17 @@ onMounted(() => {
 /* 悬浮操作层 */
 .image-overlay {
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 0;
   width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+  background: rgba(0, 0, 0, 0.5);
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
-  padding: 48px 12px 12px;
   z-index: 5;
 }
 
@@ -799,11 +799,6 @@ onMounted(() => {
   gap: 6px;
   justify-content: center;
   align-items: center;
-  max-width: 100%;
-}
-
-.overlay-buttons::-webkit-scrollbar {
-  display: none;
 }
 
 .overlay-buttons :deep(.el-button) {
@@ -887,9 +882,9 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  background: #000000;
+  background: #f9fafb;
   border-radius: 4px;
-  padding: 8px;
+  padding: 4px;
 }
 
 .preview-media {
