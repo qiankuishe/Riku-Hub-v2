@@ -42,7 +42,7 @@ async function loadLogs() {
           <h2 class="text-xl font-semibold text-gray-900">运行日志</h2>
           <p class="text-sm text-gray-500">最近系统事件与操作记录。</p>
         </div>
-        <ElButton :loading="loading" @click="loadLogs">
+        <ElButton size="small" :loading="loading" @click="loadLogs">
           <Icon icon="carbon:renew" class="mr-1" />
           {{ loading ? '刷新中...' : '刷新' }}
         </ElButton>
