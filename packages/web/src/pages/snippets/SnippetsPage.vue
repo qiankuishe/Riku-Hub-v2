@@ -848,8 +848,8 @@ watch([searchQuery, filterType], async () => {
 
 /* 快速收集卡片 */
 .quick-collect-card {
-  background: rgba(59, 130, 246, 0.04) !important;
-  border: 1px solid rgba(59, 130, 246, 0.1);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
 .snippet-card-highlight {
@@ -857,19 +857,23 @@ watch([searchQuery, filterType], async () => {
 }
 
 .snippet-card--text {
-  background: rgba(110, 110, 115, 0.04);
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.12) 0%, rgba(203, 213, 225, 0.12) 100%);
+  border-left: 3px solid #94a3b8;
 }
 
 .snippet-card--code {
-  background: rgba(67, 93, 196, 0.05);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(129, 140, 248, 0.12) 100%);
+  border-left: 3px solid #6366f1;
 }
 
 .snippet-card--link {
-  background: rgba(24, 143, 105, 0.06);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(52, 211, 153, 0.12) 100%);
+  border-left: 3px solid #10b981;
 }
 
 .snippet-card--image {
-  background: rgba(191, 110, 33, 0.06);
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.12) 0%, rgba(251, 191, 36, 0.12) 100%);
+  border-left: 3px solid #fb923c;
 }
 
 .snippet-code-preview,
