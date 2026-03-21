@@ -180,7 +180,7 @@ async function logout() {
         </div>
       </div>
 
-      <div class="mt-4 flex flex-wrap items-center gap-2">
+      <div class="mt-4 toolbar-actions">
         <UiButton type="primary" size="small" :loading="exporting" :disabled="exporting" @click="exportData">
           <Icon icon="carbon:download" class="mr-1" />
           导出

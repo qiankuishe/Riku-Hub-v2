@@ -863,7 +863,7 @@ async function moveCategoryDown(category: NavigationCategory) {
               {{ category.name }}
               <span class="text-sm font-normal text-gray-500">({{ category.links.length }})</span>
             </h3>
-            <div v-if="editMode" class="flex flex-wrap items-center gap-2">
+            <div v-if="editMode" class="toolbar-actions">
               <div class="flex items-center gap-1">
                 <button
                   class="nav-category-move-btn"

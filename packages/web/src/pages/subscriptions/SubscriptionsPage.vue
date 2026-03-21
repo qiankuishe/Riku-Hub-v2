@@ -332,7 +332,7 @@ function formatValidationWarning(warning: { message: string; context?: string | 
         >
           <div class="mb-2 flex items-center justify-between gap-3">
             <strong class="text-sm text-gray-900">{{ format.name }}</strong>
-            <div class="flex gap-2">
+            <div class="toolbar-actions">
               <UiButton size="small" @click="copyLink(format.url)">复制</UiButton>
               <UiButton size="small" @click="openQr(format.name, format.url)">二维码</UiButton>
             </div>
@@ -378,7 +378,7 @@ function formatValidationWarning(warning: { message: string; context?: string | 
                 节点数 {{ source.nodeCount }} · 更新于 {{ formatDateTime(source.updatedAt) }}
               </p>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div class="toolbar-actions">
               <UiButton size="small" @click="toggleSourceEnabled(source)">
                 {{ source.enabled ? '禁用' : '启用' }}
               </UiButton>
