@@ -145,7 +145,7 @@ p {
 }
 
 .topbar {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
