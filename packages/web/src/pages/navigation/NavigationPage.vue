@@ -1068,7 +1068,7 @@ async function moveCategoryDown(category: NavigationCategory) {
 .nav-link-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 6px;
 }
 
 .nav-link-card {
