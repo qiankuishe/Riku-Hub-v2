@@ -616,7 +616,7 @@ onMounted(() => {
   justify-content: center;
   min-height: 300px;
   color: #9ca3af;
-  gap: 16px;
+  gap: 6px;
 }
 
 .empty-icon,
@@ -640,7 +640,7 @@ onMounted(() => {
 .images-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  gap: 6px;
 }
 
 .image-card {
@@ -868,7 +868,7 @@ onMounted(() => {
 @media (max-width: 768px) {
   .images-grid {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 12px;
+    gap: 6px;
   }
 }
 
@@ -903,7 +903,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .preview-file-icon {
