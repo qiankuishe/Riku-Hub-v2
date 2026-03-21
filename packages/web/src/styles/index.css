@@ -113,7 +113,7 @@ p {
   border-right: 0;
   background: transparent;
   backdrop-filter: none;
-  padding: 18px 0 14px 14px;
+  padding: 6px 0 14px 14px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0;
