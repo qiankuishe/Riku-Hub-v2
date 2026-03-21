@@ -309,11 +309,32 @@ function getExcerpt(content: string) {
           :title="saveErrorMessage"
         />
         <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
-          <ElRadioGroup v-model="viewMode" size="small">
-            <ElRadioButton value="write">写作</ElRadioButton>
-            <ElRadioButton value="preview">预览</ElRadioButton>
-            <ElRadioButton value="split">分栏</ElRadioButton>
-          </ElRadioGroup>
+          <div class="segmented-control">
+            <button
+              type="button"
+              class="segmented-item"
+              :class="{ 'segmented-item-active': viewMode === 'write' }"
+              @click="viewMode = 'write'"
+            >
+              写作
+            </button>
+            <button
+              type="button"
+              class="segmented-item"
+              :class="{ 'segmented-item-active': viewMode === 'preview' }"
+              @click="viewMode = 'preview'"
+            >
+              预览
+            </button>
+            <button
+              type="button"
+              class="segmented-item"
+              :class="{ 'segmented-item-active': viewMode === 'split' }"
+              @click="viewMode = 'split'"
+            >
+              分栏
+            </button>
+          </div>
           <div class="flex flex-wrap gap-2">
             <ElButton size="small" @click="togglePin">
               <Icon :icon="selectedNote.isPinned ? 'carbon:star-filled' : 'carbon:star'" class="mr-1" />
@@ -401,6 +422,39 @@ function getExcerpt(content: string) {
 </template>
 
 <style scoped>
+.segmented-control {
+  display: inline-flex;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented-item {
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.segmented-item:hover {
+  color: #111827;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.segmented-item-active {
+  background: #fff;
+  color: #111827;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
 .notes-layout {
   display: grid;
   gap: 16px;
