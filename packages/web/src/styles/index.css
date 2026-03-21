@@ -365,31 +365,6 @@ p {
   font-size: 12px;
 }
 
-.sidebar-footer {
-  border-top: 1px solid var(--rk-border);
-  padding: 10px 4px 6px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--rk-text-soft);
-}
-
-.sidebar-repo-link {
-  width: 24px;
-  height: 24px;
-  display: inline-grid;
-  place-items: center;
-}
-
-.sidebar-repo-link svg {
-  width: 18px;
-  height: 18px;
-}
-
-.sidebar-version {
-  font-size: 12px;
-}
-
 .mobile-drawer-backdrop {
   position: fixed;
   inset: 0;

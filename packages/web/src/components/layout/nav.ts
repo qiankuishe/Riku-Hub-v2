@@ -3,9 +3,6 @@ import { APP_SECTION_ITEMS } from '../../utils/pageConfig';
 
 export type AppNavItem = Pick<AppSectionItem, 'label' | 'to'> & { icon: string };
 
-export const APP_VERSION = '0.0.2';
-export const APP_REPO_URL = 'https://github.com/qiankuishe/Riku-Hub';
-
 // icon: inline SVG path data (viewBox="0 0 24 24")
 const NAV_ICONS: Record<string, string> = {
   navigation:
