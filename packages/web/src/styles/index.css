@@ -183,7 +183,7 @@ p {
 }
 
 .sidebar-brand-button:hover {
-  background: var(--rk-surface-soft);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .sidebar-logo {
