@@ -283,11 +283,11 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           <p class="text-sm text-gray-500">统一管理订阅源并输出多格式链接。</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <ElButton type="primary" @click="openCreateDialog">
+          <ElButton type="primary" size="small" @click="openCreateDialog">
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增订阅源
           </ElButton>
-          <ElButton :loading="refreshing" @click="refreshAggregation">
+          <ElButton size="small" :loading="refreshing" @click="refreshAggregation">
             <Icon icon="carbon:renew" class="mr-1" />
             {{ refreshing ? '刷新中...' : '刷新缓存' }}
           </ElButton>
@@ -416,8 +416,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <ElButton @click="closeEditor">取消</ElButton>
-        <ElButton type="primary" :loading="saving" @click="saveSource">保存</ElButton>
+        <ElButton size="small" @click="closeEditor">取消</ElButton>
+        <ElButton type="primary" size="small" :loading="saving" @click="saveSource">保存</ElButton>
       </div>
     </template>
   </ElDialog>
@@ -445,8 +445,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
     <p class="text-sm text-gray-600">删除后不可恢复，确定删除「{{ deleteTarget?.name ?? '' }}」吗？</p>
     <template #footer>
       <div class="flex justify-end gap-2">
-        <ElButton @click="closeDeleteDialog">取消</ElButton>
-        <ElButton type="danger" :loading="saving" @click="confirmDelete">删除</ElButton>
+        <ElButton size="small" @click="closeDeleteDialog">取消</ElButton>
+        <ElButton type="danger" size="small" :loading="saving" @click="confirmDelete">删除</ElButton>
       </div>
     </template>
   </ElDialog>
