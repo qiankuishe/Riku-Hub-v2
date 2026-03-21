@@ -663,12 +663,12 @@ watch([searchQuery, filterType], async () => {
               :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
               :data-snippet-id="snippet.id"
             >
-              <div class="mb-2 flex items-start justify-between gap-3">
+              <div class="mb-2 flex items-start justify-between gap-2">
                 <div class="min-w-0 flex-1">
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
-                <div class="flex flex-shrink-0 gap-1">
+                <div class="flex flex-shrink-0 gap-0.5">
                   <ElButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
                   </ElButton>
@@ -704,12 +704,12 @@ watch([searchQuery, filterType], async () => {
               :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
               :data-snippet-id="snippet.id"
             >
-              <div class="mb-2 flex items-start justify-between gap-3">
+              <div class="mb-2 flex items-start justify-between gap-2">
                 <div class="min-w-0 flex-1">
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
-                <div class="flex flex-shrink-0 gap-1">
+                <div class="flex flex-shrink-0 gap-0.5">
                   <ElButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
                   </ElButton>
