@@ -935,6 +935,11 @@ watch([searchQuery, filterType], async () => {
 .snippet-tools :deep(.el-button) {
   padding: 4px;
   min-width: 28px;
+  backdrop-filter: none;
+}
+
+.snippet-tools :deep(.el-button:hover) {
+  backdrop-filter: none;
 }
 
 /* 文本类型卡片的按钮悬停效果 */
@@ -961,6 +966,7 @@ watch([searchQuery, filterType], async () => {
 .snippet-tools :deep(.el-button.is-text.el-button--danger:hover) {
   background-color: rgba(239, 68, 68, 0.1) !important;
   color: #ef4444;
+  backdrop-filter: none !important;
 }
 
 @media (max-width: 1024px) {
