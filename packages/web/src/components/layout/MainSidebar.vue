@@ -95,11 +95,13 @@ watch(
 
 <template>
   <aside class="main-sidebar">
-    <!-- Brand -->
-    <button class="sidebar-brand sidebar-brand-button" type="button" title="冷启动当前页面" @click="handleBrandClick">
-      <img src="/logo.png" alt="Riku-Hub" class="sidebar-logo" />
-      <span class="sidebar-brand-name">Riku-Hub</span>
-    </button>
+    <div class="sidebar-brand-wrap">
+      <!-- Brand -->
+      <button class="sidebar-brand sidebar-brand-button" type="button" title="冷启动当前页面" @click="handleBrandClick">
+        <img src="/logo.png" alt="Riku-Hub" class="sidebar-logo" />
+        <span class="sidebar-brand-name">Riku-Hub</span>
+      </button>
+    </div>
 
     <nav :ref="setNavRef" class="sidebar-nav">
       <div
