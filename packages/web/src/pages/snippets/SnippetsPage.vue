@@ -846,6 +846,20 @@ watch([searchQuery, filterType], async () => {
   gap: 12px;
 }
 
+/* 内容卡片基础样式 */
+.content-card {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.content-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
 /* 快速收集卡片 */
 .quick-collect-card {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%) !important;
@@ -968,6 +982,14 @@ watch([searchQuery, filterType], async () => {
   -webkit-backdrop-filter: none !important;
   transition: none !important;
   transform: none !important;
+}
+
+/* 禁用图标的所有动画效果 */
+.snippet-tools :deep(.iconify),
+.snippet-tools :deep(svg) {
+  transition: none !important;
+  transform: none !important;
+  animation: none !important;
 }
 
 /* 文本类型卡片的按钮悬停效果 */
