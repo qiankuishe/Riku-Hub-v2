@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { ElAlert, ElButton, ElInput } from 'element-plus';
+import { ElAlert, ElInput } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { NoteRecord } from '../../api';
 import { notesApi } from '../../api';
 import ConfirmModal from '../shared/ConfirmModal.vue';
+import UiButton from '../../components/ui/UiButton.vue';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
 
@@ -297,10 +298,10 @@ function getExcerpt(content: string) {
           <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
           <p class="text-sm text-gray-500">自动保存，支持 Markdown 预览。</p>
         </div>
-        <ElButton size="small" :disabled="!selectedNote" @click="toggleViewMode">
+        <UiButton size="small" :disabled="!selectedNote" @click="toggleViewMode">
           <Icon :icon="viewMode === 'write' ? 'carbon:view' : 'carbon:edit'" class="mr-1" />
           {{ viewMode === 'write' ? '切换到预览' : '切换到写作' }}
-        </ElButton>
+        </UiButton>
       </div>
 
       <template v-if="selectedNote">
@@ -336,18 +337,18 @@ function getExcerpt(content: string) {
       <div class="mb-4 notes-list-toolbar">
         <ElInput v-model="searchQuery" clearable placeholder="搜索笔记..." class="notes-search-input" />
         <div class="toolbar-actions">
-          <ElButton type="primary" size="small" :disabled="saving" @click="createNote">
+          <UiButton type="primary" size="small" :disabled="saving" @click="createNote">
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增
-          </ElButton>
-          <ElButton size="small" :disabled="!selectedNote" @click="togglePin">
+          </UiButton>
+          <UiButton size="small" :disabled="!selectedNote" @click="togglePin">
             <Icon :icon="selectedNote?.isPinned ? 'carbon:star-filled' : 'carbon:star'" class="mr-1" />
             {{ selectedNote?.isPinned ? '取消置顶' : '置顶' }}
-          </ElButton>
-          <ElButton size="small" type="danger" :disabled="!selectedNote" @click="selectedNote && (deleteTarget = selectedNote)">
+          </UiButton>
+          <UiButton size="small" type="danger" :disabled="!selectedNote" @click="selectedNote && (deleteTarget = selectedNote)">
             <Icon icon="carbon:trash-can" class="mr-1" />
             删除
-          </ElButton>
+          </UiButton>
         </div>
       </div>
 

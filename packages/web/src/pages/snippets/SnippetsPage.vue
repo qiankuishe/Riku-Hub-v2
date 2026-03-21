@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { ElAlert, ElButton, ElDialog, ElInput, ElOption, ElRadioButton, ElRadioGroup, ElSelect, ElTag } from 'element-plus';
+import { ElAlert, ElDialog, ElInput, ElOption, ElRadioButton, ElRadioGroup, ElSelect, ElTag } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { SnippetRecord, SnippetType } from '../../api';
 import { snippetsApi } from '../../api';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
 import ConfirmModal from '../shared/ConfirmModal.vue';
+import UiButton from '../../components/ui/UiButton.vue';
 
 const uiStore = useUiStore();
 const query = new URLSearchParams(window.location.search);
@@ -635,20 +636,20 @@ watch([searchQuery, filterType], async () => {
 
               <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
                 <div class="flex flex-wrap items-center gap-1">
-                  <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
+                  <UiButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
                     <Icon icon="carbon:paste" class="text-sm" />
-                  </ElButton>
-                  <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
+                  </UiButton>
+                  <UiButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
                     <Icon icon="carbon:image-search" class="text-sm" />
-                  </ElButton>
-                  <ElButton size="small" @click="triggerImageUpload">
+                  </UiButton>
+                  <UiButton size="small" @click="triggerImageUpload">
                     <Icon icon="carbon:upload" class="text-sm" />
-                  </ElButton>
+                  </UiButton>
                 </div>
-                <ElButton size="small" type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
+                <UiButton size="small" type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
                   <Icon icon="carbon:save" class="mr-1 text-sm" />
                   保存
-                </ElButton>
+                </UiButton>
               </div>
 
               <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
@@ -669,21 +670,21 @@ watch([searchQuery, filterType], async () => {
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
                 <div class="snippet-tools flex flex-shrink-0">
-                  <ElButton size="small" text @click="togglePin(snippet)">
+                  <UiButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
-                  </ElButton>
-                  <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                  </UiButton>
+                  <UiButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
                     <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
-                  </ElButton>
-                  <ElButton size="small" text @click="copySnippet(snippet)">
+                  </UiButton>
+                  <UiButton size="small" text @click="copySnippet(snippet)">
                     <Icon icon="carbon:copy" />
-                  </ElButton>
-                  <ElButton size="small" text @click="openEditDialog(snippet)">
+                  </UiButton>
+                  <UiButton size="small" text @click="openEditDialog(snippet)">
                     <Icon icon="carbon:edit" />
-                  </ElButton>
-                  <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
+                  </UiButton>
+                  <UiButton size="small" text type="danger" @click="deleteTarget = snippet">
                     <Icon icon="carbon:trash-can" />
-                  </ElButton>
+                  </UiButton>
                 </div>
               </div>
 
@@ -710,21 +711,21 @@ watch([searchQuery, filterType], async () => {
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
                 <div class="snippet-tools flex flex-shrink-0">
-                  <ElButton size="small" text @click="togglePin(snippet)">
+                  <UiButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
-                  </ElButton>
-                  <ElButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                  </UiButton>
+                  <UiButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
                     <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
-                  </ElButton>
-                  <ElButton size="small" text @click="copySnippet(snippet)">
+                  </UiButton>
+                  <UiButton size="small" text @click="copySnippet(snippet)">
                     <Icon icon="carbon:copy" />
-                  </ElButton>
-                  <ElButton size="small" text @click="openEditDialog(snippet)">
+                  </UiButton>
+                  <UiButton size="small" text @click="openEditDialog(snippet)">
                     <Icon icon="carbon:edit" />
-                  </ElButton>
-                  <ElButton size="small" text type="danger" @click="deleteTarget = snippet">
+                  </UiButton>
+                  <UiButton size="small" text type="danger" @click="deleteTarget = snippet">
                     <Icon icon="carbon:trash-can" />
-                  </ElButton>
+                  </UiButton>
                 </div>
               </div>
 
@@ -772,8 +773,8 @@ watch([searchQuery, filterType], async () => {
       <ElAlert v-if="editErrorMessage" class="mt-3" :closable="false" show-icon type="error" :title="editErrorMessage" />
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton size="small" @click="closeEditDialog">取消</ElButton>
-          <ElButton size="small" type="primary" :loading="saving" :disabled="saving" @click="saveEdit">保存</ElButton>
+          <UiButton size="small" @click="closeEditDialog">取消</UiButton>
+          <UiButton size="small" type="primary" :loading="saving" :disabled="saving" @click="saveEdit">保存</UiButton>
         </div>
       </template>
     </ElDialog>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue';
-import { ElButton } from 'element-plus';
 import { useUiStore, type SecondaryNavItem } from '../../stores/ui';
 import { restartCurrentSection } from '../../utils/localCacheReset';
 import { APP_NAV_ITEMS, APP_REPO_URL, APP_VERSION } from './nav';
+import UiButton from '../ui/UiButton.vue';
 
 const uiStore = useUiStore();
 
@@ -109,7 +109,7 @@ watch(
             <img src="/logo.png" alt="Riku-Hub" class="sidebar-logo" />
             <strong>Riku-Hub</strong>
           </button>
-          <ElButton text size="small" @click="emit('close')">收起</ElButton>
+          <UiButton text size="small" @click="emit('close')">收起</UiButton>
         </div>
 
         <nav :ref="setNavRef" class="sidebar-nav">

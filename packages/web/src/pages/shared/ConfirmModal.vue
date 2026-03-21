@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ElButton, ElDialog } from 'element-plus';
+import { ElDialog } from 'element-plus';
+import UiButton from '../../components/ui/UiButton.vue';
 
 withDefaults(
   defineProps<{
@@ -37,8 +38,8 @@ const emit = defineEmits<{
     <p class="text-sm text-gray-600 leading-6">{{ message }}</p>
     <template #footer>
       <div class="flex justify-end gap-2">
-        <ElButton @click="emit('close')">{{ cancelText }}</ElButton>
-        <ElButton :type="danger ? 'danger' : 'primary'" @click="emit('confirm')">{{ confirmText }}</ElButton>
+        <UiButton @click="emit('close')">{{ cancelText }}</UiButton>
+        <UiButton :type="danger ? 'danger' : 'primary'" @click="emit('confirm')">{{ confirmText }}</UiButton>
       </div>
     </template>
   </ElDialog>

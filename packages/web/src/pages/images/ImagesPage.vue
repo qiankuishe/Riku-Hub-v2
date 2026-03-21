@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
-import { ElButton, ElInput, ElDropdown, ElDropdownMenu, ElDropdownItem, ElPagination, ElMessage, ElDialog } from 'element-plus';
+import { ElInput, ElDropdown, ElDropdownMenu, ElDropdownItem, ElPagination, ElMessage, ElDialog } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import { useImageList } from './composables/useImageList';
 import { useImageUpload } from './composables/useImageUpload';
 import { useImageOperations } from './composables/useImageOperations';
 import { imagesApi } from '../../api/images';
+import UiButton from '../../components/ui/UiButton.vue';
 import type { ImageRecord, FileType } from '@riku-hub/shared/types/images';
 
 // Composables
@@ -299,10 +300,10 @@ onMounted(() => {
 
         <!-- 批量操作（选中时显示） -->
         <ElDropdown v-if="selectedImages.length > 0" trigger="click">
-          <ElButton size="small" type="primary">
+          <UiButton size="small" type="primary">
             <Icon icon="carbon:task" class="mr-1" />
             批量 ({{ selectedImages.length }})
-          </ElButton>
+          </UiButton>
           <template #dropdown>
             <ElDropdownMenu>
               <ElDropdownItem @click="batchCopyLinks(selectedImages)">
@@ -330,17 +331,17 @@ onMounted(() => {
         </ElDropdown>
 
         <!-- 上传 -->
-        <ElButton type="primary" size="small" :loading="uploading" @click="handleUploadClick">
+        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick">
           <Icon icon="carbon:upload" class="mr-1" />
           上传
-        </ElButton>
+        </UiButton>
 
         <!-- 排序 -->
         <ElDropdown trigger="click" @command="switchSort">
-          <ElButton size="small">
+          <UiButton size="small">
             <Icon :icon="sortIcon" class="mr-1" />
             排序
-          </ElButton>
+          </UiButton>
           <template #dropdown>
             <ElDropdownMenu>
               <ElDropdownItem command="dateDesc">最新优先</ElDropdownItem>
@@ -352,10 +353,10 @@ onMounted(() => {
 
         <!-- 筛选 -->
         <ElDropdown trigger="click" @command="switchFilter">
-          <ElButton size="small">
+          <UiButton size="small">
             <Icon :icon="filterIcon" class="mr-1" />
             筛选
-          </ElButton>
+          </UiButton>
           <template #dropdown>
             <ElDropdownMenu>
               <ElDropdownItem command="all">全部</ElDropdownItem>
@@ -368,10 +369,10 @@ onMounted(() => {
 
         <!-- 分类（文件类型） -->
         <ElDropdown trigger="click" @command="switchFileType">
-          <ElButton size="small">
+          <UiButton size="small">
             <Icon :icon="fileTypeIcon" class="mr-1" />
             {{ fileType === 'all' ? '分类' : fileTypeConfig[fileType as FileType]?.name }}
-          </ElButton>
+          </UiButton>
           <template #dropdown>
             <ElDropdownMenu>
               <ElDropdownItem command="all">全部 ({{ total }})</ElDropdownItem>
@@ -385,10 +386,10 @@ onMounted(() => {
 
         <!-- 工具 -->
         <ElDropdown trigger="click">
-          <ElButton size="small">
+          <UiButton size="small">
             <Icon icon="carbon:tools" class="mr-1" />
             工具
-          </ElButton>
+          </UiButton>
           <template #dropdown>
             <ElDropdownMenu>
               <ElDropdownItem @click="selectAllInPage">
@@ -433,14 +434,14 @@ onMounted(() => {
     <div v-else-if="error" class="empty-state">
       <Icon icon="carbon:warning" class="error-icon" />
       <p>{{ error }}</p>
-      <ElButton size="small" @click="refresh">重试</ElButton>
+      <UiButton size="small" @click="refresh">重试</UiButton>
     </div>
 
     <!-- 空状态 -->
     <div v-else-if="paginatedImages.length === 0" class="empty-state">
       <Icon icon="carbon:cloud-upload" class="empty-icon" />
       <p>暂无文件</p>
-      <ElButton type="primary" size="small" @click="handleUploadClick">上传文件</ElButton>
+      <UiButton type="primary" size="small" @click="handleUploadClick">上传文件</UiButton>
     </div>
 
     <!-- 文件网格 -->
@@ -490,24 +491,24 @@ onMounted(() => {
         <!-- 操作按钮 -->
         <div class="image-overlay">
           <div class="overlay-buttons">
-            <ElButton size="small" circle @click.stop="handlePreview(image)">
+            <UiButton size="small" circle @click.stop="handlePreview(image)">
               <Icon icon="carbon:view" />
-            </ElButton>
-            <ElButton size="small" circle @click.stop="handleDownload(image)">
+            </UiButton>
+            <UiButton size="small" circle @click.stop="handleDownload(image)">
               <Icon icon="carbon:download" />
-            </ElButton>
-            <ElButton size="small" circle @click.stop="handleUpdateName(image)">
+            </UiButton>
+            <UiButton size="small" circle @click.stop="handleUpdateName(image)">
               <Icon icon="carbon:edit" />
-            </ElButton>
-            <ElButton size="small" circle @click.stop="copyLink(image)">
+            </UiButton>
+            <UiButton size="small" circle @click.stop="copyLink(image)">
               <Icon icon="carbon:copy" />
-            </ElButton>
-            <ElButton size="small" circle @click.stop="copyMarkdown(image)" title="复制 Markdown">
+            </UiButton>
+            <UiButton size="small" circle @click.stop="copyMarkdown(image)" title="复制 Markdown">
               <Icon icon="carbon:code" />
-            </ElButton>
-            <ElButton size="small" circle class="delete-btn" @click.stop="handleDelete(image)">
+            </UiButton>
+            <UiButton size="small" circle class="delete-btn" @click.stop="handleDelete(image)">
               <Icon icon="carbon:trash-can" />
-            </ElButton>
+            </UiButton>
           </div>
         </div>
 
@@ -555,8 +556,8 @@ onMounted(() => {
         </p>
       </div>
       <template #footer>
-        <ElButton size="small" @click="showSettingsDialog = false">取消</ElButton>
-        <ElButton type="primary" size="small" @click="saveSettings">保存</ElButton>
+        <UiButton size="small" @click="showSettingsDialog = false">取消</UiButton>
+        <UiButton type="primary" size="small" @click="saveSettings">保存</UiButton>
       </template>
     </ElDialog>
 
@@ -597,11 +598,11 @@ onMounted(() => {
         </div>
       </div>
       <template #footer>
-        <ElButton size="small" @click="showPreviewDialog = false">关闭</ElButton>
-        <ElButton type="primary" size="small" @click="handleDownload(previewImage!)">
+        <UiButton size="small" @click="showPreviewDialog = false">关闭</UiButton>
+        <UiButton type="primary" size="small" @click="handleDownload(previewImage!)">
           <Icon icon="carbon:download" class="mr-1" />
           下载
-        </ElButton>
+        </UiButton>
       </template>
     </ElDialog>
   </div>

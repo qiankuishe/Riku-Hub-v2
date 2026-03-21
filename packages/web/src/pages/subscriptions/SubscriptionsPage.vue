@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { ElAlert, ElButton, ElDialog, ElInput, ElTag } from 'element-plus';
+import { ElAlert, ElDialog, ElInput, ElTag } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { Source, SubInfo, ValidationResult } from '../../api';
 import { sourcesApi, subApi } from '../../api';
 import { formatDateTime } from '../../utils/date';
 import { useUiStore } from '../../stores/ui';
+import UiButton from '../../components/ui/UiButton.vue';
 
 const uiStore = useUiStore();
 
@@ -295,14 +296,14 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           <p class="text-sm text-gray-500">统一管理订阅源并输出多格式链接。</p>
         </div>
         <div class="toolbar-actions">
-          <ElButton size="small" :loading="refreshing" @click="refreshAggregation">
+          <UiButton size="small" :loading="refreshing" @click="refreshAggregation">
             <Icon icon="carbon:renew" class="mr-1" />
             {{ refreshing ? '刷新中...' : '刷新缓存' }}
-          </ElButton>
-          <ElButton type="primary" size="small" @click="openCreateDialog">
+          </UiButton>
+          <UiButton type="primary" size="small" @click="openCreateDialog">
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增订阅源
-          </ElButton>
+          </UiButton>
         </div>
       </div>
 
@@ -332,8 +333,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           <div class="mb-2 flex items-center justify-between gap-3">
             <strong class="text-sm text-gray-900">{{ format.name }}</strong>
             <div class="flex gap-2">
-              <ElButton size="small" @click="copyLink(format.url)">复制</ElButton>
-              <ElButton size="small" @click="openQr(format.name, format.url)">二维码</ElButton>
+              <UiButton size="small" @click="copyLink(format.url)">复制</UiButton>
+              <UiButton size="small" @click="openQr(format.name, format.url)">二维码</UiButton>
             </div>
           </div>
           <p class="break-all text-xs leading-5 text-gray-500">{{ format.url }}</p>
@@ -378,13 +379,13 @@ function formatValidationWarning(warning: { message: string; context?: string | 
               </p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <ElButton size="small" @click="toggleSourceEnabled(source)">
+              <UiButton size="small" @click="toggleSourceEnabled(source)">
                 {{ source.enabled ? '禁用' : '启用' }}
-              </ElButton>
-              <ElButton size="small" @click="moveSource(source, -1)">上移</ElButton>
-              <ElButton size="small" @click="moveSource(source, 1)">下移</ElButton>
-              <ElButton size="small" @click="openEditDialog(source)">编辑</ElButton>
-              <ElButton size="small" type="danger" @click="deleteTarget = source">删除</ElButton>
+              </UiButton>
+              <UiButton size="small" @click="moveSource(source, -1)">上移</UiButton>
+              <UiButton size="small" @click="moveSource(source, 1)">下移</UiButton>
+              <UiButton size="small" @click="openEditDialog(source)">编辑</UiButton>
+              <UiButton size="small" type="danger" @click="deleteTarget = source">删除</UiButton>
             </div>
           </div>
         </article>
@@ -428,8 +429,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <ElButton size="small" @click="closeEditor">取消</ElButton>
-        <ElButton type="primary" size="small" :loading="saving" @click="saveSource">保存</ElButton>
+        <UiButton size="small" @click="closeEditor">取消</UiButton>
+        <UiButton type="primary" size="small" :loading="saving" @click="saveSource">保存</UiButton>
       </div>
     </template>
   </ElDialog>
@@ -457,8 +458,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
     <p class="text-sm text-gray-600">删除后不可恢复，确定删除「{{ deleteTarget?.name ?? '' }}」吗？</p>
     <template #footer>
       <div class="flex justify-end gap-2">
-        <ElButton size="small" @click="closeDeleteDialog">取消</ElButton>
-        <ElButton type="danger" size="small" :loading="saving" @click="confirmDelete">删除</ElButton>
+        <UiButton size="small" @click="closeDeleteDialog">取消</UiButton>
+        <UiButton type="danger" size="small" :loading="saving" @click="confirmDelete">删除</UiButton>
       </div>
     </template>
   </ElDialog>

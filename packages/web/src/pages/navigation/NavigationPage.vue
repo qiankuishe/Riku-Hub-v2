@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { ElAlert, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElOption, ElRadioButton, ElRadioGroup, ElSelect, ElTag } from 'element-plus';
+import { ElAlert, ElDialog, ElForm, ElFormItem, ElInput, ElOption, ElRadioButton, ElRadioGroup, ElSelect, ElTag } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { NavigationCategory, NavigationLink, NoteRecord, SnippetRecord } from '../../api';
 import { notesApi, snippetsApi } from '../../api';
 import FaviconImage from '../../components/FaviconImage.vue';
+import UiButton from '../../components/ui/UiButton.vue';
 import ConfirmModal from '../shared/ConfirmModal.vue';
 import { formatDateTime } from '../../utils/date';
 import { useNavigationStore } from '../../stores/navigation';
@@ -730,15 +731,15 @@ async function moveCategoryDown(category: NavigationCategory) {
           <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
         </div>
         <div class="toolbar-actions">
-          <ElButton v-if="editMode" size="small" :disabled="loading || saving" @click="openCategoryDialog()">
+          <UiButton v-if="editMode" size="small" :disabled="loading || saving" @click="openCategoryDialog()">
             <Icon icon="carbon:folder-add" class="mr-1" />
             新增分类
-          </ElButton>
-          <ElButton v-if="editMode && hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
+          </UiButton>
+          <UiButton v-if="editMode && hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增站点
-          </ElButton>
-          <ElButton
+          </UiButton>
+          <UiButton
             v-if="editMode"
             type="primary"
             size="small"
@@ -748,11 +749,11 @@ async function moveCategoryDown(category: NavigationCategory) {
           >
             <Icon icon="carbon:save" class="mr-1" />
             保存排序
-          </ElButton>
-          <ElButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
+          </UiButton>
+          <UiButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
             <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
             {{ editMode ? '完成编辑' : '进入编辑' }}
-          </ElButton>
+          </UiButton>
         </div>
       </div>
 
@@ -771,10 +772,10 @@ async function moveCategoryDown(category: NavigationCategory) {
             :placeholder="searchEngine === 'local' ? '搜索站内内容...' : `搜索 ${searchEngines[searchEngine].name}...`"
             @keydown.enter.prevent="handleSearch"
           />
-          <ElButton v-if="searchEngine !== 'local'" type="primary" size="small" @click="handleSearch">
+          <UiButton v-if="searchEngine !== 'local'" type="primary" size="small" @click="handleSearch">
             <Icon icon="carbon:search" class="mr-1" />
             搜索
-          </ElButton>
+          </UiButton>
         </div>
       </div>
 
@@ -883,9 +884,9 @@ async function moveCategoryDown(category: NavigationCategory) {
                   <Icon icon="carbon:chevron-down" />
                 </button>
               </div>
-              <ElButton size="small" @click="openLinkDialog(undefined, category.id)">新增链接</ElButton>
-              <ElButton size="small" @click="openCategoryDialog(category)">编辑分类</ElButton>
-              <ElButton size="small" type="danger" @click="deleteCategoryTarget = category">删除分类</ElButton>
+              <UiButton size="small" @click="openLinkDialog(undefined, category.id)">新增链接</UiButton>
+              <UiButton size="small" @click="openCategoryDialog(category)">编辑分类</UiButton>
+              <UiButton size="small" type="danger" @click="deleteCategoryTarget = category">删除分类</UiButton>
             </div>
           </div>
 
@@ -921,12 +922,12 @@ async function moveCategoryDown(category: NavigationCategory) {
               </p>
 
               <div v-if="editMode" class="mt-2 flex justify-end gap-1">
-                <ElButton size="small" text @click.stop="openLinkDialog(link)">
+                <UiButton size="small" text @click.stop="openLinkDialog(link)">
                   <Icon icon="carbon:edit" />
-                </ElButton>
-                <ElButton size="small" text type="danger" @click.stop="deleteLinkTarget = link">
+                </UiButton>
+                <UiButton size="small" text type="danger" @click.stop="deleteLinkTarget = link">
                   <Icon icon="carbon:trash-can" />
-                </ElButton>
+                </UiButton>
               </div>
             </article>
 
@@ -964,8 +965,8 @@ async function moveCategoryDown(category: NavigationCategory) {
       <ElAlert v-if="formErrorMessage" class="mt-2" :closable="false" show-icon type="error" :title="formErrorMessage" />
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton size="small" @click="closeCategoryDialog">取消</ElButton>
-          <ElButton type="primary" size="small" :loading="saving" :disabled="saving || !categoryFormValid" @click="saveCategory">保存</ElButton>
+          <UiButton size="small" @click="closeCategoryDialog">取消</UiButton>
+          <UiButton type="primary" size="small" :loading="saving" :disabled="saving || !categoryFormValid" @click="saveCategory">保存</UiButton>
         </div>
       </template>
     </ElDialog>
@@ -997,8 +998,8 @@ async function moveCategoryDown(category: NavigationCategory) {
       <ElAlert v-if="formErrorMessage" class="mt-2" :closable="false" show-icon type="error" :title="formErrorMessage" />
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton size="small" @click="closeLinkDialog">取消</ElButton>
-          <ElButton type="primary" size="small" :loading="saving" :disabled="saving || !linkFormValid" @click="saveLink">保存</ElButton>
+          <UiButton size="small" @click="closeLinkDialog">取消</UiButton>
+          <UiButton type="primary" size="small" :loading="saving" :disabled="saving || !linkFormValid" @click="saveLink">保存</UiButton>
         </div>
       </template>
     </ElDialog>
@@ -1043,9 +1044,9 @@ async function moveCategoryDown(category: NavigationCategory) {
 
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton size="small" @click="cancelExitEdit">取消</ElButton>
-          <ElButton size="small" @click="confirmExitEdit(false)">放弃更改</ElButton>
-          <ElButton type="primary" size="small" @click="confirmExitEdit(true)">保存更改</ElButton>
+          <UiButton size="small" @click="cancelExitEdit">取消</UiButton>
+          <UiButton size="small" @click="confirmExitEdit(false)">放弃更改</UiButton>
+          <UiButton type="primary" size="small" @click="confirmExitEdit(true)">保存更改</UiButton>
         </div>
       </template>
     </ElDialog>

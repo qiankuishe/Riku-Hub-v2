@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { ElAlert, ElButton, ElDialog, ElTag } from 'element-plus';
+import { ElAlert, ElDialog, ElTag } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import { authApi, settingsApi, type SettingsBackupPayload, type SettingsExportStats } from '../../api';
 import { useUiStore } from '../../stores/ui';
+import UiButton from '../../components/ui/UiButton.vue';
 
 type DangerScope = 'sources' | 'navigation' | 'notes' | 'snippets' | 'clipboard' | 'all';
 
@@ -180,14 +181,14 @@ async function logout() {
       </div>
 
       <div class="mt-4 flex flex-wrap items-center gap-2">
-        <ElButton type="primary" size="small" :loading="exporting" :disabled="exporting" @click="exportData">
+        <UiButton type="primary" size="small" :loading="exporting" :disabled="exporting" @click="exportData">
           <Icon icon="carbon:download" class="mr-1" />
           导出
-        </ElButton>
-        <ElButton size="small" :loading="importing" :disabled="importing" @click="triggerImportSelect">
+        </UiButton>
+        <UiButton size="small" :loading="importing" :disabled="importing" @click="triggerImportSelect">
           <Icon icon="carbon:upload" class="mr-1" />
           {{ importing ? '导入中...' : '导入' }}
-        </ElButton>
+        </UiButton>
         <input ref="fileInputRef" type="file" accept=".json,application/json" class="hidden" @change="importData" />
       </div>
 
@@ -211,9 +212,9 @@ async function logout() {
               <h3 class="text-sm font-semibold text-red-900">{{ action.title }}</h3>
               <p class="mt-1 text-xs text-red-700/90">{{ action.description }}</p>
             </div>
-            <ElButton size="small" type="danger" :loading="clearing === action.scope" @click="openDangerDialog(action)">
+            <UiButton size="small" type="danger" :loading="clearing === action.scope" @click="openDangerDialog(action)">
               {{ clearing === action.scope ? '处理中...' : '执行' }}
-            </ElButton>
+            </UiButton>
           </div>
         </article>
       </div>
@@ -233,10 +234,10 @@ async function logout() {
       </div>
 
       <div class="mt-4">
-        <ElButton type="danger" size="small" @click="logout">
+        <UiButton type="danger" size="small" @click="logout">
           <Icon icon="carbon:logout" class="mr-1" />
           退出登录
-        </ElButton>
+        </UiButton>
       </div>
     </section>
 
@@ -254,8 +255,8 @@ async function logout() {
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton size="small" @click="dangerTarget = null">取消</ElButton>
-          <ElButton type="danger" size="small" :loading="Boolean(clearing)" :disabled="Boolean(clearing)" @click="runDangerAction">确认</ElButton>
+          <UiButton size="small" @click="dangerTarget = null">取消</UiButton>
+          <UiButton type="danger" size="small" :loading="Boolean(clearing)" :disabled="Boolean(clearing)" @click="runDangerAction">确认</UiButton>
         </div>
       </template>
     </ElDialog>
