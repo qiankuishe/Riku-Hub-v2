@@ -556,7 +556,10 @@ watch([searchQuery, filterType], async () => {
     <!-- 剪贴板列表 -->
     <section class="card">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h3 class="text-lg font-semibold text-gray-900">剪贴板</h3>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">剪贴板</h3>
+          <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片</p>
+        </div>
         
         <!-- 搜索筛选 -->
         <div class="flex flex-wrap items-center gap-2">
