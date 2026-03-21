@@ -457,7 +457,7 @@ function getExcerpt(content: string) {
 
 .notes-layout {
   display: grid;
-  gap: 16px;
+  gap: 6px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   height: calc(100vh - 8px - 16px);
   overflow: hidden;
@@ -472,7 +472,7 @@ function getExcerpt(content: string) {
 .notes-editor-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
   flex: 1;
   min-height: 0;
 }
@@ -526,7 +526,7 @@ function getExcerpt(content: string) {
 .notes-split-view {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 6px;
   flex: 1;
   min-height: 0;
 }
@@ -564,7 +564,7 @@ function getExcerpt(content: string) {
 .notes-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 6px;
 }
 
 .note-card {
