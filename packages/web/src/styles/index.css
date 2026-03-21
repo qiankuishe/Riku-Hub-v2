@@ -503,6 +503,18 @@ p {
   margin-left: 6px;
 }
 
+/* 全局工具栏：统一图床/导航等顶部操作区按钮间距 */
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
 .flex.gap-3 {
   gap: 12px;
 }

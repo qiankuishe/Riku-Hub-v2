@@ -283,7 +283,7 @@ onMounted(() => {
       </div>
 
       <!-- 工具栏 - 右上角 -->
-      <div class="flex flex-wrap items-center gap-2">
+      <div class="toolbar-actions">
         <!-- 搜索框 -->
         <ElInput
           v-model="searchQuery"

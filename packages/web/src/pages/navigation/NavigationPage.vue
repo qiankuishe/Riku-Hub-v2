@@ -729,7 +729,7 @@ async function moveCategoryDown(category: NavigationCategory) {
           <h2 class="text-xl font-semibold text-gray-900">网站导航</h2>
           <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="toolbar-actions">
           <ElButton
             v-if="editMode"
             type="primary"
