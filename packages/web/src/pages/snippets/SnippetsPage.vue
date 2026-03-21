@@ -857,23 +857,23 @@ watch([searchQuery, filterType], async () => {
 }
 
 .snippet-card--text {
-  background: linear-gradient(135deg, rgba(148, 163, 184, 0.12) 0%, rgba(203, 213, 225, 0.12) 100%);
-  border-left: 3px solid #94a3b8;
-}
-
-.snippet-card--code {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(129, 140, 248, 0.12) 100%);
-  border-left: 3px solid #6366f1;
-}
-
-.snippet-card--link {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(52, 211, 153, 0.12) 100%);
   border-left: 3px solid #10b981;
 }
 
+.snippet-card--code {
+  background: linear-gradient(135deg, rgba(71, 85, 105, 0.12) 0%, rgba(100, 116, 139, 0.12) 100%);
+  border-left: 3px solid #475569;
+}
+
+.snippet-card--link {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(96, 165, 250, 0.12) 100%);
+  border-left: 3px solid #3b82f6;
+}
+
 .snippet-card--image {
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.12) 0%, rgba(251, 191, 36, 0.12) 100%);
-  border-left: 3px solid #fb923c;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.12) 0%, rgba(244, 114, 182, 0.12) 100%);
+  border-left: 3px solid #ec4899;
 }
 
 .snippet-code-preview,
