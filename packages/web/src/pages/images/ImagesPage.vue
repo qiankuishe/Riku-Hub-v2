@@ -290,6 +290,7 @@ onMounted(() => {
           v-model="searchQuery"
           clearable
           placeholder="搜索文件名..."
+          size="small"
           style="width: 200px"
         >
           <template #prefix>
@@ -299,7 +300,7 @@ onMounted(() => {
 
         <!-- 批量操作（选中时显示） -->
         <ElDropdown v-if="selectedImages.length > 0" trigger="click">
-          <UiButton variant="primary">
+          <UiButton size="small" type="primary">
             <Icon icon="carbon:task" class="mr-1" />
             批量 ({{ selectedImages.length }})
           </UiButton>
@@ -330,14 +331,14 @@ onMounted(() => {
         </ElDropdown>
 
         <!-- 上传 -->
-        <UiButton variant="primary" :loading="uploading" @click="handleUploadClick">
+        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick">
           <Icon icon="carbon:upload" class="mr-1" />
           上传
         </UiButton>
 
         <!-- 排序 -->
         <ElDropdown trigger="click" @command="switchSort">
-          <UiButton>
+          <UiButton size="small">
             <Icon :icon="sortIcon" class="mr-1" />
             排序
           </UiButton>
@@ -352,7 +353,7 @@ onMounted(() => {
 
         <!-- 筛选 -->
         <ElDropdown trigger="click" @command="switchFilter">
-          <UiButton>
+          <UiButton size="small">
             <Icon :icon="filterIcon" class="mr-1" />
             筛选
           </UiButton>
@@ -368,7 +369,7 @@ onMounted(() => {
 
         <!-- 分类（文件类型） -->
         <ElDropdown trigger="click" @command="switchFileType">
-          <UiButton>
+          <UiButton size="small">
             <Icon :icon="fileTypeIcon" class="mr-1" />
             {{ fileType === 'all' ? '分类' : fileTypeConfig[fileType as FileType]?.name }}
           </UiButton>
@@ -385,7 +386,7 @@ onMounted(() => {
 
         <!-- 工具 -->
         <ElDropdown trigger="click">
-          <UiButton>
+          <UiButton size="small">
             <Icon icon="carbon:tools" class="mr-1" />
             工具
           </UiButton>
@@ -433,14 +434,14 @@ onMounted(() => {
     <div v-else-if="error" class="empty-state">
       <Icon icon="carbon:warning" class="error-icon" />
       <p>{{ error }}</p>
-      <UiButton @click="refresh">重试</UiButton>
+      <UiButton size="small" @click="refresh">重试</UiButton>
     </div>
 
     <!-- 空状态 -->
     <div v-else-if="paginatedImages.length === 0" class="empty-state">
       <Icon icon="carbon:cloud-upload" class="empty-icon" />
       <p>暂无文件</p>
-      <UiButton variant="primary" @click="handleUploadClick">上传文件</UiButton>
+      <UiButton type="primary" size="small" @click="handleUploadClick">上传文件</UiButton>
     </div>
 
     <!-- 文件网格 -->
@@ -490,22 +491,22 @@ onMounted(() => {
         <!-- 操作按钮 -->
         <div class="image-overlay">
           <div class="overlay-buttons">
-            <UiButton variant="icon" @click.stop="handlePreview(image)">
+            <UiButton size="small" circle @click.stop="handlePreview(image)">
               <Icon icon="carbon:view" />
             </UiButton>
-            <UiButton variant="icon" @click.stop="handleDownload(image)">
+            <UiButton size="small" circle @click.stop="handleDownload(image)">
               <Icon icon="carbon:download" />
             </UiButton>
-            <UiButton variant="icon" @click.stop="handleUpdateName(image)">
+            <UiButton size="small" circle @click.stop="handleUpdateName(image)">
               <Icon icon="carbon:edit" />
             </UiButton>
-            <UiButton variant="icon" @click.stop="copyLink(image)">
+            <UiButton size="small" circle @click.stop="copyLink(image)">
               <Icon icon="carbon:copy" />
             </UiButton>
-            <UiButton variant="icon" @click.stop="copyMarkdown(image)" title="复制 Markdown">
+            <UiButton size="small" circle @click.stop="copyMarkdown(image)" title="复制 Markdown">
               <Icon icon="carbon:code" />
             </UiButton>
-            <UiButton variant="icon" class="delete-btn" @click.stop="handleDelete(image)">
+            <UiButton size="small" circle class="delete-btn" @click.stop="handleDelete(image)">
               <Icon icon="carbon:trash-can" />
             </UiButton>
           </div>
@@ -527,6 +528,7 @@ onMounted(() => {
         :total="filteredImages.length"
         layout="prev, pager, next"
         background
+        size="small"
         @current-change="handlePageChange"
       />
     </div>
@@ -554,8 +556,8 @@ onMounted(() => {
         </p>
       </div>
       <template #footer>
-        <UiButton @click="showSettingsDialog = false">取消</UiButton>
-        <UiButton variant="primary" @click="saveSettings">保存</UiButton>
+        <UiButton size="small" @click="showSettingsDialog = false">取消</UiButton>
+        <UiButton type="primary" size="small" @click="saveSettings">保存</UiButton>
       </template>
     </ElDialog>
 
@@ -596,8 +598,8 @@ onMounted(() => {
         </div>
       </div>
       <template #footer>
-        <UiButton @click="showPreviewDialog = false">关闭</UiButton>
-        <UiButton variant="primary" @click="handleDownload(previewImage!)">
+        <UiButton size="small" @click="showPreviewDialog = false">关闭</UiButton>
+        <UiButton type="primary" size="small" @click="handleDownload(previewImage!)">
           <Icon icon="carbon:download" class="mr-1" />
           下载
         </UiButton>

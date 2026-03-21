@@ -181,11 +181,11 @@ async function logout() {
       </div>
 
       <div class="mt-4 toolbar-actions">
-        <UiButton variant="primary" :loading="exporting" :disabled="exporting" @click="exportData">
+        <UiButton type="primary" size="small" :loading="exporting" :disabled="exporting" @click="exportData">
           <Icon icon="carbon:download" class="mr-1" />
           导出
         </UiButton>
-        <UiButton :loading="importing" :disabled="importing" @click="triggerImportSelect">
+        <UiButton size="small" :loading="importing" :disabled="importing" @click="triggerImportSelect">
           <Icon icon="carbon:upload" class="mr-1" />
           {{ importing ? '导入中...' : '导入' }}
         </UiButton>
@@ -212,7 +212,7 @@ async function logout() {
               <h3 class="text-sm font-semibold text-red-900">{{ action.title }}</h3>
               <p class="mt-1 text-xs text-red-700/90">{{ action.description }}</p>
             </div>
-            <UiButton variant="danger" :loading="clearing === action.scope" @click="openDangerDialog(action)">
+            <UiButton size="small" type="danger" :loading="clearing === action.scope" @click="openDangerDialog(action)">
               {{ clearing === action.scope ? '处理中...' : '执行' }}
             </UiButton>
           </div>
@@ -234,7 +234,7 @@ async function logout() {
       </div>
 
       <div class="mt-4">
-        <UiButton variant="danger" @click="logout">
+        <UiButton type="danger" size="small" @click="logout">
           <Icon icon="carbon:logout" class="mr-1" />
           退出登录
         </UiButton>
@@ -255,8 +255,8 @@ async function logout() {
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UiButton @click="dangerTarget = null">取消</UiButton>
-          <UiButton variant="danger" :loading="Boolean(clearing)" :disabled="Boolean(clearing)" @click="runDangerAction">确认</UiButton>
+          <UiButton size="small" @click="dangerTarget = null">取消</UiButton>
+          <UiButton type="danger" size="small" :loading="Boolean(clearing)" :disabled="Boolean(clearing)" @click="runDangerAction">确认</UiButton>
         </div>
       </template>
     </ElDialog>

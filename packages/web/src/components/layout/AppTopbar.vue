@@ -15,7 +15,7 @@ const emit = defineEmits<{
 <template>
   <header class="topbar">
     <div class="topbar-title">
-      <UiButton class="menu-button" variant="text" @click="emit('menu')">
+      <UiButton class="menu-button" text size="small" @click="emit('menu')">
         <Icon icon="carbon:menu" />
         菜单
       </UiButton>
