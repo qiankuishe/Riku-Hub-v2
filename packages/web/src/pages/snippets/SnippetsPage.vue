@@ -524,7 +524,7 @@ function layoutMasonry() {
   let rightHeight = 0;
 
   // 左列第一个位置是快速收集表单，估算其高度
-  const quickCollectHeight = 350; // 快速收集表单的估算高度
+  const quickCollectHeight = 420; // 快速收集表单的估算高度（增加了 textarea 高度）
   leftHeight = quickCollectHeight;
 
   // 按顺序遍历所有剪贴板，放到高度更低的那一列
@@ -563,6 +563,8 @@ watch([searchQuery, filterType], async () => {
         
         <!-- 搜索筛选 -->
         <div class="flex flex-wrap items-center gap-2">
+          <ElInput v-model="searchQuery" size="small" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
+          
           <ElTag size="small">{{ filtered.length }} 条</ElTag>
           
           <!-- 自定义分段选择器 -->
@@ -586,8 +588,6 @@ watch([searchQuery, filterType], async () => {
               {{ option.label }}
             </button>
           </div>
-          
-          <ElInput v-model="searchQuery" size="small" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
         </div>
       </div>
 
@@ -624,8 +624,8 @@ watch([searchQuery, filterType], async () => {
 
               <div class="mt-2 grid gap-2">
                 <label class="text-xs text-gray-600">内容</label>
-                <ElInput v-if="draftType !== 'image'" v-model="draftContent" size="small" type="textarea" :rows="5" placeholder="输入内容" />
-                <div v-else class="rounded-lg border border-gray-200 bg-white p-2 min-h-[140px] flex items-center justify-center">
+                <ElInput v-if="draftType !== 'image'" v-model="draftContent" size="small" type="textarea" :rows="8" placeholder="输入内容" />
+                <div v-else class="rounded-lg border border-gray-200 bg-white p-2 min-h-[200px] flex items-center justify-center">
                   <div v-if="draftContent" class="snippet-image-preview-small">
                     <img :src="draftContent" alt="draft" />
                   </div>
@@ -633,16 +633,18 @@ watch([searchQuery, filterType], async () => {
                 </div>
               </div>
 
-              <div class="mt-2 flex flex-wrap items-center gap-1">
-                <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
-                  <Icon icon="carbon:paste" class="text-sm" />
-                </ElButton>
-                <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
-                  <Icon icon="carbon:image-search" class="text-sm" />
-                </ElButton>
-                <ElButton size="small" @click="triggerImageUpload">
-                  <Icon icon="carbon:upload" class="text-sm" />
-                </ElButton>
+              <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-1">
+                  <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
+                    <Icon icon="carbon:paste" class="text-sm" />
+                  </ElButton>
+                  <ElButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
+                    <Icon icon="carbon:image-search" class="text-sm" />
+                  </ElButton>
+                  <ElButton size="small" @click="triggerImageUpload">
+                    <Icon icon="carbon:upload" class="text-sm" />
+                  </ElButton>
+                </div>
                 <ElButton size="small" type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
                   <Icon icon="carbon:save" class="mr-1 text-sm" />
                   保存
