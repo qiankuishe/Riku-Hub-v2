@@ -22,7 +22,7 @@ export function useImageUpload() {
       const image = await imagesApi.upload(file);
       return image;
     } catch (error) {
-      console.error('Upload error:', error);
+      // Error is already logged by API client, just rethrow
       throw error;
     }
   }

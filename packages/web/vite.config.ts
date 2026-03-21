@@ -20,19 +20,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(__dirname, 'index.html'),
-        reset: resolve(__dirname, 'reset.html'),
-        // 旧路径（兼容）
-        login: resolve(__dirname, 'login.html'),
-        navigation: resolve(__dirname, 'navigation.html'),
-        nav: resolve(__dirname, 'nav.html'),
-        subscriptions: resolve(__dirname, 'subscriptions.html'),
-        clipboard: resolve(__dirname, 'clipboard.html'),
-        snippets: resolve(__dirname, 'snippets.html'),
-        notes: resolve(__dirname, 'notes.html'),
-        images: resolve(__dirname, 'images.html'),
-        logs: resolve(__dirname, 'logs.html'),
-        settings: resolve(__dirname, 'settings.html'),
-        // 新路径（/riku/*）
         'riku-login': resolve(__dirname, 'riku/login.html'),
         'riku-nav': resolve(__dirname, 'riku/nav.html'),
         'riku-images': resolve(__dirname, 'riku/images.html'),

@@ -1,0 +1,55 @@
+{
+  "name": "Riku-Hub - 个人知识中枢",
+  "short_name": "Riku-Hub",
+  "description": "集成网站导航、笔记管理、代码片段、图床服务等功能的个人知识管理平台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1f2937",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "网站导航",
+      "short_name": "导航",
+      "description": "快速访问收藏的网站",
+      "url": "/riku/nav",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "图床管理",
+      "short_name": "图床",
+      "description": "上传和管理图片文件",
+      "url": "/riku/images",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "笔记管理",
+      "short_name": "笔记",
+      "description": "创建和管理个人笔记",
+      "url": "/riku/notes",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "代码片段",
+      "short_name": "代码",
+      "description": "保存和管理代码片段",
+      "url": "/riku/snippets",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    }
+  ]
+}

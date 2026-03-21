@@ -12,6 +12,7 @@ import { mountSubscriptionsRoutes } from './routes/subscriptions';
 import images from './routes/images';
 import { proxyTelegramFile } from './services/telegram-service';
 import { filterClipboardItems, normalizeClipboardType } from './utils/clipboard';
+import { logger } from './utils/logger';
 import {
   mapClipboardItemRow,
   mapLogRow,
@@ -130,7 +131,7 @@ interface SettingsImportPayloadNormalized {
 }
 
 export interface Env {
-  APP_KV: KVNamespace;
+  APP_KV: KVNamespace; // Required for type compatibility, but runtime handles missing binding
   CACHE_KV: KVNamespace;
   DB?: D1Database;
   ASSETS?: Fetcher;
@@ -1831,7 +1832,7 @@ function normalizeNavigationBackup(
               url: rawUrl,
               reason: 'illegal_protocol'
             });
-            console.warn(`[Import] Skipping unsafe URL with illegal protocol: ${rawUrl}`);
+            logger.warn('Import: Skipping unsafe URL with illegal protocol', { url: rawUrl });
             return null;
           }
 
@@ -1845,7 +1846,7 @@ function normalizeNavigationBackup(
               url: rawUrl || normalizedUrl,
               reason: 'unsafe_url'
             });
-            console.warn(`[Import] Skipping unsafe URL after normalization: ${rawUrl} (normalized: ${normalizedUrl})`);
+            logger.warn('Import: Skipping unsafe URL after normalization', { rawUrl, normalizedUrl });
             return null;
           }
 
@@ -2181,6 +2182,13 @@ async function ensureKvDataMigratedToD1(env: Env): Promise<void> {
     return;
   }
 
+  // Check if APP_KV binding exists for legacy migration
+  if (!env.APP_KV) {
+    logger.migration('No APP_KV binding found, skipping legacy KV->D1 migration');
+    await setAppMetaValue(env, APP_KEYS.kvToD1Migrated, '1');
+    return;
+  }
+
   const legacyPayload = await readLegacySettingsFromKv(env);
   const hasLegacyData =
     legacyPayload.sources.length > 0 ||
@@ -2194,6 +2202,13 @@ async function ensureKvDataMigratedToD1(env: Env): Promise<void> {
     return;
   }
 
+  logger.migration('Migrating legacy data from KV to D1', { 
+    sources: legacyPayload.sources.length,
+    categories: legacyPayload.navigation.length,
+    notes: legacyPayload.notes.length,
+    snippets: legacyPayload.snippets.length,
+    clipboardItems: legacyPayload.clipboardItems.length
+  });
   await importSettingsBackupWithD1Transaction(env, legacyPayload);
   await setAppMetaValue(env, APP_KEYS.kvToD1Migrated, '1');
   await appendLog(
@@ -2236,6 +2251,17 @@ async function hasAnyD1UserData(env: Env): Promise<boolean> {
 }
 
 async function readLegacySettingsFromKv(env: Env): Promise<SettingsImportPayloadNormalized> {
+  // Return empty payload if APP_KV is not available
+  if (!env.APP_KV) {
+    return {
+      sources: [],
+      navigation: [],
+      notes: [],
+      snippets: [],
+      clipboardItems: []
+    };
+  }
+
   const sourceIds = await readKvIndexArray(env.APP_KV, APP_KEYS.sourceIndex);
   const categoryIds = await readKvIndexArray(env.APP_KV, APP_KEYS.navCategoryIndex);
   const noteIds = await readKvIndexArray(env.APP_KV, APP_KEYS.noteIndex);

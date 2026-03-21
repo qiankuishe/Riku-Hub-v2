@@ -6,6 +6,7 @@
 import { Hono } from 'hono';
 import { ImagesRepository } from '../repositories/images-repository';
 import { uploadToTelegram, proxyTelegramFile, detectFileType } from '../services/telegram-service';
+import { logger } from '../utils/logger';
 import type { ImageListParams } from '@riku-hub/shared/types/images';
 
 interface Env {
@@ -59,8 +60,7 @@ images.get('/list', async (c) => {
 images.post('/upload', async (c) => {
   const userId = c.get('userId');
   
-  // 调试日志
-  console.log('Upload request - userId:', userId, 'type:', typeof userId);
+  logger.debug('Upload request received', { userId, userIdType: typeof userId });
   
   const formData = await c.req.formData();
   const file = formData.get('file') as File;
@@ -72,17 +72,18 @@ images.post('/upload', async (c) => {
   // 检查文件大小（20MB 限制）
   const MAX_FILE_SIZE = 20 * 1024 * 1024;
   if (file.size > MAX_FILE_SIZE) {
+    logger.warn('File size exceeds limit', { userId, fileName: file.name, fileSize: file.size, limit: MAX_FILE_SIZE });
     return c.json({ error: '文件大小超过 20MB 限制' }, 400);
   }
 
   try {
     // 上传到 Telegram
     const telegramFileId = await uploadToTelegram(file, c.env);
-    console.log('Telegram upload success - fileId:', telegramFileId);
+    logger.debug('Telegram upload successful', { userId, telegramFileId, fileName: file.name });
 
     // 检测文件类型
     const fileType = detectFileType(file.name, file.type);
-    console.log('File type detected:', fileType);
+    logger.debug('File type detected', { userId, fileType, fileName: file.name });
 
     // 保存到数据库
     const repository = new ImagesRepository(c.env.DB);
@@ -93,16 +94,14 @@ images.post('/upload', async (c) => {
       fileType,
       telegramFileId
     };
-    console.log('Creating image record:', JSON.stringify(createData));
     
     const image = await repository.create(createData);
-    console.log('Image created successfully:', image.id);
+    logger.info('Image uploaded successfully', { userId, imageId: image.id, fileName: file.name, fileSize: file.size });
 
     return c.json({ image });
   } catch (error) {
-    console.error('Upload error:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
-    return c.json({ error: error instanceof Error ? error.message : '上传失败' }, 500);
+    logger.error('Image upload failed', error, { userId, fileName: file.name, fileSize: file.size });
+    return c.json({ error: '上传失败' }, 500);
   }
 });
 

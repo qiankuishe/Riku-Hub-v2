@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import { CompatHttpError, CompatService } from '../services/compat-service';
 import { CompatRepository } from '../repositories/compat-repository';
+import { logger } from '../utils/logger';
 import type {
   CompatBindings,
   CompatClipboardCreateInput,
@@ -287,13 +288,13 @@ async function logSecurityEvent(env: CompatBindings, event: {
         new Date(event.timestamp).toISOString()
       ).run();
     } catch (error) {
-      // 日志记录失败不应影响主流程，仅输出到控制台
-      console.error('[Security] Failed to log event:', error);
+      // 日志记录失败不应影响主流程
+      logger.error('Security: Failed to log event to database', error);
     }
   }
   
-  // 同时输出到控制台
-  console.warn(`[Security] ${event.type}:`, {
+  // 输出安全事件日志
+  logger.security(event.type, {
     username: event.username,
     email: event.email,
     ip: event.ip,

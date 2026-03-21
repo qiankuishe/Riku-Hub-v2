@@ -4,6 +4,7 @@
 
 import { readResponseBytesWithLimit } from './http';
 import { assertSafeUrl } from './ssrf';
+import { API_ENDPOINTS } from '../config/api-endpoints';
 
 // 常量
 const MAX_FAVICON_BYTES = 512 * 1024; // 512KB
@@ -27,8 +28,8 @@ const CACHE_KEYS: CacheKeys = {
  */
 export async function fetchAndCacheFavicon(env: Env, hostname: string): Promise<string | null> {
   const faviconSources = [
-    `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(hostname)}`,
-    `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(`https://${hostname}`)}&size=64`
+    API_ENDPOINTS.favicon.google(hostname),
+    API_ENDPOINTS.favicon.gstatic(hostname)
   ];
 
   for (const source of faviconSources) {

@@ -67,7 +67,7 @@ export function useImageOperations() {
           await imagesApi.delete(image.id);
           successCount++;
         } catch (error) {
-          console.error('Delete error:', error);
+          // Error already logged by API client, silently continue
         }
       }
 
@@ -258,7 +258,7 @@ export function useImageOperations() {
           await imagesApi.updateListType(image.id, listType);
           successCount++;
         } catch (error) {
-          console.error('Update error:', error);
+          // Error already logged by API client, silently continue
         }
       }
 

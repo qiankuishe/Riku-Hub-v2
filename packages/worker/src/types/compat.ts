@@ -1,5 +1,5 @@
 export interface CompatBindings {
-  APP_KV: KVNamespace;
+  APP_KV: KVNamespace; // Required for type compatibility, runtime handles missing binding
   CACHE_KV: KVNamespace;
   DB?: D1Database;
   ADMIN_USERNAME?: string;

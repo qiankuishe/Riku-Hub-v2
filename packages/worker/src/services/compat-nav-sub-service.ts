@@ -20,14 +20,12 @@ import {
   CompatNavSubRepository,
 } from '../repositories/compat-nav-sub-repository';
 import type { CompatNavigationCategoryRecord, CompatNavigationLinkRecord } from '../types/compat-nav-sub';
-
-const MAX_REDIRECTS = 3;
-const FETCH_TIMEOUT_MS = 30_000;
-const DNS_QUERY_TIMEOUT_MS = 4_000;
-const MAX_SUBSCRIPTION_BYTES = 5 * 1024 * 1024;
-const MAX_SUBSCRIPTION_EXPANSION_DEPTH = 2;
-const MAX_SUBSCRIPTION_FETCH_CONCURRENCY = 8;
-const MAX_SUBSCRIPTION_URLS_PER_SOURCE = 64;
+import {
+  expandSourceContent,
+  resolveNodesFromInput,
+  fetchSubscription
+} from './subscription-parser-service';
+import { formatError } from '../utils/error';
 
 export class CompatNavSubHttpError extends Error {
   constructor(
@@ -436,7 +434,7 @@ export class CompatNavSubService {
   }
 
   private async validateContent(content: string): Promise<ValidationSummary> {
-    const resolved = await resolveNodesFromInput(this.repository, content);
+    const resolved = await resolveNodesFromInput(this.repository.getEnv(), content);
     const { nodes, duplicateCount } = deduplicateNodes(resolved.nodes);
     return {
       valid: resolved.urlCount > 0 || resolved.nodes.length > 0,
@@ -471,7 +469,7 @@ export class CompatNavSubService {
       const updatedSources: SourceRecord[] = [];
 
       for (const source of enabledSources) {
-        const expanded = await expandSourceContent(this.repository, source.content);
+        const expanded = await expandSourceContent(this.repository.getEnv(), source.content);
         aggregated.push(...expanded.uniqueNodes);
         warnings.push(...expanded.warnings);
         if (expanded.uniqueNodes.length !== source.nodeCount) {
@@ -620,274 +618,7 @@ function getHttpsOrigin(request: Request): string {
   return `https://${url.host}`;
 }
 
-async function fetchSubscription(repository: CompatNavSubRepository, rawUrl: string, depth = 0): Promise<{ text: string }> {
-  if (depth > MAX_REDIRECTS) {
-    throw new Error(`重定向次数超过 ${MAX_REDIRECTS} 次`);
-  }
-
-  const url = new URL(fixUrl(rawUrl));
-  await assertSafeUrl(repository, url);
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(url.toString(), {
-      headers: { 'User-Agent': 'Riku-Hub/0.1' },
-      redirect: 'manual',
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (!location) {
-        throw new Error('上游返回重定向但缺少 Location');
-      }
-      const redirected = new URL(location, url);
-      return fetchSubscription(repository, redirected.toString(), depth + 1);
-    }
-
-    if (!response.ok) {
-      const statusText = response.statusText?.trim() || '<none>';
-      throw new Error(`HTTP ${response.status}: ${statusText} (${url.hostname})`);
-    }
-
-    const contentLength = response.headers.get('content-length');
-    if (contentLength && Number.parseInt(contentLength, 10) > MAX_SUBSCRIPTION_BYTES) {
-      throw new Error(`响应过大: ${contentLength} 字节（限制 ${MAX_SUBSCRIPTION_BYTES}）`);
-    }
-
-    const text = await readResponseTextWithLimit(response, MAX_SUBSCRIPTION_BYTES, controller);
-
-    return { text };
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`请求超时（${FETCH_TIMEOUT_MS / 1000}秒）`);
-    }
-    throw error;
-  }
-}
-
-async function expandSourceContent(
-  repository: CompatNavSubRepository,
-  content: string
-): Promise<{
-  uniqueNodes: NormalizedNode[];
-  warnings: AggregateWarning[];
-}> {
-  const resolved = await resolveNodesFromInput(repository, content);
-  const deduped = deduplicateNodes(resolved.nodes);
-  return { uniqueNodes: deduped.nodes, warnings: resolved.warnings };
-}
-
-async function resolveNodesFromInput(
-  repository: CompatNavSubRepository,
-  content: string,
-  depth = 0,
-  visitedUrls?: Set<string>
-): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return { nodes: [], warnings: [], urlCount: 0 };
-  }
-
-  const mixed = parseMixedInput(trimmed);
-  if (mixed.urls.length === 0 && mixed.nodes.length === 0) {
-    const format = detectInputFormat(trimmed);
-    const parsed = parseContent(trimmed, format);
-    return { nodes: parsed.nodes, warnings: parsed.warnings, urlCount: 0 };
-  }
-
-  const nodes = [...mixed.nodes];
-  const warnings = [...mixed.warnings];
-  const urlsToProcess = mixed.urls.slice(0, MAX_SUBSCRIPTION_URLS_PER_SOURCE);
-  if (mixed.urls.length > MAX_SUBSCRIPTION_URLS_PER_SOURCE) {
-    warnings.push({
-      code: 'fetch-failed',
-      message: `订阅链接数量超过限制（${MAX_SUBSCRIPTION_URLS_PER_SOURCE}），已忽略多余链接`,
-      context: String(mixed.urls.length)
-    });
-  }
-  let urlCount = urlsToProcess.length;
-  const seen = visitedUrls ?? new Set<string>();
-
-  if (depth >= MAX_SUBSCRIPTION_EXPANSION_DEPTH) {
-    for (const rawUrl of urlsToProcess) {
-      warnings.push({
-        code: 'fetch-failed',
-        message: `订阅嵌套层级超过限制（${MAX_SUBSCRIPTION_EXPANSION_DEPTH}）`,
-        context: rawUrl
-      });
-    }
-    return { nodes, warnings, urlCount };
-  }
-
-  const results = await mapWithConcurrency(
-    urlsToProcess,
-    MAX_SUBSCRIPTION_FETCH_CONCURRENCY,
-    async (rawUrl): Promise<{ nodes: NormalizedNode[]; warnings: AggregateWarning[]; urlCount: number }> => {
-      const normalizedUrl = fixUrl(rawUrl);
-      if (seen.has(normalizedUrl)) {
-        return { nodes: [], warnings: [], urlCount: 0 };
-      }
-
-      seen.add(normalizedUrl);
-      try {
-        const fetched = await fetchSubscription(repository, normalizedUrl);
-        return await resolveNodesFromInput(repository, fetched.text, depth + 1, seen);
-      } catch (error) {
-        return {
-          nodes: [],
-          warnings: [{ code: 'fetch-failed', message: formatSubscriptionFetchError(rawUrl, error), context: rawUrl }],
-          urlCount: 0
-        };
-      }
-    }
-  );
-
-  for (const result of results) {
-    nodes.push(...result.nodes);
-    warnings.push(...result.warnings);
-    urlCount += result.urlCount;
-  }
-
-  return { nodes, warnings, urlCount };
-}
-
-async function mapWithConcurrency<TInput, TOutput>(
-  inputs: TInput[],
-  concurrency: number,
-  mapper: (input: TInput, index: number) => Promise<TOutput>
-): Promise<TOutput[]> {
-  if (inputs.length === 0) {
-    return [];
-  }
-  const limit = Math.max(1, Math.min(concurrency, inputs.length));
-  const results = new Array<TOutput>(inputs.length);
-  let nextIndex = 0;
-
-  const workers = Array.from({ length: limit }, async () => {
-    while (true) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      if (currentIndex >= inputs.length) {
-        return;
-      }
-      results[currentIndex] = await mapper(inputs[currentIndex], currentIndex);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
-}
-
-async function readResponseTextWithLimit(
-  response: Response,
-  maxBytes: number,
-  controller?: AbortController
-): Promise<string> {
-  if (!response.body) {
-    const text = await response.text();
-    const bytes = new TextEncoder().encode(text).byteLength;
-    if (bytes > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytes} 字节（限制 ${maxBytes}）`);
-    }
-    return text;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let bytesRead = 0;
-  let text = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    if (!value) {
-      continue;
-    }
-    bytesRead += value.byteLength;
-    if (bytesRead > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-
-  text += decoder.decode();
-  return text;
-}
-
-async function assertSafeUrl(_repository: CompatNavSubRepository, url: URL): Promise<void> {
-  if (!['http:', 'https:'].includes(url.protocol)) {
-    throw new Error(`禁止协议: ${url.protocol}`);
-  }
-
-  const hostname = url.hostname.toLowerCase();
-  if (['localhost', 'localhost.localdomain', '0.0.0.0', '::1', '[::1]', '[::]'].includes(hostname)) {
-    throw new Error(`禁止访问内网主机: ${hostname}`);
-  }
-
-  if (isInternalHostname(hostname)) {
-    throw new Error(`禁止访问内网域名: ${hostname}`);
-  }
-
-  if (isIpAddress(hostname)) {
-    if (isBlockedIp(hostname)) {
-      throw new Error(`禁止访问保留地址: ${hostname}`);
-    }
-    return;
-  }
-
-  const addresses = await resolveAddresses(hostname);
-  for (const address of addresses) {
-    if (isBlockedIp(address)) {
-      throw new Error(`域名解析命中保留地址: ${hostname} -> ${address}`);
-    }
-  }
-}
-
-async function resolveAddresses(hostname: string): Promise<string[]> {
-  const [aRecords, aaaaRecords] = await Promise.all([resolveDnsType(hostname, 'A'), resolveDnsType(hostname, 'AAAA')]);
-  return [...aRecords, ...aaaaRecords];
-}
-
-async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<string[]> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DNS_QUERY_TIMEOUT_MS);
-  try {
-    const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
-      headers: { Accept: 'application/dns-json' },
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      throw new Error(`DNS 查询失败: HTTP ${response.status}`);
-    }
-    const data = (await response.json()) as { Answer?: Array<{ data?: string; type?: number }> };
-    return (data.Answer ?? [])
-      .filter((record) => Boolean(record.data))
-      .map((record) => String(record.data))
-      .filter((value) => (type === 'A' ? isIpv4(value) : isIpv6(value)));
-  } catch (error) {
-    throw new Error(`DNS 解析失败 (${hostname} ${type}): ${formatError(error)}`);
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function formatSubscriptionFetchError(rawUrl: string, error: unknown): string {
-  return `拉取订阅失败 [${rawUrl}]: ${formatError(error)}`;
-}
+// 以下函数已移至 subscription-parser-service.ts，这里保留本地需要的工具函数
 
 function isInternalHostname(hostname: string): boolean {
   return ['.local', '.internal', '.lan', '.home', '.corp', '.intranet'].some((suffix) => hostname.endsWith(suffix));

@@ -10,15 +10,13 @@ echo ""
 
 # 1. 构建前端
 echo "📦 步骤 1/4: 构建前端..."
-cd packages/web
-npm run build
-cd ../..
+pnpm --filter @riku-hub/web build
 echo "✅ 前端构建完成"
 echo ""
 
 # 2. 部署到 Cloudflare
 echo "☁️  步骤 2/4: 部署到 Cloudflare Workers..."
-npx wrangler deploy
+pnpm wrangler deploy
 echo "✅ 部署完成"
 echo ""
 

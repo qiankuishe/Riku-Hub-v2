@@ -35,6 +35,11 @@ const CACHE_KEYS = {
 export class CompatNavSubRepository {
   constructor(private readonly env: CompatNavSubBindings) {}
 
+  /** 获取环境绑定对象，用于共享服务 */
+  getEnv(): CompatNavSubBindings {
+    return this.env;
+  }
+
   async getNavigationTree(): Promise<CompatNavigationCategoryPayload[]> {
     await this.ensureNavigationSeeded();
     const categories = await this.getNavigationCategories();

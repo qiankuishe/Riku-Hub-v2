@@ -1,5 +1,5 @@
 export interface AuthBindings {
-  APP_KV: KVNamespace;
+  APP_KV: KVNamespace; // Required for type compatibility, runtime handles missing binding
   DB?: D1Database;
   ADMIN_USERNAME?: string;
   ADMIN_PASSWORD_HASH?: string;

@@ -6,6 +6,7 @@
  */
 
 import { formatError } from './error';
+import { API_ENDPOINTS } from '../config/api-endpoints';
 
 // 常量
 const DNS_QUERY_TIMEOUT_MS = 4_000;
@@ -83,7 +84,7 @@ async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<str
 
   try {
     const response = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`,
+      `${API_ENDPOINTS.dns.cloudflare}?name=${encodeURIComponent(hostname)}&type=${type}`,
       {
         headers: { Accept: 'application/dns-json' },
         signal: controller.signal

@@ -31,17 +31,18 @@ export function resolvePageAssetPath(request: Request): string | null {
 
   const pageMap: Record<string, string> = {
     '/': '/index.html',
-    '/reset': '/reset.html',
-    '/login': '/login.html',
-    '/nav': '/nav.html',
-    '/navigation': '/navigation.html',
-    '/subscriptions': '/subscriptions.html',
-    '/notes': '/notes.html',
-    '/snippets': '/snippets.html',
-    '/images': '/images.html',
-    '/clipboard': '/clipboard.html',
-    '/logs': '/logs.html',
-    '/settings': '/settings.html'
+    // Legacy routes redirect to /riku/* paths
+    '/login': '/riku/login.html',
+    '/nav': '/riku/nav.html',
+    '/navigation': '/riku/nav.html',
+    '/subscriptions': '/riku/subscriptions.html',
+    '/notes': '/riku/notes.html',
+    '/snippets': '/riku/snippets.html',
+    '/images': '/riku/images.html',
+    '/clipboard': '/riku/snippets.html', // clipboard maps to snippets
+    '/logs': '/riku/logs.html',
+    '/settings': '/riku/settings.html'
+    // Note: /reset removed as it's no longer needed
   };
 
   return pageMap[pathname] ?? null;

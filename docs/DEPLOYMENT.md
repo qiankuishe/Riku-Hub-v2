@@ -6,9 +6,10 @@
 
 - `CACHE_KV`：缓存 KV，存聚合结果、格式化输出、favicon 和 DNS 缓存。
 - `DB`：Cloudflare D1，存结构化业务表。
+- `APP_KV`：兼容性绑定，复用 CACHE_KV 的 namespace ID，用于类型兼容和遗留迁移逻辑。
 
-当前仓库默认部署只需要 `CACHE_KV` 和 `DB`。  
-`APP_KV` 仅作为兼容分支保留，不在当前默认部署链路中要求绑定。
+当前仓库部署需要 `CACHE_KV`、`DB` 和 `APP_KV`（兼容性绑定）。  
+运行时代码通过 null 检查优雅处理 APP_KV 缺失的情况，但为了类型兼容性，wrangler.toml 中保持绑定。
 
 ## 迁移顺序
 
@@ -82,8 +83,8 @@ pnpm deploy
 
 - `GET /api/navigation` 和 `GET /api/snippets` 是当前主接口。
 - `GET /api/nav` 和 `GET /api/clipboard` 仍保留为兼容别名。
-- 页面路由当前以 `/nav` 和 `/snippets` 为准。
-- `/navigation` 和 `/clipboard` 仍会被前端路径归一化到主路由，但它们属于兼容入口，不建议当作新链接写进文档或配置。
+- 页面路由当前以 `/riku/nav`、`/riku/snippets`、`/riku/notes` 等 `/riku/*` 路径为准。
+- 旧路径（`/nav`、`/snippets`、`/notes`、`/login`、`/images` 等）会被自动重定向到对应的 `/riku/*` 路径，属于兼容入口，不建议写进新文档或配置。
 
 
 ## 安全配置指南

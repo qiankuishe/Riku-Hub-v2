@@ -1,3 +1,5 @@
+import { API_ENDPOINTS } from '../config/api-endpoints';
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) {
     return `${bytes} B`;
@@ -26,8 +28,8 @@ export function parseCsvList(value: string | null | undefined): string[] {
 
 export function buildFaviconUrl(url: string): string {
   try {
-    return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(new URL(url).hostname)}`;
+    return API_ENDPOINTS.favicon.google(new URL(url).hostname);
   } catch {
-    return 'https://www.google.com/s2/favicons?sz=64&domain=localhost';
+    return API_ENDPOINTS.favicon.google('localhost');
   }
 }

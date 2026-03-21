@@ -11,7 +11,7 @@ Cloudflare Workers 版的 Riku-Hub 聚合服务。当前仓库保留了主接口
   - 后台管理：`/riku/*`（可配置 Cloudflare Access 保护）
   - 图片外链：`/i/:id/:filename`（公开访问）
 - 图床功能完整上线（Telegram 存储）
-- 最新验证：`check + test` 全通过（`67/67`）
+- 最新验证：`check + test` 全通过（`70/70`）
 
 ## 架构说明
 
@@ -92,12 +92,10 @@ pnpm dev:worker
 
 ```bash
 # 构建前端
-cd packages/web
-npm run build
+pnpm --filter @riku-hub/web build
 
 # 部署到 Cloudflare
-cd ../..
-npx wrangler deploy
+pnpm wrangler deploy
 ```
 
 或使用 workspace 命令：
@@ -106,6 +104,7 @@ npx wrangler deploy
 pnpm check    # 类型检查
 pnpm test     # 运行测试
 pnpm build    # 构建项目
+pnpm deploy   # 检查 + 测试 + 构建 + 部署
 ```
 
 ## 路由说明

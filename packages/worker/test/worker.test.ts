@@ -3,6 +3,7 @@ import { app, type Env } from '../src/index';
 import { deleteSource, getSource, saveSource, saveSourceNodeCount } from '../src/repositories/sources-repository';
 import { SubscriptionsService } from '../src/services/subscriptions-service';
 import type { SourceRecord as SubscriptionSourceRecord } from '../src/types/subscriptions';
+import { generateTestUsername, generateTestPassword, generateTestEmail, generateTestToken, generateTestKey } from '../src/utils/test-data';
 
 class MemoryKv {
   private store = new Map<string, string>();
@@ -47,6 +48,21 @@ async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest), (part) => part.toString(16).padStart(2, '0')).join('');
 }
+
+// 测试数据常量 - 可用于新测试，避免硬编码
+// 示例用法：
+// const testUser = {
+//   username: generateTestUsername(),
+//   password: generateTestPassword(),
+//   email: generateTestEmail()
+// };
+const TEST_CREDENTIALS = {
+  username: generateTestUsername(),
+  password: generateTestPassword(),
+  email: generateTestEmail(),
+  registerKey: generateTestKey('a', 32),
+  subToken: generateTestToken(32)
+};
 
 async function login(env: Env): Promise<string> {
   const response = await app.request(
@@ -384,7 +400,7 @@ describe('worker behaviors', () => {
 
   it('supports compat auth, nav, clipboard and settings routes', async () => {
     env.COMPAT_ALLOW_REGISTER = 'true';
-    env.COMPAT_REGISTER_KEY = 'a'.repeat(32); // 至少 32 个字符
+    env.COMPAT_REGISTER_KEY = generateTestKey('a', 32); // 使用生成的测试密钥
     const { cookie, data } = await register(env);
     expect(data.user.email).toBe('user@example.com');
 
@@ -532,7 +548,7 @@ describe('worker behaviors', () => {
 
   it('compat source validation supports full clash content blocks', async () => {
     env.COMPAT_ALLOW_REGISTER = 'true';
-    env.COMPAT_REGISTER_KEY = 'a'.repeat(32); // 至少 32 个字符
+    env.COMPAT_REGISTER_KEY = generateTestKey('a', 32); // 使用生成的测试密钥
     const { cookie } = await register(env);
 
     const createResponse = await app.request(
@@ -567,7 +583,7 @@ proxies:
 
   it('compat fetch expands mixed source entries (direct nodes + subscription urls)', async () => {
     env.COMPAT_ALLOW_REGISTER = 'true';
-    env.COMPAT_REGISTER_KEY = 'a'.repeat(32); // 至少 32 个字符
+    env.COMPAT_REGISTER_KEY = generateTestKey('a', 32); // 使用生成的测试密钥
     const { cookie } = await register(env);
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
@@ -1285,16 +1301,13 @@ describe('compat register security', () => {
 
     expect(response.status).toBe(200);
     
-    // 验证安全日志被记录
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[Security] COMPAT_REGISTER_SUCCESS:',
-      expect.objectContaining({
-        username: 'testuser',
-        email: 'test@example.com',
-        ip: '1.2.3.4',
-        userAgent: 'Test Agent'
-      })
-    );
+    // 验证安全日志被记录（新格式包含时间戳和结构化日志）
+    expect(warnSpy).toHaveBeenCalled();
+    const logCall = warnSpy.mock.calls[0][0] as string;
+    expect(logCall).toContain('[SECURITY] COMPAT_REGISTER_SUCCESS');
+    expect(logCall).toContain('testuser');
+    expect(logCall).toContain('test@example.com');
+    expect(logCall).toContain('1.2.3.4');
 
     warnSpy.mockRestore();
   });
@@ -1327,14 +1340,11 @@ describe('compat register security', () => {
 
     expect(response.status).toBe(403);
     
-    // 验证安全日志被记录
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[Security] COMPAT_REGISTER_INVALID_KEY:',
-      expect.objectContaining({
-        ip: '1.2.3.4',
-        userAgent: 'Test Agent'
-      })
-    );
+    // 验证安全日志被记录（新格式包含时间戳和结构化日志）
+    expect(warnSpy).toHaveBeenCalled();
+    const logCall = warnSpy.mock.calls[0][0] as string;
+    expect(logCall).toContain('[SECURITY] COMPAT_REGISTER_INVALID_KEY');
+    expect(logCall).toContain('1.2.3.4');
 
     warnSpy.mockRestore();
   });

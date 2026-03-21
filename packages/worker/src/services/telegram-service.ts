@@ -3,6 +3,8 @@
  * 用于上传文件到 Telegram 并获取文件链接
  */
 
+import { API_ENDPOINTS } from '../config/api-endpoints';
+
 export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
@@ -56,7 +58,7 @@ export async function uploadToTelegram(
   formData.append('document', file);
 
   const response = await fetch(
-    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`,
+    `${API_ENDPOINTS.telegram.base(env.TELEGRAM_BOT_TOKEN)}/sendDocument`,
     {
       method: 'POST',
       body: formData
@@ -85,7 +87,7 @@ export async function getFileUrl(
   env: Env
 ): Promise<string> {
   const response = await fetch(
-    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`
+    `${API_ENDPOINTS.telegram.base(env.TELEGRAM_BOT_TOKEN)}/getFile?file_id=${fileId}`
   );
 
   if (!response.ok) {
@@ -98,7 +100,7 @@ export async function getFileUrl(
     throw new Error(data.description || 'Failed to get file URL');
   }
 
-  return `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${data.result.file_path}`;
+  return `${API_ENDPOINTS.telegram.file(env.TELEGRAM_BOT_TOKEN)}/${data.result.file_path}`;
 }
 
 /**
