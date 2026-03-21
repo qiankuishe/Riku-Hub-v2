@@ -564,9 +564,9 @@ watch([searchQuery, filterType], async () => {
         
         <!-- 搜索筛选 -->
         <div class="flex flex-wrap items-center gap-2">
-          <ElInput v-model="searchQuery" size="small" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
+          <ElInput v-model="searchQuery" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
           
-          <ElTag size="small">{{ filtered.length }} 条</ElTag>
+          <ElTag>{{ filtered.length }} 条</ElTag>
           
           <!-- 自定义分段选择器 -->
           <div class="segmented-control">
@@ -608,24 +608,24 @@ watch([searchQuery, filterType], async () => {
             <div class="quick-collect-card content-card">
               <div class="mb-2 flex items-center justify-between">
                 <h4 class="text-sm font-semibold text-gray-900">快速收集</h4>
-                <ElTag size="small" type="info">{{ draftSizeText }}</ElTag>
+                <ElTag type="info">{{ draftSizeText }}</ElTag>
               </div>
 
               <div class="grid gap-2">
                 <label class="text-xs text-gray-600">类型</label>
-                <ElSelect v-model="draftType" size="small">
+                <ElSelect v-model="draftType">
                   <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
                 </ElSelect>
               </div>
 
               <div class="mt-2 grid gap-2">
                 <label class="text-xs text-gray-600">标题</label>
-                <ElInput v-model="draftTitle" size="small" placeholder="可选，留空自动生成" />
+                <ElInput v-model="draftTitle" placeholder="可选，留空自动生成" />
               </div>
 
               <div class="mt-2 grid gap-2">
                 <label class="text-xs text-gray-600">内容</label>
-                <ElInput v-if="draftType !== 'image'" v-model="draftContent" size="small" type="textarea" :rows="8" placeholder="输入内容" />
+                <ElInput v-if="draftType !== 'image'" v-model="draftContent" type="textarea" :rows="8" placeholder="输入内容" />
                 <div v-else class="rounded-lg border border-gray-200 bg-white p-2 min-h-[200px] flex items-center justify-center">
                   <div v-if="draftContent" class="snippet-image-preview-small">
                     <img :src="draftContent" alt="draft" />
@@ -636,17 +636,17 @@ watch([searchQuery, filterType], async () => {
 
               <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
                 <div class="flex flex-wrap items-center gap-1">
-                  <UiButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
+                  <UiButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
                     <Icon icon="carbon:paste" class="text-sm" />
                   </UiButton>
-                  <UiButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
+                  <UiButton :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
                     <Icon icon="carbon:image-search" class="text-sm" />
                   </UiButton>
-                  <UiButton size="small" @click="triggerImageUpload">
+                  <UiButton @click="triggerImageUpload">
                     <Icon icon="carbon:upload" class="text-sm" />
                   </UiButton>
                 </div>
-                <UiButton size="small" type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
+                <UiButton variant="primary" :loading="saving" :disabled="saving" @click="createSnippet">
                   <Icon icon="carbon:save" class="mr-1 text-sm" />
                   保存
                 </UiButton>
@@ -670,19 +670,19 @@ watch([searchQuery, filterType], async () => {
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
                 <div class="snippet-tools flex flex-shrink-0">
-                  <UiButton size="small" text @click="togglePin(snippet)">
+                  <UiButton variant="text" @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
                   </UiButton>
-                  <UiButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                  <UiButton variant="text" @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
                     <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
                   </UiButton>
-                  <UiButton size="small" text @click="copySnippet(snippet)">
+                  <UiButton variant="text" @click="copySnippet(snippet)">
                     <Icon icon="carbon:copy" />
                   </UiButton>
-                  <UiButton size="small" text @click="openEditDialog(snippet)">
+                  <UiButton variant="text" @click="openEditDialog(snippet)">
                     <Icon icon="carbon:edit" />
                   </UiButton>
-                  <UiButton size="small" text type="danger" @click="deleteTarget = snippet">
+                  <UiButton variant="text-danger" @click="deleteTarget = snippet">
                     <Icon icon="carbon:trash-can" />
                   </UiButton>
                 </div>
@@ -711,19 +711,19 @@ watch([searchQuery, filterType], async () => {
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
                 <div class="snippet-tools flex flex-shrink-0">
-                  <UiButton size="small" text @click="togglePin(snippet)">
+                  <UiButton variant="text" @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
                   </UiButton>
-                  <UiButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                  <UiButton variant="text" @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
                     <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
                   </UiButton>
-                  <UiButton size="small" text @click="copySnippet(snippet)">
+                  <UiButton variant="text" @click="copySnippet(snippet)">
                     <Icon icon="carbon:copy" />
                   </UiButton>
-                  <UiButton size="small" text @click="openEditDialog(snippet)">
+                  <UiButton variant="text" @click="openEditDialog(snippet)">
                     <Icon icon="carbon:edit" />
                   </UiButton>
-                  <UiButton size="small" text type="danger" @click="deleteTarget = snippet">
+                  <UiButton variant="text-danger" @click="deleteTarget = snippet">
                     <Icon icon="carbon:trash-can" />
                   </UiButton>
                 </div>
@@ -751,17 +751,17 @@ watch([searchQuery, filterType], async () => {
       <div class="grid gap-3">
         <div class="grid gap-2">
           <label class="text-sm text-gray-600">类型</label>
-          <ElSelect v-model="editType" size="small">
+          <ElSelect v-model="editType">
             <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
           </ElSelect>
         </div>
         <div class="grid gap-2">
           <label class="text-sm text-gray-600">标题</label>
-          <ElInput v-model="editTitle" size="small" />
+          <ElInput v-model="editTitle" />
         </div>
         <div class="grid gap-2">
           <label class="text-sm text-gray-600">内容</label>
-          <ElInput v-if="editType !== 'image'" v-model="editContent" size="small" type="textarea" :rows="8" />
+          <ElInput v-if="editType !== 'image'" v-model="editContent" type="textarea" :rows="8" />
           <div v-else class="rounded-xl border border-gray-200 bg-white p-3">
             <div v-if="editContent" class="snippet-image-preview">
               <img :src="editContent" alt="snippet-preview" />
@@ -773,8 +773,8 @@ watch([searchQuery, filterType], async () => {
       <ElAlert v-if="editErrorMessage" class="mt-3" :closable="false" show-icon type="error" :title="editErrorMessage" />
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UiButton size="small" @click="closeEditDialog">取消</UiButton>
-          <UiButton size="small" type="primary" :loading="saving" :disabled="saving" @click="saveEdit">保存</UiButton>
+          <UiButton @click="closeEditDialog">取消</UiButton>
+          <UiButton variant="primary" :loading="saving" :disabled="saving" @click="saveEdit">保存</UiButton>
         </div>
       </template>
     </ElDialog>

@@ -296,11 +296,11 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           <p class="text-sm text-gray-500">统一管理订阅源并输出多格式链接。</p>
         </div>
         <div class="toolbar-actions">
-          <UiButton size="small" :loading="refreshing" @click="refreshAggregation">
+          <UiButton :loading="refreshing" @click="refreshAggregation">
             <Icon icon="carbon:renew" class="mr-1" />
             {{ refreshing ? '刷新中...' : '刷新缓存' }}
           </UiButton>
-          <UiButton type="primary" size="small" @click="openCreateDialog">
+          <UiButton variant="primary" @click="openCreateDialog">
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增订阅源
           </UiButton>
@@ -315,7 +315,7 @@ function formatValidationWarning(warning: { message: string; context?: string | 
         <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
           <p class="text-xs text-gray-500">缓存状态</p>
           <div class="mt-1">
-            <ElTag size="small" :type="cacheStatusMeta.type">{{ cacheStatusMeta.label }}</ElTag>
+            <ElTag :type="cacheStatusMeta.type">{{ cacheStatusMeta.label }}</ElTag>
           </div>
         </div>
         <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
@@ -333,8 +333,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           <div class="mb-2 flex items-center justify-between gap-3">
             <strong class="text-sm text-gray-900">{{ format.name }}</strong>
             <div class="toolbar-actions">
-              <UiButton size="small" @click="copyLink(format.url)">复制</UiButton>
-              <UiButton size="small" @click="openQr(format.name, format.url)">二维码</UiButton>
+              <UiButton @click="copyLink(format.url)">复制</UiButton>
+              <UiButton @click="openQr(format.name, format.url)">二维码</UiButton>
             </div>
           </div>
           <p class="break-all text-xs leading-5 text-gray-500">{{ format.url }}</p>
@@ -372,20 +372,20 @@ function formatValidationWarning(warning: { message: string; context?: string | 
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <h4 class="truncate text-sm font-semibold text-gray-900">{{ source.name }}</h4>
-                <ElTag v-if="!source.enabled" size="small" type="info">已禁用</ElTag>
+                <ElTag v-if="!source.enabled" type="info">已禁用</ElTag>
               </div>
               <p class="mt-1 text-xs text-gray-500">
                 节点数 {{ source.nodeCount }} · 更新于 {{ formatDateTime(source.updatedAt) }}
               </p>
             </div>
             <div class="toolbar-actions">
-              <UiButton size="small" @click="toggleSourceEnabled(source)">
+              <UiButton @click="toggleSourceEnabled(source)">
                 {{ source.enabled ? '禁用' : '启用' }}
               </UiButton>
-              <UiButton size="small" @click="moveSource(source, -1)">上移</UiButton>
-              <UiButton size="small" @click="moveSource(source, 1)">下移</UiButton>
-              <UiButton size="small" @click="openEditDialog(source)">编辑</UiButton>
-              <UiButton size="small" type="danger" @click="deleteTarget = source">删除</UiButton>
+              <UiButton @click="moveSource(source, -1)">上移</UiButton>
+              <UiButton @click="moveSource(source, 1)">下移</UiButton>
+              <UiButton @click="openEditDialog(source)">编辑</UiButton>
+              <UiButton variant="danger" @click="deleteTarget = source">删除</UiButton>
             </div>
           </div>
         </article>
@@ -429,8 +429,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <UiButton size="small" @click="closeEditor">取消</UiButton>
-        <UiButton type="primary" size="small" :loading="saving" @click="saveSource">保存</UiButton>
+        <UiButton @click="closeEditor">取消</UiButton>
+        <UiButton variant="primary" :loading="saving" @click="saveSource">保存</UiButton>
       </div>
     </template>
   </ElDialog>
@@ -458,8 +458,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
     <p class="text-sm text-gray-600">删除后不可恢复，确定删除「{{ deleteTarget?.name ?? '' }}」吗？</p>
     <template #footer>
       <div class="flex justify-end gap-2">
-        <UiButton size="small" @click="closeDeleteDialog">取消</UiButton>
-        <UiButton type="danger" size="small" :loading="saving" @click="confirmDelete">删除</UiButton>
+        <UiButton @click="closeDeleteDialog">取消</UiButton>
+        <UiButton variant="danger" :loading="saving" @click="confirmDelete">删除</UiButton>
       </div>
     </template>
   </ElDialog>

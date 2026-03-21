@@ -39,7 +39,7 @@ const emit = defineEmits<{
     <template #footer>
       <div class="flex justify-end gap-2">
         <UiButton @click="emit('close')">{{ cancelText }}</UiButton>
-        <UiButton :type="danger ? 'danger' : 'primary'" @click="emit('confirm')">{{ confirmText }}</UiButton>
+        <UiButton :variant="danger ? 'danger' : 'primary'" @click="emit('confirm')">{{ confirmText }}</UiButton>
       </div>
     </template>
   </ElDialog>

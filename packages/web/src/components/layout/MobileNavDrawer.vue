@@ -109,7 +109,7 @@ watch(
             <img src="/logo.png" alt="Riku-Hub" class="sidebar-logo" />
             <strong>Riku-Hub</strong>
           </button>
-          <UiButton text size="small" @click="emit('close')">收起</UiButton>
+          <UiButton variant="text" @click="emit('close')">收起</UiButton>
         </div>
 
         <nav :ref="setNavRef" class="sidebar-nav">
