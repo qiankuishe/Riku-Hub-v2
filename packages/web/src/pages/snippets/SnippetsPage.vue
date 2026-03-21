@@ -663,12 +663,12 @@ watch([searchQuery, filterType], async () => {
               :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
               :data-snippet-id="snippet.id"
             >
-              <div class="mb-2 flex items-start justify-between gap-2">
+              <div class="mb-2 flex items-start justify-between gap-1.5">
                 <div class="min-w-0 flex-1">
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
-                <div class="flex flex-shrink-0 gap-0.5">
+                <div class="snippet-tools flex flex-shrink-0">
                   <ElButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
                   </ElButton>
@@ -704,12 +704,12 @@ watch([searchQuery, filterType], async () => {
               :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
               :data-snippet-id="snippet.id"
             >
-              <div class="mb-2 flex items-start justify-between gap-2">
+              <div class="mb-2 flex items-start justify-between gap-1.5">
                 <div class="min-w-0 flex-1">
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
-                <div class="flex flex-shrink-0 gap-0.5">
+                <div class="snippet-tools flex flex-shrink-0">
                   <ElButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
                   </ElButton>
@@ -925,6 +925,42 @@ watch([searchQuery, filterType], async () => {
   max-height: 120px;
   max-width: 100%;
   border-radius: 6px;
+}
+
+/* 工具按钮样式优化 */
+.snippet-tools {
+  gap: 1px;
+}
+
+.snippet-tools :deep(.el-button) {
+  padding: 4px;
+  min-width: 28px;
+}
+
+/* 文本类型卡片的按钮悬停效果 */
+.snippet-card--text .snippet-tools :deep(.el-button.is-text:hover) {
+  background-color: rgba(16, 185, 129, 0.15);
+}
+
+/* 代码类型卡片的按钮悬停效果 */
+.snippet-card--code .snippet-tools :deep(.el-button.is-text:hover) {
+  background-color: rgba(71, 85, 105, 0.15);
+}
+
+/* 链接类型卡片的按钮悬停效果 */
+.snippet-card--link .snippet-tools :deep(.el-button.is-text:hover) {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+/* 图片类型卡片的按钮悬停效果 */
+.snippet-card--image .snippet-tools :deep(.el-button.is-text:hover) {
+  background-color: rgba(236, 72, 153, 0.15);
+}
+
+/* 删除按钮保持红色悬停效果 */
+.snippet-tools :deep(.el-button.is-text.el-button--danger:hover) {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #ef4444;
 }
 
 @media (max-width: 1024px) {
