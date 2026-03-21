@@ -137,6 +137,7 @@ p {
 
 .page-content {
   min-width: 0;
+  padding-top: 0;
 }
 
 .desktop-only {
@@ -144,7 +145,7 @@ p {
 }
 
 .topbar {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
