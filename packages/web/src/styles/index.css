@@ -508,7 +508,7 @@ p {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 0;
 }
 
 .toolbar-actions .el-button + .el-button {
