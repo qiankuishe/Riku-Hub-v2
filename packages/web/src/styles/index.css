@@ -540,7 +540,7 @@ h3 {
 
 /* 统一网格间距 */
 .grid.gap-4 {
-  gap: 16px;
+  gap: 6px;
 }
 
 .grid.gap-3 {
