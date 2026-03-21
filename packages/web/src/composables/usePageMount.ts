@@ -107,29 +107,22 @@ function ensureElementThemeStyles() {
     .el-button--primary {
       background-color: #000000;
       border-color: #000000;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     }
 
     .el-button--primary:hover {
       background-color: #1a1a1a;
       border-color: #1a1a1a;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      transform: translateY(-1px);
     }
 
     .el-button--primary:active {
       background-color: #333333;
       border-color: #333333;
-      transform: translateY(0);
     }
     
     .el-button--danger {
-      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
     }
     
     .el-button--danger:hover {
-      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
-      transform: translateY(-1px);
     }
     
     /* 输入框统一样式 */
