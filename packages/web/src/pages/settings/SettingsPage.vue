@@ -160,15 +160,11 @@ async function logout() {
 <template>
   <div class="grid gap-4">
     <section class="card" :id="dataSectionId">
-      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div class="mb-4">
         <div>
           <h2 class="text-xl font-semibold text-gray-900">数据管理</h2>
           <p class="text-sm text-gray-500">导出、导入和数据概览。</p>
         </div>
-        <ElButton size="small" :loading="loadingStats" @click="loadStats">
-          <Icon icon="carbon:renew" class="mr-1" />
-          {{ loadingStats ? '刷新中...' : '刷新统计' }}
-        </ElButton>
       </div>
 
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

@@ -85,15 +85,27 @@ async function loadPageData() {
   }
 }
 
-async function refreshAggregation() {
+interface RefreshAggregationOptions {
+  showSuccessToast?: boolean;
+  autoTriggered?: boolean;
+}
+
+async function refreshAggregation(options: RefreshAggregationOptions = {}) {
+  const { showSuccessToast = true, autoTriggered = false } = options;
   refreshing.value = true;
   try {
     const [sourceData, subData] = await Promise.all([sourcesApi.refresh(), subApi.getInfo()]);
     sources.value = sourceData.sources;
     lastSaveTime.value = sourceData.lastSaveTime;
     subInfo.value = subData;
-    uiStore.showToast('聚合缓存已刷新');
+    if (showSuccessToast) {
+      uiStore.showToast('聚合缓存已刷新');
+    }
   } catch (error) {
+    if (autoTriggered) {
+      uiStore.showToast(error instanceof Error ? `自动刷新缓存失败：${error.message}` : '自动刷新缓存失败');
+      return;
+    }
     uiStore.showToast(error instanceof Error ? error.message : '刷新失败');
   } finally {
     refreshing.value = false;
@@ -190,7 +202,7 @@ async function saveSource() {
       uiStore.showToast('订阅源已创建');
     }
     closeEditor();
-    await loadPageData();
+    await refreshAggregation({ showSuccessToast: false, autoTriggered: true });
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '保存失败';
   } finally {
@@ -205,8 +217,7 @@ async function toggleSourceEnabled(source: Source) {
     });
     lastSaveTime.value = result.lastSaveTime;
     uiStore.showToast(!source.enabled ? '已启用' : '已禁用');
-    // 重新加载数据以更新状态
-    await loadPageData();
+    await refreshAggregation({ showSuccessToast: false, autoTriggered: true });
   } catch (error) {
     uiStore.showToast(error instanceof Error ? error.message : '操作失败');
   }
@@ -227,6 +238,7 @@ async function moveSource(source: Source, direction: -1 | 1) {
     lastSaveTime.value = result.lastSaveTime;
     sources.value = list;
     uiStore.showToast(direction < 0 ? '已上移' : '已下移');
+    await refreshAggregation({ showSuccessToast: false, autoTriggered: true });
   } catch (error) {
     uiStore.showToast(error instanceof Error ? error.message : '排序失败');
   }
@@ -241,8 +253,8 @@ async function confirmDelete() {
     const result = await sourcesApi.delete(deleteTarget.value.id);
     lastSaveTime.value = result.lastSaveTime;
     deleteTarget.value = null;
-    await loadPageData();
     uiStore.showToast('订阅源已删除');
+    await refreshAggregation({ showSuccessToast: false, autoTriggered: true });
   } catch (error) {
     uiStore.showToast(error instanceof Error ? error.message : '删除失败');
   } finally {
@@ -282,14 +294,14 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           <h2 class="text-xl font-semibold text-gray-900">订阅聚合</h2>
           <p class="text-sm text-gray-500">统一管理订阅源并输出多格式链接。</p>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <ElButton type="primary" size="small" @click="openCreateDialog">
-            <Icon icon="carbon:add-alt" class="mr-1" />
-            新增订阅源
-          </ElButton>
+        <div class="toolbar-actions">
           <ElButton size="small" :loading="refreshing" @click="refreshAggregation">
             <Icon icon="carbon:renew" class="mr-1" />
             {{ refreshing ? '刷新中...' : '刷新缓存' }}
+          </ElButton>
+          <ElButton type="primary" size="small" @click="openCreateDialog">
+            <Icon icon="carbon:add-alt" class="mr-1" />
+            新增订阅源
           </ElButton>
         </div>
       </div>

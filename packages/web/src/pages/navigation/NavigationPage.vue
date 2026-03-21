@@ -730,6 +730,14 @@ async function moveCategoryDown(category: NavigationCategory) {
           <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
         </div>
         <div class="toolbar-actions">
+          <ElButton v-if="editMode" size="small" :disabled="loading || saving" @click="openCategoryDialog()">
+            <Icon icon="carbon:folder-add" class="mr-1" />
+            新增分类
+          </ElButton>
+          <ElButton v-if="editMode && hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
+            <Icon icon="carbon:add-alt" class="mr-1" />
+            新增站点
+          </ElButton>
           <ElButton
             v-if="editMode"
             type="primary"
@@ -740,14 +748,6 @@ async function moveCategoryDown(category: NavigationCategory) {
           >
             <Icon icon="carbon:save" class="mr-1" />
             保存排序
-          </ElButton>
-          <ElButton v-if="editMode" size="small" :disabled="loading || saving" @click="openCategoryDialog()">
-            <Icon icon="carbon:folder-add" class="mr-1" />
-            新增分类
-          </ElButton>
-          <ElButton v-if="editMode && hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
-            <Icon icon="carbon:add-alt" class="mr-1" />
-            新增站点
           </ElButton>
           <ElButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
             <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />

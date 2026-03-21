@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
-import { ElButton } from 'element-plus';
-import { Icon } from '@iconify/vue';
 import { logsApi, type LogRecord } from '../../api';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
@@ -37,15 +35,11 @@ async function loadLogs() {
 <template>
   <div class="grid gap-4">
     <section class="card">
-      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+      <div class="mb-4">
         <div>
           <h2 class="text-xl font-semibold text-gray-900">运行日志</h2>
           <p class="text-sm text-gray-500">最近系统事件与操作记录。</p>
         </div>
-        <ElButton size="small" :loading="loading" @click="loadLogs">
-          <Icon icon="carbon:renew" class="mr-1" />
-          {{ loading ? '刷新中...' : '刷新' }}
-        </ElButton>
       </div>
 
       <div v-if="errorMessage" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

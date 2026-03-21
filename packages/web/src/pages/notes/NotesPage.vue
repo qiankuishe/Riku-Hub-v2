@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { ElAlert, ElButton, ElInput, ElRadioButton, ElRadioGroup } from 'element-plus';
+import { ElAlert, ElButton, ElInput } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import type { NoteRecord } from '../../api';
 import { notesApi } from '../../api';
@@ -8,7 +8,7 @@ import ConfirmModal from '../shared/ConfirmModal.vue';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
 
-type ViewMode = 'write' | 'preview' | 'split';
+type ViewMode = 'write' | 'preview';
 
 const uiStore = useUiStore();
 const initialFocusId = new URLSearchParams(window.location.search).get('focus');
@@ -156,6 +156,10 @@ async function createNote() {
   }
 }
 
+function toggleViewMode() {
+  viewMode.value = viewMode.value === 'write' ? 'preview' : 'write';
+}
+
 async function saveNow(payload: PendingSavePayload, options?: { silent?: boolean }): Promise<boolean> {
   const target = notes.value.find((note) => note.id === payload.noteId);
   if (!target) {
@@ -288,14 +292,14 @@ function getExcerpt(content: string) {
   <div class="notes-layout">
     <!-- 左侧：编辑区 -->
     <section class="card notes-editor-section">
-      <div class="mb-4 flex items-center justify-between">
+      <div class="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
           <p class="text-sm text-gray-500">自动保存，支持 Markdown 预览。</p>
         </div>
-        <ElButton type="primary" size="small" :disabled="saving" @click="createNote">
-          <Icon icon="carbon:add-alt" class="mr-1" />
-          新增
+        <ElButton size="small" :disabled="!selectedNote" @click="toggleViewMode">
+          <Icon :icon="viewMode === 'write' ? 'carbon:view' : 'carbon:edit'" class="mr-1" />
+          {{ viewMode === 'write' ? '切换到预览' : '切换到写作' }}
         </ElButton>
       </div>
 
@@ -308,45 +312,6 @@ function getExcerpt(content: string) {
           type="error"
           :title="saveErrorMessage"
         />
-        <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
-          <div class="segmented-control">
-            <button
-              type="button"
-              class="segmented-item"
-              :class="{ 'segmented-item-active': viewMode === 'write' }"
-              @click="viewMode = 'write'"
-            >
-              写作
-            </button>
-            <button
-              type="button"
-              class="segmented-item"
-              :class="{ 'segmented-item-active': viewMode === 'preview' }"
-              @click="viewMode = 'preview'"
-            >
-              预览
-            </button>
-            <button
-              type="button"
-              class="segmented-item"
-              :class="{ 'segmented-item-active': viewMode === 'split' }"
-              @click="viewMode = 'split'"
-            >
-              分栏
-            </button>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <ElButton size="small" @click="togglePin">
-              <Icon :icon="selectedNote.isPinned ? 'carbon:star-filled' : 'carbon:star'" class="mr-1" />
-              置顶
-            </ElButton>
-            <ElButton size="small" type="danger" @click="deleteTarget = selectedNote">
-              <Icon icon="carbon:trash-can" class="mr-1" />
-              删除
-            </ElButton>
-          </div>
-        </div>
-
         <div class="notes-editor-content">
           <ElInput v-model="editTitle" placeholder="笔记标题" />
           <p class="text-xs text-gray-500">
@@ -357,14 +322,7 @@ function getExcerpt(content: string) {
             <textarea v-model="editContent" class="notes-editor-textarea" />
           </div>
 
-          <div v-else-if="viewMode === 'preview'" class="notes-preview" v-html="renderedPreview"></div>
-
-          <div v-else class="notes-split-view">
-            <div class="notes-editor">
-              <textarea v-model="editContent" class="notes-editor-textarea" />
-            </div>
-            <div class="notes-preview" v-html="renderedPreview"></div>
-          </div>
+          <div v-else class="notes-preview" v-html="renderedPreview"></div>
         </div>
       </template>
 
@@ -375,8 +333,22 @@ function getExcerpt(content: string) {
 
     <!-- 右侧：笔记列表 -->
     <section class="card notes-list-section">
-      <div class="mb-4">
-        <ElInput v-model="searchQuery" clearable placeholder="搜索笔记..." />
+      <div class="mb-4 notes-list-toolbar">
+        <ElInput v-model="searchQuery" clearable placeholder="搜索笔记..." class="notes-search-input" />
+        <div class="toolbar-actions">
+          <ElButton type="primary" size="small" :disabled="saving" @click="createNote">
+            <Icon icon="carbon:add-alt" class="mr-1" />
+            新增
+          </ElButton>
+          <ElButton size="small" :disabled="!selectedNote" @click="togglePin">
+            <Icon :icon="selectedNote?.isPinned ? 'carbon:star-filled' : 'carbon:star'" class="mr-1" />
+            {{ selectedNote?.isPinned ? '取消置顶' : '置顶' }}
+          </ElButton>
+          <ElButton size="small" type="danger" :disabled="!selectedNote" @click="selectedNote && (deleteTarget = selectedNote)">
+            <Icon icon="carbon:trash-can" class="mr-1" />
+            删除
+          </ElButton>
+        </div>
       </div>
 
       <div class="notes-list-scroll">
@@ -422,37 +394,16 @@ function getExcerpt(content: string) {
 </template>
 
 <style scoped>
-.segmented-control {
-  display: inline-flex;
-  background: #f3f4f6;
-  border-radius: 8px;
-  padding: 3px;
-  gap: 2px;
+.notes-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
-.segmented-item {
-  height: 32px;
-  padding: 0 16px;
-  border: none;
-  background: transparent;
-  color: #6b7280;
-  font-size: 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.segmented-item:hover {
-  color: #111827;
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.segmented-item-active {
-  background: #fff;
-  color: #111827;
-  font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+.notes-search-input {
+  flex: 1 1 220px;
+  min-width: 180px;
 }
 
 .notes-layout {
@@ -520,14 +471,6 @@ function getExcerpt(content: string) {
   color: #1f2937;
   line-height: 1.65;
   word-break: break-word;
-  min-height: 0;
-}
-
-.notes-split-view {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  flex: 1;
   min-height: 0;
 }
 
