@@ -835,7 +835,7 @@ watch([searchQuery, filterType], async () => {
 .masonry-container {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 6px;
   align-items: start;
 }
 
@@ -843,7 +843,7 @@ watch([searchQuery, filterType], async () => {
 .masonry-column {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
 /* 内容卡片基础样式 */
