@@ -367,6 +367,9 @@ async function togglePin(snippet: SnippetRecord) {
     snippets.value = snippets.value.map((entry) => (entry.id === data.snippet.id ? data.snippet : entry));
     snippets.value.sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt.localeCompare(a.updatedAt));
     uiStore.showToast(data.snippet.isPinned ? '已置顶' : '已取消置顶');
+    // 重新布局
+    await nextTick();
+    layoutMasonry();
   } catch (error) {
     uiStore.showToast(error instanceof Error ? error.message : '操作失败');
   }
@@ -429,6 +432,9 @@ async function saveEdit() {
     snippets.value.sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt.localeCompare(a.updatedAt));
     editDialogOpen.value = false;
     uiStore.showToast('已保存');
+    // 重新布局
+    await nextTick();
+    layoutMasonry();
   } catch (error) {
     editErrorMessage.value = error instanceof Error ? error.message : '保存失败';
   } finally {
@@ -458,6 +464,9 @@ async function confirmDelete() {
     snippets.value = snippets.value.filter((entry) => entry.id !== deleteTarget.value?.id);
     deleteTarget.value = null;
     uiStore.showToast('已删除');
+    // 重新布局
+    await nextTick();
+    layoutMasonry();
   } catch (error) {
     uiStore.showToast(error instanceof Error ? error.message : '删除失败');
   }
