@@ -955,6 +955,7 @@ watch([searchQuery, filterType], async () => {
   -webkit-backdrop-filter: none !important;
   transition: none !important;
   transform: none !important;
+  box-shadow: none !important;
 }
 
 .snippet-tools :deep(.el-button:hover),
@@ -964,6 +965,7 @@ watch([searchQuery, filterType], async () => {
   -webkit-backdrop-filter: none !important;
   transition: none !important;
   transform: none !important;
+  box-shadow: none !important;
 }
 
 .snippet-tools :deep(.el-button:active),
@@ -973,6 +975,7 @@ watch([searchQuery, filterType], async () => {
   -webkit-backdrop-filter: none !important;
   transition: none !important;
   transform: none !important;
+  box-shadow: none !important;
 }
 
 .snippet-tools :deep(.el-button:focus),
@@ -982,6 +985,8 @@ watch([searchQuery, filterType], async () => {
   -webkit-backdrop-filter: none !important;
   transition: none !important;
   transform: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 /* 禁用图标的所有动画效果 */
@@ -1017,6 +1022,7 @@ watch([searchQuery, filterType], async () => {
   background-color: rgba(239, 68, 68, 0.1) !important;
   color: #ef4444;
   backdrop-filter: none !important;
+  box-shadow: none !important;
 }
 
 @media (max-width: 1024px) {
