@@ -496,7 +496,11 @@ p {
 
 /* 统一按钮组间距 */
 .flex.gap-2 {
-  gap: 10px;
+  gap: 6px;
+}
+
+.el-button + .el-button {
+  margin-left: 6px;
 }
 
 .flex.gap-3 {
@@ -548,5 +552,5 @@ h3 {
 }
 
 .grid.gap-2 {
-  gap: 10px;
+  gap: 6px;
 }
