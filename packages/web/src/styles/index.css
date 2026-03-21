@@ -310,12 +310,14 @@ p {
   gap: 2px;
   padding: 6px 8px 8px 24px;
   margin-left: 18px;
+  border-left: 2px solid rgba(0, 0, 0, 0.2);
   margin-top: 2px;
 }
 
 .mobile-secondary-nav {
   margin-left: 16px;
   padding-left: 10px;
+  border-left: 2px solid rgba(0, 0, 0, 0.16);
 }
 
 .mobile-secondary-nav-list {
