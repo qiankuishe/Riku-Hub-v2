@@ -132,7 +132,7 @@ p {
   max-width: var(--shell-main-max);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 0 8px 8px 16px;
+  padding: 0 6px 8px 6px;
 }
 
 .page-content {
