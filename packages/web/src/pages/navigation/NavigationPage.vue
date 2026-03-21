@@ -824,7 +824,9 @@ async function moveCategoryDown(category: NavigationCategory) {
             </div>
           </div>
           <p class="mt-2 text-xs text-gray-500">
-            {{ link.categoryName }} · 访问 {{ link.visitCount }} 次 ·
+            {{ link.categoryName }} · 访问 {{ link.visitCount }} 次
+          </p>
+          <p class="mt-1 text-xs text-gray-500">
             {{ formatDateTime(link.lastVisitedAt ?? undefined, '未访问') }}
           </p>
         </article>
