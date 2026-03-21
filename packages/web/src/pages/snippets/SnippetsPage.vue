@@ -553,24 +553,10 @@ watch([searchQuery, filterType], async () => {
 
 <template>
   <div class="grid gap-4">
-    <!-- 页面标题 -->
-    <section class="card">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">剪贴板</h2>
-          <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片。</p>
-        </div>
-        <ElButton size="small" :loading="loading" @click="loadAll">
-          <Icon icon="carbon:renew" class="mr-1" />
-          {{ loading ? '刷新中...' : '刷新' }}
-        </ElButton>
-      </div>
-    </section>
-
-    <!-- 结果列表 -->
+    <!-- 剪贴板列表 -->
     <section class="card">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h3 class="text-lg font-semibold text-gray-900">结果列表</h3>
+        <h3 class="text-lg font-semibold text-gray-900">剪贴板</h3>
         
         <!-- 搜索筛选 -->
         <div class="flex flex-wrap items-center gap-2">
