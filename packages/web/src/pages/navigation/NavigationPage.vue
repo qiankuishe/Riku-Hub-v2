@@ -749,10 +749,6 @@ async function moveCategoryDown(category: NavigationCategory) {
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增站点
           </ElButton>
-          <ElButton size="small" :loading="loading" @click="loadAll">
-            <Icon icon="carbon:renew" class="mr-1" />
-            {{ loading ? '刷新中...' : '刷新' }}
-          </ElButton>
           <ElButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
             <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
             {{ editMode ? '完成编辑' : '进入编辑' }}
