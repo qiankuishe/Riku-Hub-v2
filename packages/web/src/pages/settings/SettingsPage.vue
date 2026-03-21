@@ -165,7 +165,7 @@ async function logout() {
           <h2 class="text-xl font-semibold text-gray-900">数据管理</h2>
           <p class="text-sm text-gray-500">导出、导入和数据概览。</p>
         </div>
-        <ElButton :loading="loadingStats" @click="loadStats">
+        <ElButton size="small" :loading="loadingStats" @click="loadStats">
           <Icon icon="carbon:renew" class="mr-1" />
           {{ loadingStats ? '刷新中...' : '刷新统计' }}
         </ElButton>
@@ -184,11 +184,11 @@ async function logout() {
       </div>
 
       <div class="mt-4 flex flex-wrap items-center gap-2">
-        <ElButton type="primary" :loading="exporting" :disabled="exporting" @click="exportData">
+        <ElButton type="primary" size="small" :loading="exporting" :disabled="exporting" @click="exportData">
           <Icon icon="carbon:download" class="mr-1" />
           导出
         </ElButton>
-        <ElButton :loading="importing" :disabled="importing" @click="triggerImportSelect">
+        <ElButton size="small" :loading="importing" :disabled="importing" @click="triggerImportSelect">
           <Icon icon="carbon:upload" class="mr-1" />
           {{ importing ? '导入中...' : '导入' }}
         </ElButton>
@@ -237,7 +237,7 @@ async function logout() {
       </div>
 
       <div class="mt-4">
-        <ElButton type="danger" @click="logout">
+        <ElButton type="danger" size="small" @click="logout">
           <Icon icon="carbon:logout" class="mr-1" />
           退出登录
         </ElButton>
@@ -258,8 +258,8 @@ async function logout() {
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <ElButton @click="dangerTarget = null">取消</ElButton>
-          <ElButton type="danger" :loading="Boolean(clearing)" :disabled="Boolean(clearing)" @click="runDangerAction">确认</ElButton>
+          <ElButton size="small" @click="dangerTarget = null">取消</ElButton>
+          <ElButton type="danger" size="small" :loading="Boolean(clearing)" :disabled="Boolean(clearing)" @click="runDangerAction">确认</ElButton>
         </div>
       </template>
     </ElDialog>
