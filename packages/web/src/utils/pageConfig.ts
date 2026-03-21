@@ -12,8 +12,8 @@ export interface AppSectionItem {
 export const APP_SECTION_ITEMS: AppSectionItem[] = [
   { key: 'navigation', label: '网站导航', to: '/riku/nav', title: '网站导航', subtitle: '' },
   { key: 'snippets', label: '剪贴板', to: '/riku/snippets', title: '剪贴板', subtitle: '' },
-  { key: 'images', label: '图床', to: '/riku/images', title: '图床', subtitle: '' },
   { key: 'notes', label: '笔记', to: '/riku/notes', title: '笔记', subtitle: '' },
+  { key: 'images', label: '图床', to: '/riku/images', title: '图床', subtitle: '' },
   { key: 'subscriptions', label: '订阅聚合', to: '/riku/subscriptions', title: '订阅聚合', subtitle: '' },
   { key: 'logs', label: '运行日志', to: '/riku/logs', title: '运行日志', subtitle: '' },
   { key: 'settings', label: '系统设置', to: '/riku/settings', title: '系统设置', subtitle: '' }
