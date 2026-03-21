@@ -932,14 +932,34 @@ watch([searchQuery, filterType], async () => {
   gap: 1px;
 }
 
-.snippet-tools :deep(.el-button) {
+.snippet-tools :deep(.el-button),
+.snippet-tools :deep(.el-button::before),
+.snippet-tools :deep(.el-button::after) {
   padding: 4px;
   min-width: 28px;
-  backdrop-filter: none;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-.snippet-tools :deep(.el-button:hover) {
-  backdrop-filter: none;
+.snippet-tools :deep(.el-button:hover),
+.snippet-tools :deep(.el-button:hover::before),
+.snippet-tools :deep(.el-button:hover::after) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.snippet-tools :deep(.el-button:active),
+.snippet-tools :deep(.el-button:active::before),
+.snippet-tools :deep(.el-button:active::after) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.snippet-tools :deep(.el-button:focus),
+.snippet-tools :deep(.el-button:focus::before),
+.snippet-tools :deep(.el-button:focus::after) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* 文本类型卡片的按钮悬停效果 */
