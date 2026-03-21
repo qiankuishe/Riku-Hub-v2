@@ -939,6 +939,8 @@ watch([searchQuery, filterType], async () => {
   min-width: 28px;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  transform: none !important;
 }
 
 .snippet-tools :deep(.el-button:hover),
@@ -946,6 +948,8 @@ watch([searchQuery, filterType], async () => {
 .snippet-tools :deep(.el-button:hover::after) {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  transform: none !important;
 }
 
 .snippet-tools :deep(.el-button:active),
@@ -953,6 +957,8 @@ watch([searchQuery, filterType], async () => {
 .snippet-tools :deep(.el-button:active::after) {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  transform: none !important;
 }
 
 .snippet-tools :deep(.el-button:focus),
@@ -960,6 +966,8 @@ watch([searchQuery, filterType], async () => {
 .snippet-tools :deep(.el-button:focus::after) {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  transform: none !important;
 }
 
 /* 文本类型卡片的按钮悬停效果 */
