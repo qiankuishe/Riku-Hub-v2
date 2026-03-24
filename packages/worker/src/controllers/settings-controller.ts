@@ -53,6 +53,40 @@ export class SettingsController<TEnv extends object> {
     });
   }
 
+  async getSettings(c: SettingsContext<TEnv>): Promise<Response> {
+    return this.handle(c, async () => {
+      const data = await this.serviceFor(c.env).getSettings();
+      return c.json(data);
+    });
+  }
+
+  async getSetting(c: SettingsContext<TEnv>): Promise<Response> {
+    return this.handle(c, async () => {
+      const key = requireParam(c, 'key');
+      const data = await this.serviceFor(c.env).getSetting(key);
+      return c.json(data);
+    });
+  }
+
+  async setSetting(c: SettingsContext<TEnv>): Promise<Response> {
+    return this.handle(c, async () => {
+      const key = requireParam(c, 'key');
+      const body = await readJsonWithLimit<{ value?: string }>(c.req.raw, 1024 * 1024); // 1MB limit for settings
+      const data = await this.serviceFor(c.env).setSetting(key, body.value);
+      await this.appendLog(c.env, 'settings_update', `更新设置：${key}`);
+      return c.json(data);
+    });
+  }
+
+  async deleteSetting(c: SettingsContext<TEnv>): Promise<Response> {
+    return this.handle(c, async () => {
+      const key = requireParam(c, 'key');
+      const data = await this.serviceFor(c.env).deleteSetting(key);
+      await this.appendLog(c.env, 'settings_delete', `删除设置：${key}`);
+      return c.json(data);
+    });
+  }
+
   private async handle(c: SettingsContext<TEnv>, task: () => Promise<Response>): Promise<Response> {
     try {
       return await task();

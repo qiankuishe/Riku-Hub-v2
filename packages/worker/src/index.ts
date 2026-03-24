@@ -387,7 +387,11 @@ mountSettingsRoutes<Env>(app, {
     getAllSnippets,
     getAllClipboardItems,
     importSettingsBackup,
-    clearSettingsScope
+    clearSettingsScope,
+    getSetting,
+    setSetting,
+    deleteSetting,
+    getAllSettings
   },
   appendLog: (env, action, detail) => appendLog(env, action, detail)
 });
@@ -536,6 +540,65 @@ async function validateContent(env: Env, content: string): Promise<ValidationSum
     duplicateCount,
     warnings: resolved.warnings
   };
+}
+
+// Settings CRUD operations
+async function getSetting(env: Env, key: string): Promise<string | null> {
+  if (!hasD1(env)) {
+    return null;
+  }
+  
+  const db = getDatabase(env);
+  const result = await db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .bind(key)
+    .first<{ value: string }>();
+  
+  return result?.value ?? null;
+}
+
+async function setSetting(env: Env, key: string, value: string): Promise<void> {
+  if (!hasD1(env)) {
+    return;
+  }
+  
+  const db = getDatabase(env);
+  const now = new Date().toISOString();
+  
+  await db
+    .prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)')
+    .bind(key, value, now)
+    .run();
+}
+
+async function deleteSetting(env: Env, key: string): Promise<void> {
+  if (!hasD1(env)) {
+    return;
+  }
+  
+  const db = getDatabase(env);
+  await db
+    .prepare('DELETE FROM settings WHERE key = ?')
+    .bind(key)
+    .run();
+}
+
+async function getAllSettings(env: Env): Promise<Record<string, string>> {
+  if (!hasD1(env)) {
+    return {};
+  }
+  
+  const db = getDatabase(env);
+  const results = await db
+    .prepare('SELECT key, value FROM settings')
+    .all<{ key: string; value: string }>();
+  
+  const settings: Record<string, string> = {};
+  for (const row of results.results) {
+    settings[row.key] = row.value;
+  }
+  
+  return settings;
 }
 
 async function getSettingsExportStats(env: Env): Promise<SettingsExportStats> {

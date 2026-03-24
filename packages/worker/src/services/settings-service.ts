@@ -122,6 +122,56 @@ export class SettingsService<TEnv> {
       scope
     };
   }
+
+  async getSettings(): Promise<{ settings: Record<string, string> }> {
+    const settings = await this.repository.getSettings();
+    return { settings };
+  }
+
+  async getSetting(key: string): Promise<{ key: string; value: string | null }> {
+    if (!key || typeof key !== 'string') {
+      throw new SettingsHttpError(400, '设置键无效');
+    }
+    
+    const value = await this.repository.getSetting(key);
+    return { key, value };
+  }
+
+  async setSetting(key: string, value?: string): Promise<{ success: true; key: string; value: string }> {
+    if (!key || typeof key !== 'string') {
+      throw new SettingsHttpError(400, '设置键无效');
+    }
+    
+    if (typeof value !== 'string') {
+      throw new SettingsHttpError(400, '设置值必须是字符串');
+    }
+    
+    // Validate key format (alphanumeric, underscore, dot, dash)
+    if (!/^[a-zA-Z0-9._-]+$/.test(key)) {
+      throw new SettingsHttpError(400, '设置键只能包含字母、数字、下划线、点和短横线');
+    }
+    
+    // Limit key and value length
+    if (key.length > 100) {
+      throw new SettingsHttpError(400, '设置键长度不能超过100个字符');
+    }
+    
+    if (value.length > 10000) {
+      throw new SettingsHttpError(400, '设置值长度不能超过10000个字符');
+    }
+    
+    await this.repository.setSetting(key, value);
+    return { success: true, key, value };
+  }
+
+  async deleteSetting(key: string): Promise<{ success: true; key: string }> {
+    if (!key || typeof key !== 'string') {
+      throw new SettingsHttpError(400, '设置键无效');
+    }
+    
+    await this.repository.deleteSetting(key);
+    return { success: true, key };
+  }
 }
 
 function validateBackupPayload(backup: SettingsBackupPayload): void {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { ElAlert, ElDialog, ElTag } from 'element-plus';
+import { ElAlert, ElDialog, ElTag, ElSwitch } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import { authApi, settingsApi, type SettingsBackupPayload, type SettingsExportStats } from '../../api';
 import { useUiStore } from '../../stores/ui';
@@ -25,7 +25,13 @@ const clearing = ref<DangerScope | null>(null);
 const dangerTarget = ref<DangerAction | null>(null);
 const importError = ref('');
 
+// Auto redirect settings
+const autoRedirectEnabled = ref(false);
+const loadingAutoRedirect = ref(false);
+const savingAutoRedirect = ref(false);
+
 const dataSectionId = 'settings-data';
+const behaviorSectionId = 'settings-behavior';
 const dangerSectionId = 'settings-danger';
 const accountSectionId = 'settings-account';
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -57,11 +63,13 @@ onMounted(() => {
     activeKey: 'data',
     items: [
       { key: 'data', label: '数据管理', targetId: dataSectionId },
+      { key: 'behavior', label: '行为设置', targetId: behaviorSectionId },
       { key: 'danger', label: '危险区域', targetId: dangerSectionId },
       { key: 'account', label: '账户', targetId: accountSectionId }
     ]
   });
   void loadStats();
+  void loadAutoRedirectSetting();
 });
 
 onUnmounted(() => {
@@ -77,6 +85,37 @@ async function loadStats() {
     uiStore.showToast(error instanceof Error ? error.message : '读取统计失败');
   } finally {
     loadingStats.value = false;
+  }
+}
+
+async function loadAutoRedirectSetting() {
+  loadingAutoRedirect.value = true;
+  try {
+    const result = await settingsApi.getSetting('auto_redirect_to_dashboard');
+    autoRedirectEnabled.value = result.value === 'true';
+  } catch (error) {
+    // Default to false if setting doesn't exist
+    autoRedirectEnabled.value = false;
+  } finally {
+    loadingAutoRedirect.value = false;
+  }
+}
+
+async function saveAutoRedirectSetting() {
+  savingAutoRedirect.value = true;
+  try {
+    if (autoRedirectEnabled.value) {
+      await settingsApi.setSetting('auto_redirect_to_dashboard', 'true');
+    } else {
+      await settingsApi.deleteSetting('auto_redirect_to_dashboard');
+    }
+    uiStore.showToast(autoRedirectEnabled.value ? '已启用自动跳转' : '已禁用自动跳转');
+  } catch (error) {
+    uiStore.showToast(error instanceof Error ? error.message : '保存设置失败');
+    // Revert the switch state on error
+    autoRedirectEnabled.value = !autoRedirectEnabled.value;
+  } finally {
+    savingAutoRedirect.value = false;
   }
 }
 
@@ -193,6 +232,28 @@ async function logout() {
       </div>
 
       <ElAlert v-if="importError" class="mt-3" :closable="false" show-icon type="error" :title="importError" />
+    </section>
+
+    <section class="card" :id="behaviorSectionId">
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">行为设置</h2>
+        <p class="text-sm text-gray-500">自定义系统行为和用户体验。</p>
+      </div>
+
+      <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900">自动跳转到后台</h3>
+            <p class="mt-1 text-xs text-gray-500">登录状态下访问主页时自动跳转到导航页面</p>
+          </div>
+          <ElSwitch
+            v-model="autoRedirectEnabled"
+            :loading="loadingAutoRedirect || savingAutoRedirect"
+            :disabled="loadingAutoRedirect || savingAutoRedirect"
+            @change="saveAutoRedirectSetting"
+          />
+        </div>
+      </div>
     </section>
 
     <section class="card" :id="dangerSectionId">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { snippetsApi, type PublicClipboardItem } from '../../api';
+import { snippetsApi, authApi, settingsApi, type PublicClipboardItem } from '../../api';
 import ThreeScene from '../../components/auth/ThreeScene.vue';
 import NodeTracker from '../../components/auth/NodeTracker.vue';
 import ClipboardModal from '../../components/auth/ClipboardModal.vue';
@@ -101,6 +101,26 @@ async function loadPublicClipboard() {
   }
 }
 
+async function checkAutoRedirect() {
+  try {
+    // Check if user is authenticated
+    const authCheck = await authApi.check();
+    if (!authCheck.authenticated) {
+      return;
+    }
+
+    // Check if auto redirect is enabled
+    const autoRedirectSetting = await settingsApi.getSetting('auto_redirect_to_dashboard');
+    if (autoRedirectSetting.value === 'true') {
+      // Redirect to dashboard
+      window.location.href = '/riku/nav';
+    }
+  } catch (error) {
+    // Silently fail - don't show errors for auto redirect check
+    console.debug('Auto redirect check failed:', error);
+  }
+}
+
 function goToLogin() {
   window.location.href = '/riku/login';
 }
@@ -119,7 +139,10 @@ function onSceneError(message: string) {
 }
 
 onMounted(async () => {
-  await loadPublicClipboard();
+  await Promise.all([
+    loadPublicClipboard(),
+    checkAutoRedirect()
+  ]);
   window.addEventListener('mousemove', onMouseMove);
 });
 

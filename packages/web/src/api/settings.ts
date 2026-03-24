@@ -12,5 +12,16 @@ export const settingsApi = {
   clearData: (scope: 'sources' | 'navigation' | 'notes' | 'snippets' | 'clipboard' | 'all') =>
     request<{ success: boolean; scope: string }>(`/api/settings/data/${scope}`, {
       method: 'DELETE'
-    })
+    }),
+  getSetting: (key: string) => request<{ value: string | null }>(`/api/settings/${key}`),
+  setSetting: (key: string, value: string) =>
+    request<{ success: boolean }>(`/api/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value })
+    }),
+  deleteSetting: (key: string) =>
+    request<{ success: boolean }>(`/api/settings/${key}`, {
+      method: 'DELETE'
+    }),
+  getAllSettings: () => request<{ settings: Record<string, string> }>('/api/settings')
 };

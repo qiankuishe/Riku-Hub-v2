@@ -52,4 +52,20 @@ export class SettingsRepository<TEnv> {
   clearSettingsScope(scope: SettingsDangerScope): Promise<void> {
     return this.deps.clearSettingsScope(this.env, scope);
   }
+
+  getSettings(): Promise<Record<string, string>> {
+    return this.deps.getAllSettings(this.env);
+  }
+
+  getSetting(key: string): Promise<string | null> {
+    return this.deps.getSetting(this.env, key);
+  }
+
+  setSetting(key: string, value: string): Promise<void> {
+    return this.deps.setSetting(this.env, key, value);
+  }
+
+  deleteSetting(key: string): Promise<void> {
+    return this.deps.deleteSetting(this.env, key);
+  }
 }

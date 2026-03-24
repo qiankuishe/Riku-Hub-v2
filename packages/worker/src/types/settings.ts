@@ -58,4 +58,8 @@ export interface SettingsRepositoryDeps<TEnv> {
   getAllClipboardItems: (env: TEnv) => Promise<ClipboardItemRecord[]>;
   importSettingsBackup: (env: TEnv, backup: SettingsBackupPayload) => Promise<SettingsImportResult>;
   clearSettingsScope: (env: TEnv, scope: SettingsDangerScope) => Promise<void>;
+  getSetting: (env: TEnv, key: string) => Promise<string | null>;
+  setSetting: (env: TEnv, key: string, value: string) => Promise<void>;
+  deleteSetting: (env: TEnv, key: string) => Promise<void>;
+  getAllSettings: (env: TEnv) => Promise<Record<string, string>>;
 }

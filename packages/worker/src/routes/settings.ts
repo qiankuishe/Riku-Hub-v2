@@ -23,5 +23,11 @@ export function mountSettingsRoutes<TEnv extends object>(
   app.get('/api/settings/export', (c) => controller.exportBackup(c));
   app.post('/api/settings/import', (c) => controller.importBackup(c));
   app.delete('/api/settings/data/:scope', (c) => controller.clearData(c));
+  
+  // Settings CRUD routes
+  app.get('/api/settings', (c) => controller.getSettings(c));
+  app.get('/api/settings/:key', (c) => controller.getSetting(c));
+  app.put('/api/settings/:key', (c) => controller.setSetting(c));
+  app.delete('/api/settings/:key', (c) => controller.deleteSetting(c));
 }
 
