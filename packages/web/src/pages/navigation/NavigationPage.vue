@@ -732,32 +732,30 @@ async function moveCategoryDown(category: NavigationCategory) {
             <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
           </div>
           <div class="nav-header-actions">
+            <UiButton v-if="editMode" size="small" :disabled="loading || saving" @click="openCategoryDialog()">
+              <Icon icon="carbon:folder-add" class="mr-1" />
+              新增分类
+            </UiButton>
+            <UiButton v-if="editMode && hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
+              <Icon icon="carbon:add-alt" class="mr-1" />
+              新增站点
+            </UiButton>
+            <UiButton
+              v-if="editMode"
+              type="primary"
+              size="small"
+              :loading="saving"
+              :disabled="!pendingDragChanges || saving"
+              @click="saveDragChanges"
+            >
+              <Icon icon="carbon:save" class="mr-1" />
+              保存排序
+            </UiButton>
             <UiButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
               <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
               {{ editMode ? '完成' : '编辑' }}
             </UiButton>
           </div>
-        </div>
-
-        <div v-if="editMode" class="nav-edit-toolbar">
-          <UiButton size="small" :disabled="loading || saving" @click="openCategoryDialog()">
-            <Icon icon="carbon:folder-add" class="mr-1" />
-            新增分类
-          </UiButton>
-          <UiButton v-if="hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
-            <Icon icon="carbon:add-alt" class="mr-1" />
-            新增站点
-          </UiButton>
-          <UiButton
-            type="primary"
-            size="small"
-            :loading="saving"
-            :disabled="!pendingDragChanges || saving"
-            @click="saveDragChanges"
-          >
-            <Icon icon="carbon:save" class="mr-1" />
-            保存排序
-          </UiButton>
         </div>
       </div>
 
@@ -775,7 +773,8 @@ async function moveCategoryDown(category: NavigationCategory) {
             @keydown.enter.prevent="handleSearch"
           />
           <UiButton v-if="searchEngine !== 'local'" type="primary" size="small" @click="handleSearch">
-            <Icon icon="carbon:search" />
+            <Icon icon="carbon:search" class="mr-1" />
+            <span class="search-btn-text">搜索</span>
           </UiButton>
         </div>
       </div>
@@ -1148,7 +1147,7 @@ async function moveCategoryDown(category: NavigationCategory) {
 
 .nav-header-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 12px;
@@ -1159,32 +1158,11 @@ async function moveCategoryDown(category: NavigationCategory) {
   min-width: 0;
 }
 
-.nav-header-top h2 {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nav-header-top p {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .nav-header-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   flex-shrink: 0;
-}
-
-.nav-edit-toolbar {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
 }
 
 /* 搜索区域 */
@@ -1243,42 +1221,44 @@ async function moveCategoryDown(category: NavigationCategory) {
     overflow-wrap: break-word;
   }
 
-  /* 头部布局 - 移动端也保持一行 */
+  /* 头部布局 - 移动端保持一行 */
   .nav-header-top {
-    flex-direction: row;
     align-items: center;
   }
 
-  .nav-header-top h2 {
+  .nav-header-top > div:first-child h2 {
     font-size: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .nav-header-top p {
+  .nav-header-top > div:first-child p {
     font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  /* 编辑工具栏 - 移动端也保持一行 */
-  .nav-edit-toolbar {
+  /* 编辑按钮组 - 移动端横向滚动 */
+  .nav-header-actions {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  .nav-edit-toolbar .el-button {
+  .nav-header-actions .el-button {
     flex-shrink: 0;
     white-space: nowrap;
   }
 
-  /* 搜索栏 - 移动端也保持一行 */
+  /* 搜索栏 - 移动端压缩成一行 */
   .nav-search-bar {
-    flex-direction: row;
-    width: 100%;
     max-width: 100%;
   }
 
   .search-engine-select {
     width: 100px;
-    flex-shrink: 0;
   }
 
   .search-input {
@@ -1289,6 +1269,11 @@ async function moveCategoryDown(category: NavigationCategory) {
   .nav-search-bar .el-button {
     flex-shrink: 0;
     padding: 0 12px;
+  }
+
+  /* 搜索按钮只显示图标 */
+  .search-btn-text {
+    display: none;
   }
 
   /* 工具栏优化 */
@@ -1313,11 +1298,11 @@ async function moveCategoryDown(category: NavigationCategory) {
 
 @media (max-width: 640px) {
   /* 头部标题字体更小 */
-  .nav-header-top h2 {
+  .nav-header-top > div:first-child h2 {
     font-size: 16px;
   }
 
-  .nav-header-top p {
+  .nav-header-top > div:first-child p {
     font-size: 12px;
   }
 
@@ -1326,8 +1311,8 @@ async function moveCategoryDown(category: NavigationCategory) {
     width: 85px;
   }
 
-  /* 编辑工具栏按钮更紧凑 */
-  .nav-edit-toolbar .el-button {
+  /* 编辑按钮更紧凑 */
+  .nav-header-actions .el-button {
     font-size: 13px;
     padding: 8px 12px;
   }
