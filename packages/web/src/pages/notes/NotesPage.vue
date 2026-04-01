@@ -300,7 +300,7 @@ function getExcerpt(content: string) {
           </button>
           <div>
             <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
-            <p class="text-sm text-gray-500">自动同步 · Markdown 支持</p>
+            <p class="text-sm text-gray-500">自动同步保存</p>
           </div>
         </div>
         <UiButton size="small" :disabled="!selectedNote" @click="toggleViewMode">
