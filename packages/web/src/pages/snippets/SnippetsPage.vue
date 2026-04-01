@@ -1030,6 +1030,15 @@ watch([searchQuery, filterType], async () => {
   .masonry-container {
     grid-template-columns: 1fr !important;
   }
+
+  .snippet-layout {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .quick-collect-card {
+    width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1040,6 +1049,37 @@ watch([searchQuery, filterType], async () => {
   .snippet-tools {
     flex-wrap: wrap;
     gap: 6px;
+  }
+
+  /* 搜索和筛选区域优化 */
+  .flex.flex-wrap.items-center.justify-between {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  /* 分段控制器优化 */
+  .segmented-control {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .segmented-item {
+    flex: 0 0 auto;
+    min-width: 60px;
+  }
+
+  /* 快速收集卡片优化 */
+  .quick-collect-card {
+    padding: 14px;
+  }
+
+  /* 按钮组优化 */
+  .flex.flex-wrap.items-center.gap-1,
+  .flex.flex-wrap.items-center.gap-2 {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 </style>

@@ -1161,6 +1161,58 @@ async function moveCategoryDown(category: NavigationCategory) {
   .nav-link-card {
     padding: 14px;
   }
+
+  /* 搜索引擎选择器优化 */
+  .search-engine-group {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .search-engine-group .el-radio-button {
+    flex: 0 0 auto;
+  }
+
+  /* 工具栏优化 */
+  .toolbar-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+
+  .toolbar-actions .el-button,
+  .toolbar-actions button {
+    flex: 0 0 auto;
+  }
+
+  /* 顶部区域优化 */
+  .flex.flex-wrap.items-start.justify-between {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  /* 搜索框容器优化 */
+  .flex.items-center.gap-2.w-full {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 640px) {
+  /* 搜索引擎按钮更紧凑 */
+  .search-engine-group .el-radio-button__inner {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  /* 分类移动按钮优化 */
+  .nav-category-move-btn {
+    width: 32px;
+    height: 32px;
+  }
 }
 
 @media (max-width: 600px) {
