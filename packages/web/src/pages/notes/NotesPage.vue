@@ -294,9 +294,14 @@ function getExcerpt(content: string) {
     <!-- 左侧：编辑区 -->
     <section class="card notes-editor-section">
       <div class="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
-          <p class="text-sm text-gray-500">自动保存，支持 Markdown 预览。</p>
+        <div class="notes-title-row">
+          <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
+            <Icon icon="carbon:menu" />
+          </button>
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
+            <p class="text-sm text-gray-500">自动保存，支持 Markdown 预览。</p>
+          </div>
         </div>
         <UiButton size="small" :disabled="!selectedNote" @click="toggleViewMode">
           <Icon :icon="viewMode === 'write' ? 'carbon:view' : 'carbon:edit'" class="mr-1" />
@@ -395,6 +400,33 @@ function getExcerpt(content: string) {
 </template>
 
 <style scoped>
+.notes-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.mobile-menu-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .notes-list-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -602,6 +634,10 @@ function getExcerpt(content: string) {
 @media (max-width: 640px) {
   .notes-list-section {
     height: 500px;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
   }
 
   .note-card {

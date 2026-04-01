@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
+import { Icon } from '@iconify/vue';
 import { logsApi, type LogRecord } from '../../api';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
@@ -36,9 +37,14 @@ async function loadLogs() {
   <div class="grid gap-4">
     <section class="card">
       <div class="mb-4">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">运行日志</h2>
-          <p class="text-sm text-gray-500">最近系统事件与操作记录。</p>
+        <div class="logs-title-row">
+          <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
+            <Icon icon="carbon:menu" />
+          </button>
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">运行日志</h2>
+            <p class="text-sm text-gray-500">最近系统事件与操作记录。</p>
+          </div>
         </div>
       </div>
 
@@ -64,3 +70,39 @@ async function loadLogs() {
     </section>
   </div>
 </template>
+
+
+<style scoped>
+.logs-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.mobile-menu-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+@media (max-width: 980px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+}
+</style>
