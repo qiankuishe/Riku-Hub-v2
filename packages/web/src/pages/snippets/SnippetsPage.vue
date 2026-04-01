@@ -669,7 +669,7 @@ watch([searchQuery, filterType], async () => {
               <div class="mb-2 snippet-card-header">
                 <div class="snippet-card-title">
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
-                  <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
+                  <p class="truncate text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
                 <div class="snippet-tools" :class="{ expanded: expandedSnippets.has(snippet.id) }">
                   <UiButton size="small" text @click="togglePin(snippet)">
@@ -694,7 +694,8 @@ watch([searchQuery, filterType], async () => {
                   @click="toggleSnippetTools(snippet.id)"
                   :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
                 >
-                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:chevron-right'" />
+                  <span v-if="expandedSnippets.has(snippet.id)">←</span>
+                  <span v-else>→</span>
                 </button>
               </div>
 
@@ -718,7 +719,7 @@ watch([searchQuery, filterType], async () => {
               <div class="mb-2 snippet-card-header">
                 <div class="snippet-card-title">
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
-                  <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
+                  <p class="truncate text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
                 <div class="snippet-tools" :class="{ expanded: expandedSnippets.has(snippet.id) }">
                   <UiButton size="small" text @click="togglePin(snippet)">
@@ -743,7 +744,8 @@ watch([searchQuery, filterType], async () => {
                   @click="toggleSnippetTools(snippet.id)"
                   :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
                 >
-                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:chevron-right'" />
+                  <span v-if="expandedSnippets.has(snippet.id)">←</span>
+                  <span v-else>→</span>
                 </button>
               </div>
 
