@@ -911,4 +911,27 @@ onMounted(() => {
   font-size: 64px;
   color: #9ca3af;
 }
+
+/* 移动端优化 */
+@media (max-width: 980px) {
+  .images-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .image-card {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .toolbar-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .preview-media {
+    max-height: 60vh;
+  }
+}
 </style>

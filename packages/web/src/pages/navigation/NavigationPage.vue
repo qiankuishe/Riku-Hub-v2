@@ -1154,7 +1154,12 @@ async function moveCategoryDown(category: NavigationCategory) {
 
 @media (max-width: 980px) {
   .nav-link-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .nav-link-card {
+    padding: 14px;
   }
 }
 

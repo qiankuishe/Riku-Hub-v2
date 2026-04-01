@@ -582,7 +582,7 @@ function getExcerpt(content: string) {
 
 @media (max-width: 1100px) {
   .notes-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
     height: auto;
   }
   
@@ -595,7 +595,22 @@ function getExcerpt(content: string) {
   }
   
   .notes-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .notes-list-section {
+    height: 500px;
+  }
+
+  .note-card {
+    padding: 12px;
+  }
+
+  .note-actions {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 }
 </style>

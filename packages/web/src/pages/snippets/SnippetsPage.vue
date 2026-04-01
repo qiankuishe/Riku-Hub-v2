@@ -1028,7 +1028,18 @@ watch([searchQuery, filterType], async () => {
 
 @media (max-width: 1024px) {
   .masonry-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .snippet-card {
+    padding: 12px;
+  }
+
+  .snippet-tools {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 }
 </style>
