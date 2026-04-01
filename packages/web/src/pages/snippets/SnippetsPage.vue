@@ -1249,6 +1249,8 @@ watch([searchQuery, filterType], async () => {
   .quick-collect-card {
     width: 100%;
     overflow: hidden;
+    display: flex !important;
+    flex-direction: column;
   }
 
   /* 强制文本换行 */
