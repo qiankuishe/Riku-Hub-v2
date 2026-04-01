@@ -1148,10 +1148,27 @@ async function moveCategoryDown(category: NavigationCategory) {
 
 .nav-header-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 12px;
+}
+
+.nav-header-top > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-header-top h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-header-top p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-header-actions {
@@ -1162,7 +1179,7 @@ async function moveCategoryDown(category: NavigationCategory) {
 
 .nav-edit-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   padding: 12px;
   background: #f9fafb;
@@ -1186,6 +1203,10 @@ async function moveCategoryDown(category: NavigationCategory) {
 .search-engine-select {
   width: 120px;
   flex-shrink: 0;
+}
+
+.search-engine-select .el-input__wrapper {
+  height: 32px;
 }
 
 .search-input {
@@ -1222,18 +1243,25 @@ async function moveCategoryDown(category: NavigationCategory) {
     overflow-wrap: break-word;
   }
 
-  /* 头部布局优化 */
+  /* 头部布局优化 - 移动端 */
   .nav-header-top {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .nav-header-top h2 {
+    font-size: 18px;
+  }
+
+  .nav-header-top p {
+    font-size: 13px;
   }
 
   .nav-header-actions {
-    width: 100%;
-    justify-content: flex-end;
+    flex-shrink: 0;
   }
 
+  /* 编辑工具栏 - 移动端垂直排列 */
   .nav-edit-toolbar {
     flex-direction: column;
   }
@@ -1243,7 +1271,7 @@ async function moveCategoryDown(category: NavigationCategory) {
     justify-content: center;
   }
 
-  /* 搜索栏优化 */
+  /* 搜索栏 - 移动端垂直排列 */
   .nav-search-bar {
     flex-direction: column;
     width: 100%;
