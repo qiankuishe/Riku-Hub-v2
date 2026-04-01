@@ -1183,25 +1183,42 @@ watch([searchQuery, filterType], async () => {
 }
 
 @media (max-width: 1024px) {
-  .masonry-container {
-    grid-template-columns: 1fr;
-  }
-  .masonry-column:empty {
-    display: none;
-  }
-
-  /* 移动端：调整顺序 */
-  .masonry-column {
+  /* 移动端：全局重排版（快速收集置顶） */
+  .card {
     display: flex;
     flex-direction: column;
   }
 
-  .quick-collect-card {
-    order: 2;
+  /* 解除外层包裹，让子元素参与 .card 的 Flex 排序 */
+  .snippet-layout,
+  .masonry-container,
+  .masonry-column {
+    display: contents;
   }
 
-  .content-card:not(.quick-collect-card) {
+  /* 1. 快速收集排在第一位 */
+  .quick-collect-card {
     order: 1;
+    margin-bottom: 16px;
+  }
+
+  /* 2. 搜索和标题区排在第二位 */
+  .snippet-header {
+    order: 2;
+    margin-bottom: 12px;
+  }
+
+  /* 3. 加载/报错/空状态排在第三位 */
+  .card > .rounded-lg,
+  .card > .el-alert {
+    order: 3;
+    margin-bottom: 12px;
+  }
+
+  /* 4. 具体内容卡片排在最后 */
+  .content-card:not(.quick-collect-card) {
+    order: 4;
+    margin-bottom: 12px;
   }
 
   /* 移动端搜索筛选区域 */
@@ -1228,17 +1245,16 @@ watch([searchQuery, filterType], async () => {
 
   /* 类型筛选标签页 */
   .snippet-type-tabs {
-    justify-content: center;
+    justify-content: space-between;
+    width: 100%;
     flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
-    gap: 6px;
+    gap: 8px;
   }
 
   .snippet-type-tab {
-    flex-shrink: 0;
-    padding: 6px 16px;
+    flex: 1;
+    text-align: center;
+    padding: 6px 0;
     font-size: 14px;
     border-radius: 8px;
   }
