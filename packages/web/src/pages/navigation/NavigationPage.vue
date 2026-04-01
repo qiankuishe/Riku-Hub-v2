@@ -725,22 +725,30 @@ async function moveCategoryDown(category: NavigationCategory) {
 <template>
   <div class="grid gap-4">
     <section class="card" :id="overviewSectionId">
-      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">网站导航</h2>
-          <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
+      <div class="mb-4 nav-header">
+        <div class="nav-header-top">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">网站导航</h2>
+            <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
+          </div>
+          <div class="nav-header-actions">
+            <UiButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
+              <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
+              {{ editMode ? '完成' : '编辑' }}
+            </UiButton>
+          </div>
         </div>
-        <div class="toolbar-actions">
-          <UiButton v-if="editMode" size="small" :disabled="loading || saving" @click="openCategoryDialog()">
+
+        <div v-if="editMode" class="nav-edit-toolbar">
+          <UiButton size="small" :disabled="loading || saving" @click="openCategoryDialog()">
             <Icon icon="carbon:folder-add" class="mr-1" />
             新增分类
           </UiButton>
-          <UiButton v-if="editMode && hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
+          <UiButton v-if="hasCategories" type="primary" size="small" :disabled="loading || saving" @click="openLinkDialog()">
             <Icon icon="carbon:add-alt" class="mr-1" />
             新增站点
           </UiButton>
           <UiButton
-            v-if="editMode"
             type="primary"
             size="small"
             :loading="saving"
@@ -750,31 +758,24 @@ async function moveCategoryDown(category: NavigationCategory) {
             <Icon icon="carbon:save" class="mr-1" />
             保存排序
           </UiButton>
-          <UiButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
-            <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
-            {{ editMode ? '完成编辑' : '进入编辑' }}
-          </UiButton>
         </div>
       </div>
 
-      <div class="mb-3 flex flex-col items-center gap-3">
-        <ElRadioGroup v-model="searchEngine" size="small" class="search-engine-group">
-          <ElRadioButton v-for="engine in searchEngineKeys" :key="engine" :value="engine">
-            {{ searchEngines[engine].name }}
-          </ElRadioButton>
-        </ElRadioGroup>
-        <div class="flex items-center gap-2 w-full max-w-2xl">
+      <div class="nav-search-section">
+        <div class="nav-search-bar">
+          <ElSelect v-model="searchEngine" size="small" class="search-engine-select">
+            <ElOption v-for="engine in searchEngineKeys" :key="engine" :label="searchEngines[engine].name" :value="engine" />
+          </ElSelect>
           <ElInput
             v-model="searchQuery"
             clearable
             size="small"
-            class="flex-1"
+            class="search-input"
             :placeholder="searchEngine === 'local' ? '搜索站内内容...' : `搜索 ${searchEngines[searchEngine].name}...`"
             @keydown.enter.prevent="handleSearch"
           />
           <UiButton v-if="searchEngine !== 'local'" type="primary" size="small" @click="handleSearch">
-            <Icon icon="carbon:search" class="mr-1" />
-            搜索
+            <Icon icon="carbon:search" />
           </UiButton>
         </div>
       </div>
@@ -1140,6 +1141,58 @@ async function moveCategoryDown(category: NavigationCategory) {
   padding: 8px;
 }
 
+/* 导航页面头部布局 */
+.nav-header {
+  margin-bottom: 16px;
+}
+
+.nav-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.nav-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.nav-edit-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+/* 搜索区域 */
+.nav-search-section {
+  margin-bottom: 16px;
+}
+
+.nav-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.search-engine-select {
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (max-width: 1500px) {
   .nav-link-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1169,16 +1222,44 @@ async function moveCategoryDown(category: NavigationCategory) {
     overflow-wrap: break-word;
   }
 
-  /* 搜索引擎选择器优化 */
-  .search-engine-group {
+  /* 头部布局优化 */
+  .nav-header-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .nav-header-actions {
     width: 100%;
-    display: flex;
-    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .nav-edit-toolbar {
+    flex-direction: column;
+  }
+
+  .nav-edit-toolbar .el-button {
+    width: 100%;
     justify-content: center;
   }
 
-  .search-engine-group .el-radio-button {
-    flex: 0 0 auto;
+  /* 搜索栏优化 */
+  .nav-search-bar {
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .search-engine-select {
+    width: 100%;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
+  .nav-search-bar .el-button {
+    width: 100%;
   }
 
   /* 工具栏优化 */
@@ -1195,18 +1276,6 @@ async function moveCategoryDown(category: NavigationCategory) {
     flex: 0 0 auto;
   }
 
-  /* 顶部区域优化 */
-  .flex.flex-wrap.items-start.justify-between {
-    flex-direction: column;
-    align-items: stretch !important;
-  }
-
-  /* 搜索框容器优化 */
-  .flex.items-center.gap-2.w-full {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
   /* 搜索结果优化 */
   .rounded-lg.border.border-gray-200.bg-white {
     overflow: hidden;
@@ -1214,10 +1283,15 @@ async function moveCategoryDown(category: NavigationCategory) {
 }
 
 @media (max-width: 640px) {
-  /* 搜索引擎按钮更紧凑 */
-  .search-engine-group .el-radio-button__inner {
-    padding: 6px 10px;
-    font-size: 13px;
+  /* 头部按钮文字简化 */
+  .nav-header-actions .el-button span {
+    display: inline;
+  }
+
+  /* 编辑工具栏按钮 */
+  .nav-edit-toolbar .el-button {
+    font-size: 14px;
+    padding: 10px 16px;
   }
 
   /* 分类移动按钮优化 */
