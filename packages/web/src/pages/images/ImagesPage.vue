@@ -7,7 +7,10 @@ import { useImageUpload } from './composables/useImageUpload';
 import { useImageOperations } from './composables/useImageOperations';
 import { imagesApi } from '../../api/images';
 import UiButton from '../../components/ui/UiButton.vue';
+import { useUiStore } from '../../stores/ui';
 import type { ImageRecord, FileType } from '@riku-hub/shared/types/images';
+
+const uiStore = useUiStore();
 
 // Composables
 const {
@@ -278,9 +281,14 @@ onMounted(() => {
   <div class="card">
     <!-- 顶部标题和工具栏 -->
     <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h2 class="text-xl font-semibold text-gray-900">图床</h2>
-        <p class="text-sm text-gray-500">管理你的图片、视频、音频和文件。{{ total }} 个文件</p>
+      <div class="images-title-row">
+        <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
+          <Icon icon="carbon:menu" />
+        </button>
+        <div>
+          <h2 class="text-xl font-semibold text-gray-900">图床</h2>
+          <p class="text-sm text-gray-500">管理你的图片、视频、音频和文件。{{ total }} 个文件</p>
+        </div>
       </div>
 
       <!-- 工具栏 - 右上角 -->
@@ -609,6 +617,41 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.images-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+  font-size: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.mobile-menu-btn > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-menu-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 /* 空状态 */
 .empty-state {
   display: flex;
@@ -914,6 +957,10 @@ onMounted(() => {
 
 /* 移动端优化 */
 @media (max-width: 980px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+
   .images-grid {
     grid-template-columns: 1fr !important;
     gap: 12px;

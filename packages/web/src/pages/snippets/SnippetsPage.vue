@@ -938,6 +938,14 @@ watch([searchQuery, filterType], async () => {
   transition: all 150ms ease;
   flex-shrink: 0;
   font-size: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.mobile-menu-btn > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mobile-menu-btn:hover {
@@ -1320,6 +1328,14 @@ watch([searchQuery, filterType], async () => {
     transition: all 150ms ease;
     flex-shrink: 0;
     font-size: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .snippet-tools-toggle > * {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .snippet-tools-toggle:hover {
