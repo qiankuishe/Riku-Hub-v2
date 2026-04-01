@@ -736,6 +736,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 16px;

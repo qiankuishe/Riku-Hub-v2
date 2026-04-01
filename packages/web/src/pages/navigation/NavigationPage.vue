@@ -1349,22 +1349,21 @@ async function moveCategoryDown(category: NavigationCategory) {
     gap: 10px;
   }
 
-  /* 搜索引擎标签 - 移动端横向滚动 */
+  /* 搜索引擎标签 - 移动端等分充满优化 */
   .search-engine-tabs {
-    justify-content: center;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
-    /* 居中滚动内容 */
     display: flex;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    width: 100%;
     margin: 0 auto;
+    gap: 6px;
   }
 
   .search-engine-tab {
-    padding: 6px 12px;
+    flex: 1;
+    text-align: center;
+    padding: 6px 0;
     font-size: 13px;
-    flex-shrink: 0;
   }
 
   /* 搜索输入组 */
