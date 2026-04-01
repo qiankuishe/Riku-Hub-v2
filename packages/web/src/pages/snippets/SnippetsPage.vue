@@ -917,12 +917,12 @@ watch([searchQuery, filterType], async () => {
 }
 
 .snippet-type-tab {
-  padding: 4px 12px;
+  padding: 6px 16px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fff;
   color: #6b7280;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 150ms ease;
   white-space: nowrap;
