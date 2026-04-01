@@ -671,14 +671,6 @@ watch([searchQuery, filterType], async () => {
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
-                <button 
-                  type="button"
-                  class="snippet-tools-toggle"
-                  @click="toggleSnippetTools(snippet.id)"
-                  :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
-                >
-                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:overflow-menu-horizontal'" />
-                </button>
                 <div class="snippet-tools" :class="{ expanded: expandedSnippets.has(snippet.id) }">
                   <UiButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
@@ -696,6 +688,14 @@ watch([searchQuery, filterType], async () => {
                     <Icon icon="carbon:trash-can" />
                   </UiButton>
                 </div>
+                <button 
+                  type="button"
+                  class="snippet-tools-toggle"
+                  @click="toggleSnippetTools(snippet.id)"
+                  :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
+                >
+                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:chevron-right'" />
+                </button>
               </div>
 
               <div v-if="snippet.type === 'image'" class="snippet-image-preview">
@@ -720,14 +720,6 @@ watch([searchQuery, filterType], async () => {
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
-                <button 
-                  type="button"
-                  class="snippet-tools-toggle"
-                  @click="toggleSnippetTools(snippet.id)"
-                  :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
-                >
-                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:overflow-menu-horizontal'" />
-                </button>
                 <div class="snippet-tools" :class="{ expanded: expandedSnippets.has(snippet.id) }">
                   <UiButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
@@ -745,6 +737,14 @@ watch([searchQuery, filterType], async () => {
                     <Icon icon="carbon:trash-can" />
                   </UiButton>
                 </div>
+                <button 
+                  type="button"
+                  class="snippet-tools-toggle"
+                  @click="toggleSnippetTools(snippet.id)"
+                  :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
+                >
+                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:chevron-right'" />
+                </button>
               </div>
 
               <div v-if="snippet.type === 'image'" class="snippet-image-preview">
