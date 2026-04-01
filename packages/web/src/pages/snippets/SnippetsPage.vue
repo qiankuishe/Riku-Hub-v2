@@ -1190,46 +1190,52 @@ watch([searchQuery, filterType], async () => {
   }
 
   /* 解除外层包裹，让子元素参与 .card 的 Flex 排序 */
+  .snippet-header,
   .snippet-layout,
   .masonry-container,
   .masonry-column {
     display: contents;
   }
 
-  /* 1. 快速收集排在第一位 */
-  .quick-collect-card {
+  /* 1. 标题和菜单按钮区域排在第一位 */
+  .snippet-title-section {
     order: 1;
+    width: 100%;
     margin-bottom: 16px;
   }
 
-  /* 2. 搜索和标题区排在第二位 */
-  .snippet-header {
+  /* 2. 快速收集排在第二位 */
+  .quick-collect-card {
     order: 2;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
 
-  /* 3. 加载/报错/空状态排在第三位 */
-  .card > .rounded-lg,
-  .card > .el-alert {
-    order: 3;
-    margin-bottom: 12px;
-  }
-
-  /* 4. 具体内容卡片排在最后 */
-  .content-card:not(.quick-collect-card) {
-    order: 4;
-    margin-bottom: 12px;
-  }
-
-  /* 移动端搜索筛选区域 */
+  /* 3. 搜索和筛选区域排在第三位 */
   .snippet-search-section {
+    order: 3;
+    width: 100%;
+    display: flex;
     flex-direction: column;
     gap: 12px;
     padding: 16px;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 16px;
-    margin-top: 12px;
+    margin-bottom: 16px;
+  }
+
+  /* 4. 加载/报错/空状态排在第四位 */
+  .card > .rounded-lg,
+  .card > .el-alert {
+    order: 4;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+
+  /* 5. 具体内容卡片排在最后 */
+  .content-card:not(.quick-collect-card) {
+    order: 5;
+    margin-bottom: 12px;
   }
 
   /* 搜索框和数量一行 */
