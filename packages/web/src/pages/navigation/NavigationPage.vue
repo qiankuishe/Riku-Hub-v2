@@ -1243,7 +1243,7 @@ async function moveCategoryDown(category: NavigationCategory) {
     overflow-wrap: break-word;
   }
 
-  /* 头部布局优化 - 移动端 */
+  /* 头部布局 - 移动端也保持一行 */
   .nav-header-top {
     flex-direction: row;
     align-items: center;
@@ -1257,37 +1257,38 @@ async function moveCategoryDown(category: NavigationCategory) {
     font-size: 13px;
   }
 
-  .nav-header-actions {
-    flex-shrink: 0;
-  }
-
-  /* 编辑工具栏 - 移动端垂直排列 */
+  /* 编辑工具栏 - 移动端也保持一行 */
   .nav-edit-toolbar {
-    flex-direction: column;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .nav-edit-toolbar .el-button {
-    width: 100%;
-    justify-content: center;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
-  /* 搜索栏 - 移动端垂直排列 */
+  /* 搜索栏 - 移动端也保持一行 */
   .nav-search-bar {
-    flex-direction: column;
+    flex-direction: row;
     width: 100%;
     max-width: 100%;
   }
 
   .search-engine-select {
-    width: 100%;
+    width: 100px;
+    flex-shrink: 0;
   }
 
   .search-input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
   }
 
   .nav-search-bar .el-button {
-    width: 100%;
+    flex-shrink: 0;
+    padding: 0 12px;
   }
 
   /* 工具栏优化 */
@@ -1311,15 +1312,24 @@ async function moveCategoryDown(category: NavigationCategory) {
 }
 
 @media (max-width: 640px) {
-  /* 头部按钮文字简化 */
-  .nav-header-actions .el-button span {
-    display: inline;
+  /* 头部标题字体更小 */
+  .nav-header-top h2 {
+    font-size: 16px;
   }
 
-  /* 编辑工具栏按钮 */
+  .nav-header-top p {
+    font-size: 12px;
+  }
+
+  /* 搜索引擎选择器更窄 */
+  .search-engine-select {
+    width: 85px;
+  }
+
+  /* 编辑工具栏按钮更紧凑 */
   .nav-edit-toolbar .el-button {
-    font-size: 14px;
-    padding: 10px 16px;
+    font-size: 13px;
+    padding: 8px 12px;
   }
 
   /* 分类移动按钮优化 */
