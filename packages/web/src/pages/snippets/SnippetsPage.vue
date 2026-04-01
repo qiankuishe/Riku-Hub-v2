@@ -26,6 +26,7 @@ const filterType = ref<SnippetType | 'all'>(
 );
 const highlightedId = ref<string | null>(initialFocus);
 const pageErrorMessage = ref('');
+const isMobile = ref(window.innerWidth <= 1024);
 
 const draftType = ref<SnippetType>('text');
 const draftTitle = ref('');
@@ -102,6 +103,11 @@ watch(
   { immediate: true }
 );
 
+function handleResize() {
+  isMobile.value = window.innerWidth <= 1024;
+  layoutMasonry();
+}
+
 onMounted(async () => {
   await loadAll();
   if (initialFocus) {
@@ -113,12 +119,12 @@ onMounted(async () => {
   await nextTick();
   layoutMasonry();
   // 监听窗口大小变化
-  window.addEventListener('resize', layoutMasonry);
+  window.addEventListener('resize', handleResize);
 });
 
 onUnmounted(() => {
   uiStore.clearSecondaryNav();
-  window.removeEventListener('resize', layoutMasonry);
+  window.removeEventListener('resize', handleResize);
 });
 
 async function loadAll() {
@@ -609,11 +615,11 @@ watch([searchQuery, filterType], async () => {
         暂无内容
       </div>
       <div v-else class="snippet-layout">
-        <!-- 瀑布流布局：左右两列 -->
-        <div class="masonry-container">
+        <!-- 桌面端：瀑布流双列布局 -->
+        <div v-if="!isMobile" class="masonry-container">
           <!-- 左列 -->
           <div class="masonry-column">
-            <!-- 快速收集表单固定在左列顶部 -->
+            <!-- 快速收集表单 -->
             <div class="quick-collect-card content-card">
               <div class="mb-2 flex items-center justify-between">
                 <h4 class="text-sm font-semibold text-gray-900">快速收集</h4>
@@ -762,6 +768,107 @@ watch([searchQuery, filterType], async () => {
             </article>
           </div>
         </div>
+
+        <!-- 移动端：单列布局 -->
+        <div v-else class="mobile-snippets">
+          <!-- 快速收集 -->
+          <div class="quick-collect-card content-card">
+            <div class="mb-2 flex items-center justify-between">
+              <h4 class="text-sm font-semibold text-gray-900">快速收集</h4>
+              <ElTag size="small" type="info">{{ draftSizeText }}</ElTag>
+            </div>
+
+            <div class="grid gap-2">
+              <label class="text-xs text-gray-600">类型</label>
+              <ElSelect v-model="draftType" size="small">
+                <ElOption v-for="option in typeOptions" :key="option.key" :label="option.label" :value="option.key" />
+              </ElSelect>
+            </div>
+
+            <div class="mt-2 grid gap-2">
+              <label class="text-xs text-gray-600">标题</label>
+              <ElInput v-model="draftTitle" size="small" placeholder="可选，留空自动生成" />
+            </div>
+
+            <div class="mt-2 grid gap-2">
+              <label class="text-xs text-gray-600">内容</label>
+              <ElInput v-if="draftType !== 'image'" v-model="draftContent" size="small" type="textarea" :rows="8" placeholder="输入内容" />
+              <div v-else class="rounded-lg border border-gray-200 bg-white p-2 min-h-[200px] flex items-center justify-center">
+                <div v-if="draftContent" class="snippet-image-preview-small">
+                  <img :src="draftContent" alt="draft" />
+                </div>
+                <p v-else class="text-xs text-gray-500">未选择图片</p>
+              </div>
+            </div>
+
+            <div class="mt-2 snippet-actions-row">
+              <div class="snippet-actions-left">
+                <UiButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
+                  <Icon icon="carbon:paste" class="text-sm" />
+                </UiButton>
+                <UiButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
+                  <Icon icon="carbon:image-search" class="text-sm" />
+                </UiButton>
+                <UiButton size="small" @click="triggerImageUpload">
+                  <Icon icon="carbon:upload" class="text-sm" />
+                </UiButton>
+              </div>
+              <UiButton size="small" type="primary" :loading="saving" :disabled="saving" @click="createSnippet">
+                <Icon icon="carbon:save" class="mr-1 text-sm" />
+                保存
+              </UiButton>
+            </div>
+
+            <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
+            <ElAlert v-if="draftError" class="mt-2" :closable="false" show-icon type="error" :title="draftError" />
+          </div>
+
+          <!-- 剪贴板列表 -->
+          <article
+            v-for="snippet in filtered"
+            :key="snippet.id"
+            class="content-card"
+            :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
+          >
+            <div class="mb-2 snippet-card-header">
+              <div class="snippet-card-title">
+                <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
+                <p class="truncate text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
+              </div>
+              <div class="snippet-tools" :class="{ expanded: expandedSnippets.has(snippet.id) }">
+                <UiButton size="small" text @click="togglePin(snippet)">
+                  <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
+                </UiButton>
+                <UiButton size="small" text @click="toggleLoginMap(snippet)" :title="snippet.isLoginMapped ? '取消映射到登录页' : '映射到登录页'">
+                  <Icon :icon="snippet.isLoginMapped ? 'carbon:location-filled' : 'carbon:location'" />
+                </UiButton>
+                <UiButton size="small" text @click="copySnippet(snippet)">
+                  <Icon icon="carbon:copy" />
+                </UiButton>
+                <UiButton size="small" text @click="openEditDialog(snippet)">
+                  <Icon icon="carbon:edit" />
+                </UiButton>
+                <UiButton size="small" text type="danger" @click="deleteTarget = snippet">
+                  <Icon icon="carbon:trash-can" />
+                </UiButton>
+              </div>
+              <button 
+                type="button"
+                class="snippet-tools-toggle"
+                @click="toggleSnippetTools(snippet.id)"
+                :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
+              >
+                <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:chevron-right'" />
+              </button>
+            </div>
+
+            <div v-if="snippet.type === 'image'" class="snippet-image-preview">
+              <img :src="snippet.content" alt="snippet" />
+            </div>
+            <pre v-else-if="snippet.type === 'code'" class="code-block snippet-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
+            <pre v-else class="snippet-text-preview">{{ snippet.content }}</pre>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -899,6 +1006,13 @@ watch([searchQuery, filterType], async () => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+/* 移动端单列布局 */
+.mobile-snippets {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .snippet-search-section {
@@ -1170,27 +1284,8 @@ watch([searchQuery, filterType], async () => {
 }
 
 @media (max-width: 1024px) {
-  .masonry-container {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* 移动端：使用flexbox和order重排 */
-  .snippet-header {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .snippet-title-section {
-    order: 1;
-  }
-
-  .quick-collect-card {
-    order: 2;
-  }
-
+  /* 移动端搜索筛选区域 */
   .snippet-search-section {
-    order: 3;
     flex-direction: column;
     gap: 12px;
     padding: 16px;
@@ -1244,13 +1339,6 @@ watch([searchQuery, filterType], async () => {
     width: 100%;
     max-width: 100%;
     overflow: hidden;
-  }
-
-  .quick-collect-card {
-    width: 100%;
-    overflow: hidden;
-    display: flex !important;
-    flex-direction: column;
   }
 
   /* 强制文本换行 */
