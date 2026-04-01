@@ -1218,8 +1218,8 @@ watch([searchQuery, filterType], async () => {
     flex-direction: column;
     gap: 12px;
     padding: 16px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.2);
     border-radius: 16px;
     margin-bottom: 16px;
   }

@@ -6,7 +6,7 @@ defineProps<{
 </script>
 
 <template>
-  <header class="topbar">
+  <header class="topbar" v-show="false">
     <div class="topbar-title">
     </div>
   </header>
