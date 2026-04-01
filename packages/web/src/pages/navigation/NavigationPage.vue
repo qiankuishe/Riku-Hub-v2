@@ -740,20 +740,17 @@ async function moveCategoryDown(category: NavigationCategory) {
               <Icon icon="carbon:add-alt" class="mr-1" />
               新增站点
             </UiButton>
-            <UiButton
-              v-if="editMode"
-              type="primary"
-              size="small"
-              :loading="saving"
-              :disabled="!pendingDragChanges || saving"
-              @click="saveDragChanges"
+            <UiButton 
+              size="small" 
+              :type="editMode ? 'primary' : 'default'" 
+              :loading="editMode && saving"
+              :disabled="editMode && !pendingDragChanges && !saving"
+              @click="editMode && pendingDragChanges ? saveDragChanges() : handleEditModeToggle()"
             >
-              <Icon icon="carbon:save" class="mr-1" />
-              保存排序
-            </UiButton>
-            <UiButton size="small" :type="editMode ? 'primary' : 'default'" @click="handleEditModeToggle">
-              <Icon :icon="editMode ? 'carbon:checkmark-outline' : 'carbon:edit'" class="mr-1" />
-              {{ editMode ? '完成' : '编辑' }}
+              <Icon v-if="editMode && pendingDragChanges" icon="carbon:save" class="mr-1" />
+              <Icon v-else-if="editMode" icon="carbon:checkmark-outline" class="mr-1" />
+              <Icon v-else icon="carbon:edit" class="mr-1" />
+              {{ editMode ? (pendingDragChanges ? '保存' : '完成') : '编辑' }}
             </UiButton>
           </div>
         </div>
@@ -1300,11 +1297,14 @@ async function moveCategoryDown(category: NavigationCategory) {
 
   /* 搜索引擎标签 - 移动端横向滚动 */
   .search-engine-tabs {
-    justify-content: flex-start;
+    justify-content: center;
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 4px;
+    /* 居中滚动内容 */
+    display: flex;
+    margin: 0 auto;
   }
 
   .search-engine-tab {
