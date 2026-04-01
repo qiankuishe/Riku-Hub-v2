@@ -1311,22 +1311,4 @@ watch([searchQuery, filterType], async () => {
     font-size: 13px;
   }
 }
-
-  .segmented-item {
-    flex: 0 0 auto;
-    min-width: 60px;
-  }
-
-  /* 快速收集卡片优化 */
-  .quick-collect-card {
-    padding: 14px;
-  }
-
-  /* 按钮组优化 */
-  .flex.flex-wrap.items-center.gap-1,
-  .flex.flex-wrap.items-center.gap-2 {
-    width: 100%;
-    justify-content: space-between;
-  }
-}
 </style>
