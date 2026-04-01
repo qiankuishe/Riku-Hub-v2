@@ -1252,7 +1252,22 @@ watch([searchQuery, filterType], async () => {
     padding: 12px;
   }
 
-  /* 移动端：工具栏折叠功能 */
+  /* 移动端：卡片头部布局 */
+  .snippet-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  /* 标题区域：可被挤压 */
+  .snippet-card-title {
+    flex: 1;
+    min-width: 0;
+    transition: all 200ms ease;
+  }
+
+  /* 折叠按钮 */
   .snippet-tools-toggle {
     display: flex;
     align-items: center;
@@ -1273,36 +1288,22 @@ watch([searchQuery, filterType], async () => {
     border-color: #9ca3af;
   }
 
-  /* 工具栏默认隐藏 */
+  /* 工具栏：默认宽度为0 */
   .snippet-tools {
-    position: absolute;
-    right: 0;
-    top: 0;
-    transform: translateX(100%);
-    opacity: 0;
-    pointer-events: none;
-    transition: all 200ms ease;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    z-index: 10;
-    flex-wrap: nowrap;
+    display: flex;
+    align-items: center;
     gap: 4px;
+    width: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: all 200ms ease;
+    flex-shrink: 0;
   }
 
-  /* 工具栏展开状态 */
+  /* 工具栏展开：占据空间 */
   .snippet-tools.expanded {
-    transform: translateX(0);
+    width: auto;
     opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* 卡片需要相对定位 */
-  .content-card {
-    position: relative;
-    overflow: visible;
   }
 
   /* 类型标签更紧凑 */
