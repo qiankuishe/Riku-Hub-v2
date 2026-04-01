@@ -664,6 +664,24 @@ function handleEditModeToggle() {
   editMode.value = !editMode.value;
 }
 
+function handleEditButtonClick() {
+  if (!editMode.value) {
+    // 进入编辑模式
+    editMode.value = true;
+    return;
+  }
+
+  if (pendingDragChanges.value) {
+    // 有改动，保存并退出
+    void saveDragChanges().then(() => {
+      editMode.value = false;
+    });
+  } else {
+    // 无改动，直接退出
+    editMode.value = false;
+  }
+}
+
 function confirmExitEdit(shouldSave: boolean) {
   exitEditConfirmVisible.value = false;
 
@@ -744,8 +762,8 @@ async function moveCategoryDown(category: NavigationCategory) {
               size="small" 
               :type="editMode ? 'primary' : 'default'" 
               :loading="editMode && saving"
-              :disabled="editMode && !pendingDragChanges && !saving"
-              @click="editMode && pendingDragChanges ? saveDragChanges() : handleEditModeToggle()"
+              :disabled="saving"
+              @click="handleEditButtonClick"
             >
               <Icon v-if="editMode && pendingDragChanges" icon="carbon:save" class="mr-1" />
               <Icon v-else-if="editMode" icon="carbon:checkmark-outline" class="mr-1" />
