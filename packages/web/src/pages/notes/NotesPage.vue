@@ -300,7 +300,7 @@ function getExcerpt(content: string) {
           </button>
           <div>
             <h2 class="text-xl font-semibold text-gray-900">笔记</h2>
-            <p class="text-sm text-gray-500">自动保存，支持 Markdown 预览。</p>
+            <p class="text-sm text-gray-500">自动同步 · Markdown 支持</p>
           </div>
         </div>
         <UiButton size="small" :disabled="!selectedNote" @click="toggleViewMode">
@@ -431,12 +431,24 @@ function getExcerpt(content: string) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .notes-search-input {
-  flex: 1 1 220px;
+  flex: 1 1 200px;
   min-width: 180px;
+  max-width: 100%;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .notes-layout {
@@ -620,6 +632,7 @@ function getExcerpt(content: string) {
   
   .notes-editor-section {
     height: auto;
+    min-height: 520px;
   }
   
   .notes-list-section {
@@ -632,6 +645,10 @@ function getExcerpt(content: string) {
 }
 
 @media (max-width: 640px) {
+  .notes-editor-section {
+    min-height: 450px;
+  }
+
   .notes-list-section {
     height: 500px;
   }
