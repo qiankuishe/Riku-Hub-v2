@@ -578,23 +578,15 @@ watch([searchQuery, filterType], async () => {
             <ElTag size="small">{{ filtered.length }} 条</ElTag>
           </div>
           
-          <!-- 自定义分段选择器 -->
+          <!-- 类型筛选标签页 -->
           <div class="snippet-type-tabs">
-            <button
-              type="button"
-              class="snippet-type-tab"
-              :class="{ active: filterType === 'all' }"
-              @click="filterType = 'all'"
-            >
-              全部
-            </button>
             <button
               v-for="option in typeOptions"
               :key="option.key"
               type="button"
               class="snippet-type-tab"
               :class="{ active: filterType === option.key }"
-              @click="filterType = option.key"
+              @click="filterType = filterType === option.key ? 'all' : option.key"
             >
               {{ option.label }}
             </button>
