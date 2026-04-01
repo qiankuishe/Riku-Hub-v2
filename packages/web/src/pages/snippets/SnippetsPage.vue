@@ -1034,10 +1034,45 @@ watch([searchQuery, filterType], async () => {
   .snippet-layout {
     width: 100%;
     max-width: 100%;
+    overflow: hidden;
   }
 
   .quick-collect-card {
     width: 100%;
+    overflow: hidden;
+  }
+
+  /* 强制文本换行 */
+  .content-card,
+  .snippet-card {
+    overflow: hidden;
+  }
+
+  .content-card *,
+  .snippet-card * {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* 代码块特殊处理 */
+  .snippet-code-preview,
+  .code-block {
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-x: auto;
+  }
+
+  /* 图片预览 */
+  .snippet-image-preview,
+  .snippet-image-preview-small {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .snippet-image-preview img,
+  .snippet-image-preview-small img {
+    max-width: 100%;
+    height: auto;
   }
 }
 

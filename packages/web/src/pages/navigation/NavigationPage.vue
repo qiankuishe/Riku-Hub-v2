@@ -1160,6 +1160,13 @@ async function moveCategoryDown(category: NavigationCategory) {
 
   .nav-link-card {
     padding: 14px;
+    overflow: hidden;
+  }
+
+  /* 强制文本换行 */
+  .nav-link-card * {
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   /* 搜索引擎选择器优化 */
@@ -1198,6 +1205,11 @@ async function moveCategoryDown(category: NavigationCategory) {
   .flex.items-center.gap-2.w-full {
     width: 100% !important;
     max-width: 100% !important;
+  }
+
+  /* 搜索结果优化 */
+  .rounded-lg.border.border-gray-200.bg-white {
+    overflow: hidden;
   }
 }
 
