@@ -156,6 +156,54 @@ p {
   display: block;
 }
 
+/* 返回顶部按钮 */
+.back-to-top-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #111111;
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  z-index: 90;
+  display: none; /* 桌面端默认隐藏 */
+  align-items: center;
+  justify-content: center;
+  transition: all 200ms ease;
+}
+
+.back-to-top-btn:hover {
+  background: #000000;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.back-to-top-btn:active {
+  transform: translateY(0);
+}
+
+/* 淡入淡出动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.fade-enter-to,
+.fade-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .topbar {
   margin-bottom: 6px;
   display: flex;
@@ -463,6 +511,11 @@ p {
 
   .desktop-only {
     display: none;
+  }
+
+  /* 返回顶部按钮在移动端显示 */
+  .back-to-top-btn {
+    display: flex;
   }
 
   .app-shell-main {

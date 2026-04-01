@@ -29,6 +29,8 @@ let restoreRunId = 0;
 let initialHistoryScrollRestoration: History['scrollRestoration'] | null = null;
 const appMainRef = ref<HTMLElement | null>(null);
 const pageContentRef = ref<HTMLElement | null>(null);
+const showBackToTop = ref(false);
+const BACK_TO_TOP_THRESHOLD = 300;
 
 function setAppMainRef(element: unknown) {
   appMainRef.value = element instanceof HTMLElement ? element : null;
@@ -65,6 +67,8 @@ function handleWindowScroll() {
   scrollFrame = window.requestAnimationFrame(() => {
     scrollFrame = 0;
     persistRouteScroll();
+    // 更新返回顶部按钮显示状态
+    showBackToTop.value = window.scrollY > BACK_TO_TOP_THRESHOLD;
   });
 }
 
@@ -211,6 +215,13 @@ function handleSecondarySelect(item: SecondaryNavItem) {
   }
 }
 
+function scrollToTop() {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+
 watch(
   () => props.currentPath,  // 只监听路径变化，不监听 secondaryNavItems
   () => {
@@ -291,5 +302,20 @@ onUnmounted(() => {
       @close="uiStore.closeMobileNav"
       @select-secondary="handleSecondarySelect"
     />
+
+    <!-- 返回顶部按钮 -->
+    <transition name="fade">
+      <button
+        v-if="showBackToTop"
+        type="button"
+        class="back-to-top-btn"
+        @click="scrollToTop"
+        aria-label="返回顶部"
+      >
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 19V5M5 12l7-7 7 7" />
+        </svg>
+      </button>
+    </transition>
   </div>
 </template>
