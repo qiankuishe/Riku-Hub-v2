@@ -228,10 +228,6 @@ p {
   line-height: 28px;
 }
 
-.menu-button {
-  display: none !important;
-}
-
 .sidebar-brand {
   display: flex;
   align-items: center;

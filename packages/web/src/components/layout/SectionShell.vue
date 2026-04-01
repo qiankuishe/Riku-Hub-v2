@@ -285,7 +285,7 @@ onUnmounted(() => {
 
     <div :ref="setAppMainRef" class="app-shell-main">
       <div class="app-shell-main-inner">
-        <AppTopbar :title="title" :subtitle="subtitle ?? ''" @menu="uiStore.openMobileNav" />
+        <AppTopbar :title="title" :subtitle="subtitle ?? ''" />
 
         <main :ref="setPageContentRef" class="page-content">
           <slot />
