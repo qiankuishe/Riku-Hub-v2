@@ -937,11 +937,7 @@ watch([searchQuery, filterType], async () => {
   cursor: pointer;
   transition: all 150ms ease;
   flex-shrink: 0;
-}
-
-.mobile-menu-btn svg {
-  width: 20px;
-  height: 20px;
+  font-size: 20px;
 }
 
 .mobile-menu-btn:hover {
@@ -1323,11 +1319,7 @@ watch([searchQuery, filterType], async () => {
     cursor: pointer;
     transition: all 150ms ease;
     flex-shrink: 0;
-  }
-
-  .snippet-tools-toggle svg {
-    width: 16px;
-    height: 16px;
+    font-size: 16px;
   }
 
   .snippet-tools-toggle:hover {
