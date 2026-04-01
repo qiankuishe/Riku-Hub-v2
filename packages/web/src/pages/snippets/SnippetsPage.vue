@@ -46,6 +46,7 @@ const IMAGE_LIMIT_BYTES = 340 * 1024;
 // 瀑布流布局
 const leftColumn = ref<SnippetRecord[]>([]);
 const rightColumn = ref<SnippetRecord[]>([]);
+const expandedSnippets = ref<Set<string>>(new Set());
 
 const typeOptions: Array<{ key: SnippetType; label: string; icon: string }> = [
   { key: 'text', label: '文本', icon: 'carbon:text-align-left' },
@@ -145,6 +146,14 @@ function normalizeTypeFromContent(content: string): SnippetType {
     return 'code';
   }
   return 'text';
+}
+
+function toggleSnippetTools(snippetId: string) {
+  if (expandedSnippets.value.has(snippetId)) {
+    expandedSnippets.value.delete(snippetId);
+  } else {
+    expandedSnippets.value.add(snippetId);
+  }
 }
 
 function buildSuggestedTitle(type: SnippetType, content: string) {
@@ -665,12 +674,20 @@ watch([searchQuery, filterType], async () => {
               :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
               :data-snippet-id="snippet.id"
             >
-              <div class="mb-2 flex items-start justify-between gap-1.5">
-                <div class="min-w-0 flex-1">
+              <div class="mb-2 snippet-card-header">
+                <div class="snippet-card-title">
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
-                <div class="snippet-tools flex flex-shrink-0">
+                <button 
+                  type="button"
+                  class="snippet-tools-toggle"
+                  @click="toggleSnippetTools(snippet.id)"
+                  :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
+                >
+                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:overflow-menu-horizontal'" />
+                </button>
+                <div class="snippet-tools" :class="{ expanded: expandedSnippets.has(snippet.id) }">
                   <UiButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
                   </UiButton>
@@ -706,12 +723,20 @@ watch([searchQuery, filterType], async () => {
               :class="[snippetTypeClass(snippet.type), { 'snippet-card-highlight': highlightedId === snippet.id }]"
               :data-snippet-id="snippet.id"
             >
-              <div class="mb-2 flex items-start justify-between gap-1.5">
-                <div class="min-w-0 flex-1">
+              <div class="mb-2 snippet-card-header">
+                <div class="snippet-card-title">
                   <strong class="block truncate text-sm text-gray-900">{{ snippet.title || '未命名片段' }}</strong>
                   <p class="text-xs text-gray-500">{{ snippet.type }} · {{ formatDateTime(snippet.updatedAt) }}</p>
                 </div>
-                <div class="snippet-tools flex flex-shrink-0">
+                <button 
+                  type="button"
+                  class="snippet-tools-toggle"
+                  @click="toggleSnippetTools(snippet.id)"
+                  :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
+                >
+                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:overflow-menu-horizontal'" />
+                </button>
+                <div class="snippet-tools" :class="{ expanded: expandedSnippets.has(snippet.id) }">
                   <UiButton size="small" text @click="togglePin(snippet)">
                     <Icon :icon="snippet.isPinned ? 'carbon:star-filled' : 'carbon:star'" />
                   </UiButton>
@@ -931,6 +956,31 @@ watch([searchQuery, filterType], async () => {
 
 .snippet-actions-left {
   display: flex;
+  gap: 4px;
+}
+
+/* 剪贴板卡片头部 */
+.snippet-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.snippet-card-title {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 折叠按钮 - 桌面端隐藏 */
+.snippet-tools-toggle {
+  display: none;
+}
+
+/* 工具栏 - 桌面端始终显示 */
+.snippet-tools {
+  display: flex;
+  flex-shrink: 0;
   gap: 4px;
 }
 
@@ -1210,24 +1260,65 @@ watch([searchQuery, filterType], async () => {
     padding: 12px;
   }
 
-  .snippet-tools {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  /* 搜索和筛选区域优化 */
-  .flex.flex-wrap.items-center.justify-between {
-    flex-direction: column;
-    align-items: stretch !important;
-  }
-
-  /* 分段控制器优化 */
-  .segmented-control {
-    width: 100%;
+  /* 移动端：工具栏折叠功能 */
+  .snippet-tools-toggle {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 150ms ease;
+    flex-shrink: 0;
   }
+
+  .snippet-tools-toggle:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+
+  /* 工具栏默认隐藏 */
+  .snippet-tools {
+    position: absolute;
+    right: 0;
+    top: 0;
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 200ms ease;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  /* 工具栏展开状态 */
+  .snippet-tools.expanded {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* 卡片需要相对定位 */
+  .content-card {
+    position: relative;
+    overflow: visible;
+  }
+
+  /* 类型标签更紧凑 */
+  .snippet-type-tab {
+    padding: 5px 12px;
+    font-size: 13px;
+  }
+}
 
   .segmented-item {
     flex: 0 0 auto;
