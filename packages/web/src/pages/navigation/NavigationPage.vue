@@ -761,21 +761,32 @@ async function moveCategoryDown(category: NavigationCategory) {
 
       <div class="nav-search-section">
         <div class="nav-search-bar">
-          <ElSelect v-model="searchEngine" size="small" class="search-engine-select">
-            <ElOption v-for="engine in searchEngineKeys" :key="engine" :label="searchEngines[engine].name" :value="engine" />
-          </ElSelect>
-          <ElInput
-            v-model="searchQuery"
-            clearable
-            size="small"
-            class="search-input"
-            :placeholder="searchEngine === 'local' ? '搜索站内内容...' : `搜索 ${searchEngines[searchEngine].name}...`"
-            @keydown.enter.prevent="handleSearch"
-          />
-          <UiButton v-if="searchEngine !== 'local'" type="primary" size="small" @click="handleSearch">
-            <Icon icon="carbon:search" class="mr-1" />
-            <span class="search-btn-text">搜索</span>
-          </UiButton>
+          <div class="search-engine-tabs">
+            <button
+              v-for="engine in searchEngineKeys"
+              :key="engine"
+              type="button"
+              class="search-engine-tab"
+              :class="{ active: searchEngine === engine }"
+              @click="searchEngine = engine"
+            >
+              {{ searchEngines[engine].name }}
+            </button>
+          </div>
+          <div class="search-input-group">
+            <ElInput
+              v-model="searchQuery"
+              clearable
+              size="small"
+              class="search-input"
+              :placeholder="searchEngine === 'local' ? '搜索站内内容...' : `搜索 ${searchEngines[searchEngine].name}...`"
+              @keydown.enter.prevent="handleSearch"
+            />
+            <UiButton v-if="searchEngine !== 'local'" type="primary" size="small" @click="handleSearch">
+              <Icon icon="carbon:search" class="mr-1" />
+              <span class="search-btn-text">搜索</span>
+            </UiButton>
+          </div>
         </div>
       </div>
 
@@ -1172,19 +1183,48 @@ async function moveCategoryDown(category: NavigationCategory) {
 
 .nav-search-bar {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
   max-width: 800px;
   margin: 0 auto;
 }
 
-.search-engine-select {
-  width: 120px;
-  flex-shrink: 0;
+/* 搜索引擎标签页 */
+.search-engine-tabs {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
-.search-engine-select .el-input__wrapper {
-  height: 32px;
+.search-engine-tab {
+  padding: 6px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.search-engine-tab:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.search-engine-tab.active {
+  background: #111111;
+  color: #fff;
+  border-color: #111111;
+}
+
+/* 搜索输入组 */
+.search-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .search-input {
@@ -1252,13 +1292,30 @@ async function moveCategoryDown(category: NavigationCategory) {
     white-space: nowrap;
   }
 
-  /* 搜索栏 - 移动端压缩成一行 */
+  /* 搜索区域 - 移动端优化 */
   .nav-search-bar {
     max-width: 100%;
+    gap: 10px;
   }
 
-  .search-engine-select {
-    width: 100px;
+  /* 搜索引擎标签 - 移动端横向滚动 */
+  .search-engine-tabs {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+
+  .search-engine-tab {
+    padding: 6px 12px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  /* 搜索输入组 */
+  .search-input-group {
+    width: 100%;
   }
 
   .search-input {
@@ -1266,14 +1323,14 @@ async function moveCategoryDown(category: NavigationCategory) {
     min-width: 0;
   }
 
-  .nav-search-bar .el-button {
-    flex-shrink: 0;
-    padding: 0 12px;
-  }
-
   /* 搜索按钮只显示图标 */
   .search-btn-text {
     display: none;
+  }
+
+  .search-input-group .el-button {
+    flex-shrink: 0;
+    padding: 0 12px;
   }
 
   /* 工具栏优化 */
@@ -1306,15 +1363,16 @@ async function moveCategoryDown(category: NavigationCategory) {
     font-size: 12px;
   }
 
-  /* 搜索引擎选择器更窄 */
-  .search-engine-select {
-    width: 85px;
-  }
-
   /* 编辑按钮更紧凑 */
   .nav-header-actions .el-button {
     font-size: 13px;
     padding: 8px 12px;
+  }
+
+  /* 搜索引擎标签更紧凑 */
+  .search-engine-tab {
+    padding: 5px 10px;
+    font-size: 12px;
   }
 
   /* 分类移动按钮优化 */
