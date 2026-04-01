@@ -1197,6 +1197,11 @@ async function moveCategoryDown(category: NavigationCategory) {
   flex-shrink: 0;
 }
 
+.mobile-menu-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
 .mobile-menu-btn:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
