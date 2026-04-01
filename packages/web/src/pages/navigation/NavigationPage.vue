@@ -1195,7 +1195,6 @@ async function moveCategoryDown(category: NavigationCategory) {
   cursor: pointer;
   transition: all 150ms ease;
   flex-shrink: 0;
-  font-size: 20px;
 }
 
 .mobile-menu-btn:hover {
