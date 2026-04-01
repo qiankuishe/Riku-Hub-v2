@@ -124,7 +124,7 @@ watch(
         }))
       ]
     });
-    uiStore.expandSidebarSection('/riku/nav');
+    // 不自动展开，让用户手动点击
   },
   { deep: true, immediate: true }
 );
@@ -152,7 +152,7 @@ watch(searchEngine, (value) => {
 });
 
 onMounted(() => {
-  uiStore.expandSidebarSection('/riku/nav');
+  // 不自动展开，让用户手动点击
   void loadAll();
 });
 
