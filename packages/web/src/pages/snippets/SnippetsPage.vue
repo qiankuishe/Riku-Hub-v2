@@ -701,8 +701,7 @@ watch([searchQuery, filterType], async () => {
                   @click="toggleSnippetTools(snippet.id)"
                   :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
                 >
-                  <span v-if="expandedSnippets.has(snippet.id)">←</span>
-                  <span v-else>→</span>
+                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:chevron-right'" />
                 </button>
               </div>
 
@@ -751,8 +750,7 @@ watch([searchQuery, filterType], async () => {
                   @click="toggleSnippetTools(snippet.id)"
                   :aria-label="expandedSnippets.has(snippet.id) ? '收起工具' : '展开工具'"
                 >
-                  <span v-if="expandedSnippets.has(snippet.id)">←</span>
-                  <span v-else>→</span>
+                  <Icon :icon="expandedSnippets.has(snippet.id) ? 'carbon:chevron-left' : 'carbon:chevron-right'" />
                 </button>
               </div>
 
