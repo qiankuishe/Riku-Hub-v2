@@ -280,26 +280,33 @@ onMounted(() => {
 <template>
   <div class="card">
     <!-- 顶部标题和工具栏 -->
-    <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div class="images-header-section mb-4">
+      <!-- 标题行 -->
       <div class="images-title-row">
         <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
           <Icon icon="carbon:menu" />
         </button>
-        <div>
-          <h2 class="text-xl font-semibold text-gray-900">图床</h2>
-          <p class="text-sm text-gray-500">管理你的图片、视频、音频和文件。{{ total }} 个文件</p>
+        <div class="images-title-content">
+          <h2 class="text-xl font-semibold text-gray-900 truncate flex items-center">
+            图床 <span class="text-sm font-normal text-gray-500 ml-2 whitespace-nowrap">{{ total }} 个文件</span>
+          </h2>
+          <p class="text-sm text-gray-500 truncate">管理你的图片、视频、音频和文件。</p>
         </div>
+        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-fixed shrink-0">
+          <Icon icon="carbon:upload" class="mr-1" />
+          上传
+        </UiButton>
       </div>
 
-      <!-- 工具栏 - 右上角 -->
-      <div class="toolbar-actions">
+      <!-- 搜索和操作行 -->
+      <div class="images-toolbar-row">
         <!-- 搜索框 -->
         <ElInput
           v-model="searchQuery"
           clearable
           placeholder="搜索文件名..."
           size="small"
-          style="width: 200px"
+          class="images-search-input"
         >
           <template #prefix>
             <Icon icon="carbon:search" />
@@ -314,39 +321,21 @@ onMounted(() => {
           </UiButton>
           <template #dropdown>
             <ElDropdownMenu>
-              <ElDropdownItem @click="batchCopyLinks(selectedImages)">
-                <Icon icon="carbon:link" class="mr-1" />
-                复制链接
-              </ElDropdownItem>
-              <ElDropdownItem @click="batchDownload(selectedImages)">
-                <Icon icon="carbon:download" class="mr-1" />
-                下载
-              </ElDropdownItem>
-              <ElDropdownItem @click="() => batchUpdateListType(selectedImages, 'Block')">
-                <Icon icon="carbon:locked" class="mr-1" />
-                加入黑名单
-              </ElDropdownItem>
-              <ElDropdownItem @click="() => batchUpdateListType(selectedImages, 'White')">
-                <Icon icon="carbon:unlocked" class="mr-1" />
-                加入白名单
-              </ElDropdownItem>
-              <ElDropdownItem divided @click="handleBatchDelete">
-                <Icon icon="carbon:trash-can" class="mr-1" />
-                删除
-              </ElDropdownItem>
+              <ElDropdownItem @click="batchCopyLinks(selectedImages)"><Icon icon="carbon:link" class="mr-1" />复制链接</ElDropdownItem>
+              <ElDropdownItem @click="batchDownload(selectedImages)"><Icon icon="carbon:download" class="mr-1" />下载</ElDropdownItem>
+              <ElDropdownItem @click="() => batchUpdateListType(selectedImages, 'Block')"><Icon icon="carbon:locked" class="mr-1" />加入黑名单</ElDropdownItem>
+              <ElDropdownItem @click="() => batchUpdateListType(selectedImages, 'White')"><Icon icon="carbon:unlocked" class="mr-1" />加入白名单</ElDropdownItem>
+              <ElDropdownItem divided @click="handleBatchDelete"><Icon icon="carbon:trash-can" class="mr-1" />删除</ElDropdownItem>
             </ElDropdownMenu>
           </template>
         </ElDropdown>
+      </div>
 
-        <!-- 上传 -->
-        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick">
-          <Icon icon="carbon:upload" class="mr-1" />
-          上传
-        </UiButton>
-
+      <!-- 四个功能按钮排成一行居中 -->
+      <div class="images-filters-row">
         <!-- 排序 -->
-        <ElDropdown trigger="click" @command="switchSort">
-          <UiButton size="small">
+        <ElDropdown trigger="click" @command="switchSort" class="filter-dropdown">
+          <UiButton size="small" class="w-full justify-center">
             <Icon :icon="sortIcon" class="mr-1" />
             排序
           </UiButton>
@@ -360,8 +349,8 @@ onMounted(() => {
         </ElDropdown>
 
         <!-- 筛选 -->
-        <ElDropdown trigger="click" @command="switchFilter">
-          <UiButton size="small">
+        <ElDropdown trigger="click" @command="switchFilter" class="filter-dropdown">
+          <UiButton size="small" class="w-full justify-center">
             <Icon :icon="filterIcon" class="mr-1" />
             筛选
           </UiButton>
@@ -376,8 +365,8 @@ onMounted(() => {
         </ElDropdown>
 
         <!-- 分类（文件类型） -->
-        <ElDropdown trigger="click" @command="switchFileType">
-          <UiButton size="small">
+        <ElDropdown trigger="click" @command="switchFileType" class="filter-dropdown">
+          <UiButton size="small" class="w-full justify-center">
             <Icon :icon="fileTypeIcon" class="mr-1" />
             {{ fileType === 'all' ? '分类' : fileTypeConfig[fileType as FileType]?.name }}
           </UiButton>
@@ -393,29 +382,17 @@ onMounted(() => {
         </ElDropdown>
 
         <!-- 工具 -->
-        <ElDropdown trigger="click">
-          <UiButton size="small">
+        <ElDropdown trigger="click" class="filter-dropdown">
+          <UiButton size="small" class="w-full justify-center">
             <Icon icon="carbon:tools" class="mr-1" />
             工具
           </UiButton>
           <template #dropdown>
             <ElDropdownMenu>
-              <ElDropdownItem @click="selectAllInPage">
-                <Icon icon="carbon:checkbox-checked" class="mr-1" />
-                全选当前页
-              </ElDropdownItem>
-              <ElDropdownItem @click="clearSelection" :disabled="selectedImages.length === 0">
-                <Icon icon="carbon:checkbox" class="mr-1" />
-                取消选择
-              </ElDropdownItem>
-              <ElDropdownItem divided @click="checkInvalidFiles">
-                <Icon icon="carbon:warning" class="mr-1" />
-                检测失效文件
-              </ElDropdownItem>
-              <ElDropdownItem divided @click="showSettingsDialog = true">
-                <Icon icon="carbon:settings" class="mr-1" />
-                设置
-              </ElDropdownItem>
+              <ElDropdownItem @click="selectAllInPage"><Icon icon="carbon:checkbox-checked" class="mr-1" />全选当前页</ElDropdownItem>
+              <ElDropdownItem @click="clearSelection" :disabled="selectedImages.length === 0"><Icon icon="carbon:checkbox" class="mr-1" />取消选择</ElDropdownItem>
+              <ElDropdownItem divided @click="checkInvalidFiles"><Icon icon="carbon:warning" class="mr-1" />检测失效文件</ElDropdownItem>
+              <ElDropdownItem divided @click="showSettingsDialog = true"><Icon icon="carbon:settings" class="mr-1" />设置</ElDropdownItem>
             </ElDropdownMenu>
           </template>
         </ElDropdown>
@@ -617,10 +594,50 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.images-header-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .images-title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  width: 100%;
+}
+
+.images-title-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.images-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.images-search-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.images-filters-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.filter-dropdown {
+  flex: 1;
 }
 
 .mobile-menu-btn {
@@ -964,9 +981,12 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
-  .toolbar-actions {
-    flex-wrap: wrap;
-    gap: 8px;
+  .images-filters-row {
+    gap: 6px;
+  }
+
+  .images-search-input {
+    min-width: 0;
   }
 
   .preview-media {

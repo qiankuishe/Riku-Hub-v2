@@ -339,7 +339,7 @@ function getExcerpt(content: string) {
 
     <!-- 右侧：笔记列表 -->
     <section class="card notes-list-section">
-      <div class="mb-4 notes-list-toolbar">
+      <div class="notes-list-toolbar">
         <ElInput v-model="searchQuery" clearable placeholder="搜索笔记..." class="notes-search-input" />
         <div class="toolbar-actions">
           <UiButton type="primary" size="small" :disabled="saving" @click="createNote">
@@ -547,6 +547,7 @@ function getExcerpt(content: string) {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  padding-top: 16px;
 }
 
 .notes-grid {
