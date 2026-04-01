@@ -556,24 +556,25 @@ watch([searchQuery, filterType], async () => {
   <div class="grid gap-4">
     <!-- 剪贴板列表 -->
     <section class="card">
-      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div class="mb-3 snippet-header">
+        <div class="snippet-title-section">
           <h3 class="text-lg font-semibold text-gray-900">剪贴板</h3>
           <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片</p>
         </div>
         
         <!-- 搜索筛选 -->
-        <div class="flex flex-wrap items-center gap-2">
-          <ElInput v-model="searchQuery" size="small" clearable placeholder="按标题或内容筛选..." style="width: 200px" />
-          
-          <ElTag size="small">{{ filtered.length }} 条</ElTag>
+        <div class="snippet-search-section">
+          <div class="snippet-search-row">
+            <ElInput v-model="searchQuery" size="small" clearable placeholder="按标题或内容筛选..." class="snippet-search-input" />
+            <ElTag size="small">{{ filtered.length }} 条</ElTag>
+          </div>
           
           <!-- 自定义分段选择器 -->
-          <div class="segmented-control">
+          <div class="snippet-type-tabs">
             <button
               type="button"
-              class="segmented-item"
-              :class="{ 'segmented-item-active': filterType === 'all' }"
+              class="snippet-type-tab"
+              :class="{ active: filterType === 'all' }"
               @click="filterType = 'all'"
             >
               全部
@@ -582,8 +583,8 @@ watch([searchQuery, filterType], async () => {
               v-for="option in typeOptions"
               :key="option.key"
               type="button"
-              class="segmented-item"
-              :class="{ 'segmented-item-active': filterType === option.key }"
+              class="snippet-type-tab"
+              :class="{ active: filterType === option.key }"
               @click="filterType = option.key"
             >
               {{ option.label }}
@@ -634,8 +635,8 @@ watch([searchQuery, filterType], async () => {
                 </div>
               </div>
 
-              <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
-                <div class="flex flex-wrap items-center gap-1">
+              <div class="mt-2 snippet-actions-row">
+                <div class="snippet-actions-left">
                   <UiButton size="small" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
                     <Icon icon="carbon:paste" class="text-sm" />
                   </UiButton>
@@ -867,6 +868,72 @@ watch([searchQuery, filterType], async () => {
   border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
+/* 桌面端默认样式 */
+.snippet-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.snippet-search-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.snippet-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.snippet-search-input {
+  width: 200px;
+}
+
+.snippet-type-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.snippet-type-tab {
+  padding: 4px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #6b7280;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.snippet-type-tab:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.snippet-type-tab.active {
+  background: #111111;
+  color: #fff;
+  border-color: #111111;
+}
+
+.snippet-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.snippet-actions-left {
+  display: flex;
+  gap: 4px;
+}
+
 .snippet-card-highlight {
   box-shadow: 0 0 0 3px rgba(123, 68, 26, 0.16);
 }
@@ -1029,6 +1096,68 @@ watch([searchQuery, filterType], async () => {
 @media (max-width: 1024px) {
   .masonry-container {
     grid-template-columns: 1fr !important;
+  }
+
+  /* 移动端：使用flexbox和order重排 */
+  .snippet-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .snippet-title-section {
+    order: 1;
+  }
+
+  .quick-collect-card {
+    order: 2;
+  }
+
+  .snippet-search-section {
+    order: 3;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    margin-top: 12px;
+  }
+
+  /* 搜索框和数量一行 */
+  .snippet-search-row {
+    width: 100%;
+  }
+
+  .snippet-search-input {
+    flex: 1;
+    width: auto;
+  }
+
+  /* 类型筛选标签页 */
+  .snippet-type-tabs {
+    justify-content: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    gap: 6px;
+  }
+
+  .snippet-type-tab {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  /* 快速收集按钮行 */
+  .snippet-actions-row {
+    gap: 6px;
+  }
+
+  .snippet-actions-left {
+    gap: 4px;
   }
 
   .snippet-layout {
