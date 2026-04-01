@@ -901,8 +901,8 @@ watch([searchQuery, filterType], async () => {
 
 /* 快速收集卡片 */
 .quick-collect-card {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%) !important;
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: linear-gradient(135deg, rgba(240, 109, 35, 0.06) 0%, rgba(244, 137, 72, 0.06) 100%) !important;
+  border: 1px solid rgba(240, 109, 35, 0.15);
 }
 
 /* 桌面端默认样式 */
@@ -1218,8 +1218,8 @@ watch([searchQuery, filterType], async () => {
     flex-direction: column;
     gap: 12px;
     padding: 16px;
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
-    border: 1px solid rgba(139, 92, 246, 0.2);
+    background: linear-gradient(135deg, rgba(240, 109, 35, 0.06) 0%, rgba(244, 137, 72, 0.06) 100%);
+    border: 1px solid rgba(240, 109, 35, 0.15);
     border-radius: 16px;
     margin-bottom: 16px;
   }

@@ -60,12 +60,33 @@ button {
   cursor: pointer;
 }
 
-/* 修复移动端 Safari/Webview 下默认按钮样式导致 SVG 图标被挤压不显示的问题 */
-.mobile-menu-btn,
+/* 修复移动端 SVG 挤压问题 */
 .snippet-tools-toggle {
   padding: 0 !important;
   appearance: none !important;
   -webkit-appearance: none !important;
+}
+
+/* 移动端菜单按钮：YouTube 风格无边框悬浮图标 */
+.mobile-menu-btn {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  font-size: 24px !important;
+  color: var(--rk-text) !important;
+  border-radius: 50% !important;
+  margin-left: -8px !important; /* 图标视觉左对齐补偿 */
+}
+
+.mobile-menu-btn:hover,
+.mobile-menu-btn:active {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: transparent !important;
 }
 
 a {
