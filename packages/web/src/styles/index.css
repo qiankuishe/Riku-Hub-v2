@@ -441,21 +441,184 @@ p {
 
   .app-shell-main-inner {
     max-width: 100%;
-    padding: 14px;
+    padding: 12px;
   }
 
   .topbar {
     align-items: flex-start;
+    margin-bottom: 12px;
   }
 
   .topbar .menu-button {
     display: inline-flex !important;
   }
 
+  .topbar-title h1 {
+    font-size: 20px;
+    line-height: 26px;
+  }
+
   .sidebar-link-button {
     min-height: 36px;
     height: 36px;
     font-size: 14px;
+  }
+
+  /* 卡片优化 */
+  .card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  /* 按钮组优化 */
+  .toolbar-actions {
+    gap: 8px;
+  }
+
+  .toolbar-actions .el-button {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  /* 表单优化 */
+  .el-form-item {
+    margin-bottom: 16px;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    font-size: 16px; /* 防止 iOS 自动缩放 */
+  }
+
+  /* 对话框优化 */
+  .el-dialog {
+    width: 90% !important;
+    margin: 20px auto !important;
+  }
+
+  .el-dialog__body {
+    padding: 16px;
+  }
+
+  /* 表格优化 */
+  .el-table {
+    font-size: 14px;
+  }
+
+  .el-table th,
+  .el-table td {
+    padding: 8px 4px;
+  }
+
+  /* 标题优化 */
+  h2 {
+    font-size: 18px;
+  }
+
+  h3 {
+    font-size: 16px;
+  }
+
+  /* 间距优化 */
+  .page-content {
+    padding-top: 0;
+  }
+
+  /* Toast 优化 */
+  .top-toast {
+    top: 10px;
+    font-size: 14px;
+    padding: 10px 16px;
+    max-width: calc(100% - 32px);
+  }
+}
+
+/* 小屏幕优化 (手机竖屏) */
+@media (max-width: 640px) {
+  .app-shell-main-inner {
+    padding: 10px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .topbar-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .toolbar-actions .el-button {
+    flex: 0 0 auto;
+  }
+
+  /* 卡片进一步优化 */
+  .card {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  /* 网格布局优化 */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 对话框全屏化 */
+  .el-dialog {
+    width: 95% !important;
+    margin: 10px auto !important;
+  }
+
+  .el-dialog__header {
+    padding: 12px 16px;
+  }
+
+  .el-dialog__body {
+    padding: 12px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+  }
+
+  /* 按钮全宽 */
+  .el-button--large {
+    width: 100%;
+  }
+
+  /* 表格横向滚动 */
+  .el-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 标题进一步缩小 */
+  h2 {
+    font-size: 17px;
+  }
+
+  h3 {
+    font-size: 15px;
+  }
+
+  /* 文字大小 */
+  body {
+    font-size: 14px;
+  }
+
+  .text-sm {
+    font-size: 13px;
+  }
+
+  .text-xs {
+    font-size: 12px;
   }
 }
 
