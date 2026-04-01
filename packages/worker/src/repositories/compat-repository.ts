@@ -1,5 +1,6 @@
 import { NAVIGATION_SEED } from '../navigation-seed';
 import { formatBytes } from '../utils/compat';
+import { randomToken } from '../utils/runtime';
 import type {
   CompatAuthUserDTO,
   CompatBindings,
@@ -544,9 +545,4 @@ function parseSettingValue(value: string): unknown {
   } catch {
     return value;
   }
-}
-
-function randomToken(byteLength = 24): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
-  return Array.from(bytes, (part) => part.toString(16).padStart(2, '0')).join('');
 }

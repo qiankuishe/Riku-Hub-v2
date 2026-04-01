@@ -177,12 +177,11 @@ function applyElementScroll(
 }
 
 function syncExpandedSection() {
-  if (uiStore.secondaryNavItems.length) {
-    uiStore.expandSidebarSection(props.currentPath);
-    return;
-  }
-
-  if (uiStore.expandedSidebarSection === props.currentPath) {
+  // 默认折叠，不自动展开二级菜单
+  // 用户需要手动点击才能展开
+  
+  // 如果当前展开的不是当前页面，则收起
+  if (uiStore.expandedSidebarSection && !props.currentPath.startsWith(uiStore.expandedSidebarSection)) {
     uiStore.expandSidebarSection('');
   }
 }

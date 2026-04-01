@@ -1,4 +1,5 @@
 import { parseCsvList } from '../utils/compat';
+import { randomToken } from '../utils/runtime';
 import type {
   CompatAuthUserDTO,
   CompatClipboardCreateInput,
@@ -221,9 +222,4 @@ function normalizeClipboardTags(value: string[] | string | undefined): string[] 
 async function stableUserId(value: string): Promise<number> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Number.parseInt(Array.from(new Uint8Array(digest), (part) => part.toString(16).padStart(2, '0')).join('').slice(0, 8), 16);
-}
-
-function randomToken(byteLength = 24): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
-  return Array.from(bytes, (part) => part.toString(16).padStart(2, '0')).join('');
 }

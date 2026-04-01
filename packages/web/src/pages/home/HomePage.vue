@@ -117,7 +117,7 @@ async function checkAutoRedirect() {
     }
   } catch (error) {
     // Silently fail - don't show errors for auto redirect check
-    console.debug('Auto redirect check failed:', error);
+    // Error is intentionally ignored for better UX
   }
 }
 

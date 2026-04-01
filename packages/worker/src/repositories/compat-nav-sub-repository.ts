@@ -1,7 +1,8 @@
 import { NAVIGATION_SEED } from '../navigation-seed';
 import {
   getAggregateTtlSeconds as getAggregateTtlSecondsFromEnv,
-  getMaxLogEntries as getMaxLogEntriesFromEnv
+  getMaxLogEntries as getMaxLogEntriesFromEnv,
+  randomToken
 } from '../utils/runtime';
 import type {
   AggregateMeta,
@@ -823,9 +824,4 @@ function mapLogRow(row: LogRow): LogRecord {
     detail: row.detail ?? null,
     createdAt: row.created_at
   };
-}
-
-function randomToken(byteLength = 24): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
-  return Array.from(bytes, (part) => part.toString(16).padStart(2, '0')).join('');
 }

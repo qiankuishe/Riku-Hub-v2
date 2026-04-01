@@ -1,4 +1,5 @@
 import type { AuthBindings, AuthSession, LoginAttemptState } from '../types/auth';
+import { randomToken } from '../utils/runtime';
 
 interface SessionRow {
   token: string;
@@ -209,9 +210,4 @@ export class AuthRepository {
   private loginAttemptKey(ip: string): string {
     return `login-attempt:${ip}`;
   }
-}
-
-function randomToken(byteLength = 24): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
-  return Array.from(bytes, (part) => part.toString(16).padStart(2, '0')).join('');
 }

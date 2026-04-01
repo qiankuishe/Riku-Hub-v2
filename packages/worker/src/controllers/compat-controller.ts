@@ -277,7 +277,7 @@ async function logSecurityEvent(env: CompatBindings, event: {
       await env.DB.prepare(
         'INSERT INTO app_logs (id, action, detail, created_at) VALUES (?, ?, ?, ?)'
       ).bind(
-        randomToken(16), // 生成唯一 ID
+        randomAlphanumericId(16), // 生成唯一 ID
         event.type,
         JSON.stringify({
           username: event.username,
@@ -303,8 +303,8 @@ async function logSecurityEvent(env: CompatBindings, event: {
   });
 }
 
-// 生成随机 token（用于 ID 生成）
-function randomToken(length: number): string {
+// 生成随机字母数字 ID（用于剪贴板等）
+function randomAlphanumericId(length: number): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   for (let i = 0; i < length; i++) {
