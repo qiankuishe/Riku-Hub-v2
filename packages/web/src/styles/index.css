@@ -156,7 +156,7 @@ p {
   display: block;
 }
 
-/* 返回顶部按钮 */
+/* 返回顶部按钮 - 默认隐藏，只在移动端显示 */
 .back-to-top-btn {
   position: fixed;
   right: 20px;
@@ -170,10 +170,16 @@ p {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   z-index: 90;
-  display: none; /* 桌面端默认隐藏 */
+  display: none;
   align-items: center;
   justify-content: center;
   transition: all 200ms ease;
+}
+
+@media (max-width: 980px) {
+  .back-to-top-btn {
+    display: flex;
+  }
 }
 
 .back-to-top-btn:hover {
@@ -511,11 +517,6 @@ p {
 
   .desktop-only {
     display: none;
-  }
-
-  /* 返回顶部按钮在移动端显示 */
-  .back-to-top-btn {
-    display: flex;
   }
 
   .app-shell-main {
