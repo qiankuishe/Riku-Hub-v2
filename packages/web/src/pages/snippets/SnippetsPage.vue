@@ -1190,6 +1190,20 @@ watch([searchQuery, filterType], async () => {
     display: none;
   }
 
+  /* 移动端：调整顺序 */
+  .masonry-column {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .quick-collect-card {
+    order: 2;
+  }
+
+  .content-card:not(.quick-collect-card) {
+    order: 1;
+  }
+
   /* 移动端搜索筛选区域 */
   .snippet-search-section {
     flex-direction: column;
@@ -1208,7 +1222,8 @@ watch([searchQuery, filterType], async () => {
 
   .snippet-search-input {
     flex: 1;
-    width: auto;
+    width: auto !important;
+    min-width: 0;
   }
 
   /* 类型筛选标签页 */
