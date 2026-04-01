@@ -745,9 +745,14 @@ async function moveCategoryDown(category: NavigationCategory) {
     <section class="card" :id="overviewSectionId">
       <div class="mb-4 nav-header">
         <div class="nav-header-top">
-          <div>
-            <h2 class="text-xl font-semibold text-gray-900">网站导航</h2>
-            <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
+          <div class="nav-title-row">
+            <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
+              <Icon icon="carbon:menu" />
+            </button>
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900">网站导航</h2>
+              <p class="text-sm text-gray-500">支持分类、链接、搜索和拖拽排序。</p>
+            </div>
           </div>
           <div class="nav-header-actions">
             <UiButton v-if="editMode" size="small" :disabled="loading || saving" @click="openCategoryDialog()">
@@ -1171,6 +1176,33 @@ async function moveCategoryDown(category: NavigationCategory) {
   margin-bottom: 16px;
 }
 
+.nav-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.mobile-menu-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .nav-header-top {
   display: flex;
   align-items: flex-start;
@@ -1260,6 +1292,10 @@ async function moveCategoryDown(category: NavigationCategory) {
 }
 
 @media (max-width: 980px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+
   .nav-link-grid {
     grid-template-columns: 1fr !important;
     gap: 12px;

@@ -567,8 +567,15 @@ watch([searchQuery, filterType], async () => {
     <section class="card">
       <div class="mb-3 snippet-header">
         <div class="snippet-title-section">
-          <h3 class="text-lg font-semibold text-gray-900">剪贴板</h3>
-          <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片</p>
+          <div class="snippet-title-row">
+            <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
+              <Icon icon="carbon:menu" />
+            </button>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900">剪贴板</h3>
+              <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片</p>
+            </div>
+          </div>
         </div>
         
         <!-- 搜索筛选 -->
@@ -913,6 +920,33 @@ watch([searchQuery, filterType], async () => {
   width: 200px;
 }
 
+.snippet-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.mobile-menu-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .snippet-type-tabs {
   display: flex;
   gap: 4px;
@@ -1202,6 +1236,10 @@ watch([searchQuery, filterType], async () => {
 
   .snippet-actions-left {
     gap: 4px;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
   }
 
   .snippet-layout {
