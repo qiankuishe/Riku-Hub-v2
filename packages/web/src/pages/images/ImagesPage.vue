@@ -91,12 +91,31 @@ const filterIcon = computed(() => {
          'carbon:filter';
 });
 
-// 生成随机文件名
+// 根据扩展名智能分配随机前缀名
 function generateFileName(originalName: string): string {
-  const ext = originalName.split('.').pop() || '';
-  const prefix = fileNamePrefix.value || 'img';
+  const originalExt = originalName.split('.').pop() || '';
+  const ext = originalExt.toLowerCase();
+  
+  let prefix = fileNamePrefix.value;
+  
+  // 如果用户未在网页上手动强制指定前缀，则按类别自动分配
+  if (!prefix) {
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico', 'heic'];
+    const videoExts = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'flv'];
+    const audioExts = ['mp3', 'wav', 'flac', 'aac', 'm4a'];
+    const docExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'csv'];
+    const zipExts = ['zip', 'rar', '7z', 'tar', 'gz'];
+    
+    if (imageExts.includes(ext)) prefix = 'img';
+    else if (videoExts.includes(ext)) prefix = 'vid';
+    else if (audioExts.includes(ext)) prefix = 'aud';
+    else if (docExts.includes(ext)) prefix = 'doc';
+    else if (zipExts.includes(ext)) prefix = 'zip';
+    else prefix = 'file'; // 未知文件默认用 file_
+  }
+  
   const randomStr = generateRandomString(5);
-  return `${prefix}_${randomStr}.${ext}`;
+  return `${prefix}_${randomStr}.${originalExt}`;
 }
 
 // 生成随机字符串（字母和数字）
