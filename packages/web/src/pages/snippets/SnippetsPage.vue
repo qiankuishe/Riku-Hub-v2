@@ -583,9 +583,8 @@ watch([searchQuery, filterType], async () => {
             <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
               <Icon icon="carbon:menu" />
             </button>
-            <div>
-              <h3 class="text-lg font-semibold text-gray-900">剪贴板</h3>
-              <p class="text-sm text-gray-500">快速收集文本、代码、链接和图片</p>
+            <div class="snippet-title-content justify-center flex flex-col">
+              <h2 class="text-xl font-semibold text-gray-900 truncate">剪贴板</h2>
             </div>
           </div>
         </div>
@@ -933,8 +932,17 @@ watch([searchQuery, filterType], async () => {
 
 .snippet-title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  width: 100%;
+}
+
+.snippet-title-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .mobile-menu-btn {

@@ -329,7 +329,7 @@ async function logout() {
 <style scoped>
 .settings-title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
 }
 

@@ -749,7 +749,7 @@ async function moveCategoryDown(category: NavigationCategory) {
             <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
               <Icon icon="carbon:menu" />
             </button>
-            <div>
+            <div class="nav-title-content flex flex-col justify-center">
               <h2 class="text-xl font-semibold text-gray-900">网站导航</h2>
             </div>
           </div>
@@ -1177,7 +1177,7 @@ async function moveCategoryDown(category: NavigationCategory) {
 
 .nav-title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
 }
 
