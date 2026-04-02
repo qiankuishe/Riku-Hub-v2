@@ -1316,20 +1316,6 @@ async function moveCategoryDown(category: NavigationCategory) {
     align-items: center;
   }
 
-  .nav-header-top > div:first-child h2 {
-    font-size: 18px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .nav-header-top > div:first-child p {
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   /* 编辑按钮组 - 移动端横向滚动 */
   .nav-header-actions {
     flex-wrap: nowrap;
@@ -1406,15 +1392,6 @@ async function moveCategoryDown(category: NavigationCategory) {
 }
 
 @media (max-width: 640px) {
-  /* 头部标题字体更小 */
-  .nav-header-top > div:first-child h2 {
-    font-size: 16px;
-  }
-
-  .nav-header-top > div:first-child p {
-    font-size: 12px;
-  }
-
   /* 编辑按钮更紧凑 */
   .nav-header-actions .el-button {
     font-size: 13px;
