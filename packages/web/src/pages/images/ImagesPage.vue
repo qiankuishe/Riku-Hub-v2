@@ -286,11 +286,10 @@ onMounted(() => {
         <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
           <Icon icon="carbon:menu" />
         </button>
-        <div class="images-title-content">
+        <div class="images-title-content justify-center">
           <h2 class="text-xl font-semibold text-gray-900 truncate flex items-center">
             图床 <span class="text-sm font-normal text-gray-500 ml-2 whitespace-nowrap">{{ total }} 个文件</span>
           </h2>
-          <p class="text-sm text-gray-500 truncate">管理你的图片、视频、音频和文件。</p>
         </div>
         <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-mobile">
           <Icon icon="carbon:upload" class="mr-1" />

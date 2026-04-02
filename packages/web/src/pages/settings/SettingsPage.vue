@@ -205,9 +205,8 @@ async function logout() {
           <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
             <Icon icon="carbon:menu" />
           </button>
-          <div>
+          <div class="settings-title-content justify-center flex flex-col">
             <h2 class="text-xl font-semibold text-gray-900">数据管理</h2>
-            <p class="text-sm text-gray-500">导出、导入和数据概览。</p>
           </div>
         </div>
       </div>
@@ -242,7 +241,6 @@ async function logout() {
     <section class="card" :id="behaviorSectionId">
       <div class="mb-4">
         <h2 class="text-xl font-semibold text-gray-900">行为设置</h2>
-        <p class="text-sm text-gray-500">自定义系统行为和用户体验。</p>
       </div>
 
       <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
@@ -264,7 +262,6 @@ async function logout() {
     <section class="card" :id="dangerSectionId">
       <div class="mb-4">
         <h2 class="text-xl font-semibold text-gray-900">危险区域</h2>
-        <p class="text-sm text-gray-500">高风险操作，需要二次确认。</p>
       </div>
 
       <div class="grid gap-3">
@@ -289,7 +286,6 @@ async function logout() {
     <section class="card" :id="accountSectionId">
       <div class="mb-4">
         <h2 class="text-xl font-semibold text-gray-900">账户</h2>
-        <p class="text-sm text-gray-500">当前实例和登录状态。</p>
       </div>
 
       <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">

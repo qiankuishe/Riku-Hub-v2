@@ -41,9 +41,8 @@ async function loadLogs() {
           <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
             <Icon icon="carbon:menu" />
           </button>
-          <div>
+          <div class="logs-title-content justify-center flex flex-col">
             <h2 class="text-xl font-semibold text-gray-900">运行日志</h2>
-            <p class="text-sm text-gray-500">最近系统事件与操作记录。</p>
           </div>
         </div>
       </div>

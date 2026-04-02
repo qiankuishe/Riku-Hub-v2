@@ -295,9 +295,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
             <Icon icon="carbon:menu" />
           </button>
-          <div class="subs-title-content">
+          <div class="subs-title-content justify-center">
             <h2 class="text-xl font-semibold text-gray-900 truncate">订阅聚合</h2>
-            <p class="text-sm text-gray-500 truncate">统一管理订阅源并输出多格式链接。</p>
           </div>
           <div class="subs-header-actions shrink-0">
             <UiButton size="small" :loading="refreshing" @click="refreshAggregation">
