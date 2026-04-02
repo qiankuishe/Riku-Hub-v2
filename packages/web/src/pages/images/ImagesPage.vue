@@ -292,7 +292,7 @@ onMounted(() => {
           </h2>
           <p class="text-sm text-gray-500 truncate">管理你的图片、视频、音频和文件。</p>
         </div>
-        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="shrink-0 md:hidden">
+        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-mobile">
           <Icon icon="carbon:upload" class="mr-1" />
           上传
         </UiButton>
@@ -329,7 +329,7 @@ onMounted(() => {
           </ElDropdown>
         </div>
 
-        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="hidden md:flex shrink-0">
+        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-desktop">
           <Icon icon="carbon:upload" class="mr-1" />
           上传
         </UiButton>
@@ -627,6 +627,26 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.upload-btn-mobile {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.upload-btn-desktop {
+  display: none;
+}
+
+@media (min-width: 981px) {
+  .upload-btn-mobile {
+    display: none !important;
+  }
+  
+  .upload-btn-desktop {
+    display: flex;
+    flex-shrink: 0;
+  }
 }
 
 .images-actions-area {
