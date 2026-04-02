@@ -290,25 +290,25 @@ function formatValidationWarning(warning: { message: string; context?: string | 
 <template>
   <div class="grid gap-4">
     <section class="card">
-      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div class="mb-4">
         <div class="subs-title-row">
           <button type="button" class="mobile-menu-btn" @click="uiStore.openMobileNav">
             <Icon icon="carbon:menu" />
           </button>
-          <div>
-            <h2 class="text-xl font-semibold text-gray-900">订阅聚合</h2>
-            <p class="text-sm text-gray-500">统一管理订阅源并输出多格式链接。</p>
+          <div class="subs-title-content">
+            <h2 class="text-xl font-semibold text-gray-900 truncate">订阅聚合</h2>
+            <p class="text-sm text-gray-500 truncate">统一管理订阅源并输出多格式链接。</p>
           </div>
-        </div>
-        <div class="toolbar-actions">
-          <UiButton size="small" :loading="refreshing" @click="refreshAggregation">
-            <Icon icon="carbon:renew" class="mr-1" />
-            {{ refreshing ? '刷新中...' : '刷新缓存' }}
-          </UiButton>
-          <UiButton type="primary" size="small" @click="openCreateDialog">
-            <Icon icon="carbon:add-alt" class="mr-1" />
-            新增订阅源
-          </UiButton>
+          <div class="subs-header-actions shrink-0">
+            <UiButton size="small" :loading="refreshing" @click="refreshAggregation">
+              <Icon icon="carbon:renew" class="mr-1" />
+              {{ refreshing ? '中...' : '刷新' }}
+            </UiButton>
+            <UiButton type="primary" size="small" @click="openCreateDialog">
+              <Icon icon="carbon:add-alt" class="mr-1" />
+              新增
+            </UiButton>
+          </div>
         </div>
       </div>
 
@@ -336,8 +336,8 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           class="rounded-xl border border-gray-200 bg-white px-4 py-3"
         >
           <div class="mb-2 flex items-center justify-between gap-3">
-            <strong class="text-sm text-gray-900">{{ format.name }}</strong>
-            <div class="toolbar-actions">
+            <strong class="text-sm text-gray-900 truncate">{{ format.name }}</strong>
+            <div class="flex items-center gap-2 shrink-0 ml-auto">
               <UiButton size="small" @click="copyLink(format.url)">复制</UiButton>
               <UiButton size="small" @click="openQr(format.name, format.url)">二维码</UiButton>
             </div>
@@ -373,24 +373,37 @@ function formatValidationWarning(warning: { message: string; context?: string | 
           class="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
           :class="{ 'opacity-50': !source.enabled }"
         >
-          <div class="mb-2 flex flex-wrap items-start justify-between gap-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <h4 class="truncate text-sm font-semibold text-gray-900">{{ source.name }}</h4>
+              <div class="flex items-center gap-2 mb-1">
+                <h4 class="truncate text-base font-semibold text-gray-900">{{ source.name }}</h4>
                 <ElTag v-if="!source.enabled" size="small" type="info">已禁用</ElTag>
               </div>
-              <p class="mt-1 text-xs text-gray-500">
+              <p class="text-xs text-gray-500">
                 节点数 {{ source.nodeCount }} · 更新于 {{ formatDateTime(source.updatedAt) }}
               </p>
             </div>
-            <div class="toolbar-actions">
+            <div class="source-actions">
               <UiButton size="small" @click="toggleSourceEnabled(source)">
+                <Icon :icon="source.enabled ? 'carbon:view-off' : 'carbon:view'" class="mr-1 sm:hidden lg:inline-block" />
                 {{ source.enabled ? '禁用' : '启用' }}
               </UiButton>
-              <UiButton size="small" @click="moveSource(source, -1)">上移</UiButton>
-              <UiButton size="small" @click="moveSource(source, 1)">下移</UiButton>
-              <UiButton size="small" @click="openEditDialog(source)">编辑</UiButton>
-              <UiButton size="small" type="danger" @click="deleteTarget = source">删除</UiButton>
+              <UiButton size="small" @click="moveSource(source, -1)">
+                <Icon icon="carbon:arrow-up" class="mr-1 sm:hidden lg:inline-block" />
+                上移
+              </UiButton>
+              <UiButton size="small" @click="moveSource(source, 1)">
+                <Icon icon="carbon:arrow-down" class="mr-1 sm:hidden lg:inline-block" />
+                下移
+              </UiButton>
+              <UiButton size="small" @click="openEditDialog(source)">
+                <Icon icon="carbon:edit" class="mr-1 sm:hidden lg:inline-block" />
+                编辑
+              </UiButton>
+              <UiButton size="small" type="danger" @click="deleteTarget = source">
+                <Icon icon="carbon:trash-can" class="mr-1 sm:hidden lg:inline-block" />
+                删除
+              </UiButton>
             </div>
           </div>
         </article>
@@ -474,8 +487,31 @@ function formatValidationWarning(warning: { message: string; context?: string | 
 <style scoped>
 .subs-title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  width: 100%;
+}
+
+.subs-title-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.source-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .mobile-menu-btn {
@@ -502,6 +538,24 @@ function formatValidationWarning(warning: { message: string; context?: string | 
 @media (max-width: 980px) {
   .mobile-menu-btn {
     display: flex;
+  }
+}
+
+@media (max-width: 640px) {
+  .source-actions {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .source-actions :deep(.el-button),
+  .source-actions button {
+    flex: 1;
+    padding: 6px 0;
+    justify-content: center;
+    font-size: 13px;
   }
 }
 </style>
