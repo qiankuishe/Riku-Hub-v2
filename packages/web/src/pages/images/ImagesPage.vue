@@ -292,110 +292,109 @@ onMounted(() => {
           </h2>
           <p class="text-sm text-gray-500 truncate">管理你的图片、视频、音频和文件。</p>
         </div>
-        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-fixed shrink-0">
+        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="shrink-0 md:hidden">
           <Icon icon="carbon:upload" class="mr-1" />
           上传
         </UiButton>
       </div>
 
-      <!-- 搜索和操作行 -->
-      <div class="images-toolbar-row">
-        <!-- 搜索框 -->
-        <ElInput
-          v-model="searchQuery"
-          clearable
-          placeholder="搜索文件名..."
-          size="small"
-          class="images-search-input"
-        >
-          <template #prefix>
-            <Icon icon="carbon:search" />
-          </template>
-        </ElInput>
+      <div class="images-actions-area">
+        <div class="images-search-group">
+          <ElInput
+            v-model="searchQuery"
+            clearable
+            placeholder="搜索文件名..."
+            size="small"
+            class="images-search-input"
+          >
+            <template #prefix>
+              <Icon icon="carbon:search" />
+            </template>
+          </ElInput>
 
-        <!-- 批量操作（选中时显示） -->
-        <ElDropdown v-if="selectedImages.length > 0" trigger="click">
-          <UiButton size="small" type="primary">
-            <Icon icon="carbon:task" class="mr-1" />
-            批量 ({{ selectedImages.length }})
-          </UiButton>
-          <template #dropdown>
-            <ElDropdownMenu>
-              <ElDropdownItem @click="batchCopyLinks(selectedImages)"><Icon icon="carbon:link" class="mr-1" />复制链接</ElDropdownItem>
-              <ElDropdownItem @click="batchDownload(selectedImages)"><Icon icon="carbon:download" class="mr-1" />下载</ElDropdownItem>
-              <ElDropdownItem @click="() => batchUpdateListType(selectedImages, 'Block')"><Icon icon="carbon:locked" class="mr-1" />加入黑名单</ElDropdownItem>
-              <ElDropdownItem @click="() => batchUpdateListType(selectedImages, 'White')"><Icon icon="carbon:unlocked" class="mr-1" />加入白名单</ElDropdownItem>
-              <ElDropdownItem divided @click="handleBatchDelete"><Icon icon="carbon:trash-can" class="mr-1" />删除</ElDropdownItem>
-            </ElDropdownMenu>
-          </template>
-        </ElDropdown>
-      </div>
+          <ElDropdown v-if="selectedImages.length > 0" trigger="click">
+            <UiButton size="small" type="primary">
+              <Icon icon="carbon:task" class="mr-1" />
+              批量 ({{ selectedImages.length }})
+            </UiButton>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <ElDropdownItem @click="batchCopyLinks(selectedImages)"><Icon icon="carbon:link" class="mr-1" />复制链接</ElDropdownItem>
+                <ElDropdownItem @click="batchDownload(selectedImages)"><Icon icon="carbon:download" class="mr-1" />下载</ElDropdownItem>
+                <ElDropdownItem @click="() => batchUpdateListType(selectedImages, 'Block')"><Icon icon="carbon:locked" class="mr-1" />加入黑名单</ElDropdownItem>
+                <ElDropdownItem @click="() => batchUpdateListType(selectedImages, 'White')"><Icon icon="carbon:unlocked" class="mr-1" />加入白名单</ElDropdownItem>
+                <ElDropdownItem divided @click="handleBatchDelete"><Icon icon="carbon:trash-can" class="mr-1" />删除</ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+        </div>
 
-      <!-- 四个功能按钮排成一行居中 -->
-      <div class="images-filters-row">
-        <!-- 排序 -->
-        <ElDropdown trigger="click" @command="switchSort" class="filter-dropdown">
-          <UiButton size="small" class="w-full justify-center">
-            <Icon :icon="sortIcon" class="mr-1" />
-            排序
-          </UiButton>
-          <template #dropdown>
-            <ElDropdownMenu>
-              <ElDropdownItem command="dateDesc">最新优先</ElDropdownItem>
-              <ElDropdownItem command="nameAsc">名称排序</ElDropdownItem>
-              <ElDropdownItem command="sizeDesc">大小排序</ElDropdownItem>
-            </ElDropdownMenu>
-          </template>
-        </ElDropdown>
+        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="hidden md:flex shrink-0">
+          <Icon icon="carbon:upload" class="mr-1" />
+          上传
+        </UiButton>
 
-        <!-- 筛选 -->
-        <ElDropdown trigger="click" @command="switchFilter" class="filter-dropdown">
-          <UiButton size="small" class="w-full justify-center">
-            <Icon :icon="filterIcon" class="mr-1" />
-            筛选
-          </UiButton>
-          <template #dropdown>
-            <ElDropdownMenu>
-              <ElDropdownItem command="all">全部</ElDropdownItem>
-              <ElDropdownItem command="favorites">收藏</ElDropdownItem>
-              <ElDropdownItem command="blocked">黑名单</ElDropdownItem>
-              <ElDropdownItem command="unblocked">白名单</ElDropdownItem>
-            </ElDropdownMenu>
-          </template>
-        </ElDropdown>
+        <div class="images-filters-group">
+          <ElDropdown trigger="click" @command="switchSort" class="filter-dropdown">
+            <UiButton size="small" class="w-full md:w-auto justify-center">
+              <Icon :icon="sortIcon" class="mr-1" />
+              排序
+            </UiButton>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <ElDropdownItem command="dateDesc">最新优先</ElDropdownItem>
+                <ElDropdownItem command="nameAsc">名称排序</ElDropdownItem>
+                <ElDropdownItem command="sizeDesc">大小排序</ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
 
-        <!-- 分类（文件类型） -->
-        <ElDropdown trigger="click" @command="switchFileType" class="filter-dropdown">
-          <UiButton size="small" class="w-full justify-center">
-            <Icon :icon="fileTypeIcon" class="mr-1" />
-            {{ fileType === 'all' ? '分类' : fileTypeConfig[fileType as FileType]?.name }}
-          </UiButton>
-          <template #dropdown>
-            <ElDropdownMenu>
-              <ElDropdownItem command="all">全部 ({{ total }})</ElDropdownItem>
-              <ElDropdownItem command="image">图片 ({{ fileTypeStats.image }})</ElDropdownItem>
-              <ElDropdownItem command="video">视频 ({{ fileTypeStats.video }})</ElDropdownItem>
-              <ElDropdownItem command="audio">音频 ({{ fileTypeStats.audio }})</ElDropdownItem>
-              <ElDropdownItem command="document">文件 ({{ fileTypeStats.document }})</ElDropdownItem>
-            </ElDropdownMenu>
-          </template>
-        </ElDropdown>
+          <ElDropdown trigger="click" @command="switchFilter" class="filter-dropdown">
+            <UiButton size="small" class="w-full md:w-auto justify-center">
+              <Icon :icon="filterIcon" class="mr-1" />
+              筛选
+            </UiButton>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <ElDropdownItem command="all">全部</ElDropdownItem>
+                <ElDropdownItem command="favorites">收藏</ElDropdownItem>
+                <ElDropdownItem command="blocked">黑名单</ElDropdownItem>
+                <ElDropdownItem command="unblocked">白名单</ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
 
-        <!-- 工具 -->
-        <ElDropdown trigger="click" class="filter-dropdown">
-          <UiButton size="small" class="w-full justify-center">
-            <Icon icon="carbon:tools" class="mr-1" />
-            工具
-          </UiButton>
-          <template #dropdown>
-            <ElDropdownMenu>
-              <ElDropdownItem @click="selectAllInPage"><Icon icon="carbon:checkbox-checked" class="mr-1" />全选当前页</ElDropdownItem>
-              <ElDropdownItem @click="clearSelection" :disabled="selectedImages.length === 0"><Icon icon="carbon:checkbox" class="mr-1" />取消选择</ElDropdownItem>
-              <ElDropdownItem divided @click="checkInvalidFiles"><Icon icon="carbon:warning" class="mr-1" />检测失效文件</ElDropdownItem>
-              <ElDropdownItem divided @click="showSettingsDialog = true"><Icon icon="carbon:settings" class="mr-1" />设置</ElDropdownItem>
-            </ElDropdownMenu>
-          </template>
-        </ElDropdown>
+          <ElDropdown trigger="click" @command="switchFileType" class="filter-dropdown">
+            <UiButton size="small" class="w-full md:w-auto justify-center">
+              <Icon :icon="fileTypeIcon" class="mr-1" />
+              {{ fileType === 'all' ? '分类' : fileTypeConfig[fileType as FileType]?.name }}
+            </UiButton>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <ElDropdownItem command="all">全部 ({{ total }})</ElDropdownItem>
+                <ElDropdownItem command="image">图片 ({{ fileTypeStats.image }})</ElDropdownItem>
+                <ElDropdownItem command="video">视频 ({{ fileTypeStats.video }})</ElDropdownItem>
+                <ElDropdownItem command="audio">音频 ({{ fileTypeStats.audio }})</ElDropdownItem>
+                <ElDropdownItem command="document">文件 ({{ fileTypeStats.document }})</ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+
+          <ElDropdown trigger="click" class="filter-dropdown">
+            <UiButton size="small" class="w-full md:w-auto justify-center">
+              <Icon icon="carbon:tools" class="mr-1" />
+              工具
+            </UiButton>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <ElDropdownItem @click="selectAllInPage"><Icon icon="carbon:checkbox-checked" class="mr-1" />全选当前页</ElDropdownItem>
+                <ElDropdownItem @click="clearSelection" :disabled="selectedImages.length === 0"><Icon icon="carbon:checkbox" class="mr-1" />取消选择</ElDropdownItem>
+                <ElDropdownItem divided @click="checkInvalidFiles"><Icon icon="carbon:warning" class="mr-1" />检测失效文件</ElDropdownItem>
+                <ElDropdownItem divided @click="showSettingsDialog = true"><Icon icon="carbon:settings" class="mr-1" />设置</ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+        </div>
       </div>
     </div>
 
@@ -600,11 +599,26 @@ onMounted(() => {
   gap: 16px;
 }
 
+@media (min-width: 981px) {
+  .images-header-section {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
 .images-title-row {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
+}
+
+@media (min-width: 981px) {
+  .images-title-row {
+    width: auto;
+    flex-shrink: 0;
+  }
 }
 
 .images-title-content {
@@ -615,11 +629,36 @@ onMounted(() => {
   gap: 2px;
 }
 
-.images-toolbar-row {
+.images-actions-area {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 12px;
   width: 100%;
+}
+
+@media (min-width: 981px) {
+  .images-actions-area {
+    flex-direction: row;
+    align-items: center;
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 1;
+  }
+}
+
+.images-search-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+@media (min-width: 981px) {
+  .images-search-group {
+    width: auto;
+  }
 }
 
 .images-search-input {
@@ -627,7 +666,14 @@ onMounted(() => {
   min-width: 180px;
 }
 
-.images-filters-row {
+@media (min-width: 981px) {
+  .images-search-input {
+    width: 200px;
+    flex: none;
+  }
+}
+
+.images-filters-group {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -636,8 +682,21 @@ onMounted(() => {
   width: 100%;
 }
 
+@media (min-width: 981px) {
+  .images-filters-group {
+    width: auto;
+    justify-content: flex-start;
+  }
+}
+
 .filter-dropdown {
   flex: 1;
+}
+
+@media (min-width: 981px) {
+  .filter-dropdown {
+    flex: 0 0 auto;
+  }
 }
 
 .mobile-menu-btn {
@@ -984,7 +1043,7 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
-  .images-filters-row {
+  .images-filters-group {
     gap: 6px;
   }
 
