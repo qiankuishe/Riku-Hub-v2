@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 export interface SecondaryNavItem {
   key: string;
@@ -17,7 +17,25 @@ export const useUiStore = defineStore('ui', () => {
   const secondaryNavItems = ref<SecondaryNavItem[]>([]);
   const secondaryNavActiveKey = ref('');
   const expandedSidebarSection = ref('');
+  const isOnline = ref(navigator.onLine);
   let toastTimer: number | undefined;
+
+  // 网络状态监听
+  function handleOnline() {
+    isOnline.value = true;
+    showToast('网络连接已恢复');
+  }
+
+  function handleOffline() {
+    isOnline.value = false;
+    showToast('网络连接已断开');
+  }
+
+  // 初始化网络监听
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+  }
 
   function applyTheme() {
     document.documentElement.classList.remove('dark');
@@ -85,6 +103,7 @@ export const useUiStore = defineStore('ui', () => {
     secondaryNavItems,
     secondaryNavActiveKey,
     expandedSidebarSection,
+    isOnline,
     toggleDarkMode,
     showToast,
     hideToast,

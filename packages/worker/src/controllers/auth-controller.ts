@@ -55,13 +55,17 @@ export class AuthController {
     }
 
     const service = this.serviceFor(c.env);
-    const session = await service.requireSession(c.req.raw);
-    if (!session) {
-      return c.json({ error: '未登录或登录已过期' }, 401);
+    const sessionResult = await service.requireSession(c.req.raw);
+
+    if (!sessionResult || !sessionResult.session) {
+      const error = sessionResult?.invalidated
+        ? '管理员密码已变更，请重新登录'
+        : '未登录或登录已过期';
+      return c.json({ error }, 401);
     }
-    
+
     // Set userId in context for downstream routes
-    c.set('userId', session.username);
+    c.set('userId', sessionResult.session.username);
     await next();
   }
 

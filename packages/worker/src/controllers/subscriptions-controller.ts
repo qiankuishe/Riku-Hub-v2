@@ -95,8 +95,8 @@ export class SubscriptionsController<TEnv extends object> {
   }
 
   private async checkRefreshRateLimit(env: TEnv, identifier: string): Promise<boolean> {
-    // 检查是否有 CACHE_KV
-    const cacheKv = (env as any).CACHE_KV as KVNamespace | undefined;
+    // 检查是否有 CACHE_KV（类型安全访问）
+    const cacheKv = 'CACHE_KV' in env ? (env as any).CACHE_KV as KVNamespace | undefined : undefined;
     if (!cacheKv) {
       return true; // 如果没有 KV，不限流
     }

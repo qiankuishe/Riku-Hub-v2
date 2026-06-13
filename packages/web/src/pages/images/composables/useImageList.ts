@@ -2,7 +2,7 @@
  * 图片列表逻辑
  */
 
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { imagesApi } from '../../../api/images';
 import type { ImageRecord, FileType, SortOption, FilterOption } from '@riku-hub/shared/types/images';
 
@@ -18,12 +18,25 @@ export function useImageList() {
   const filterOption = ref<FilterOption>('all');
   const searchQuery = ref('');
 
-  // 分页
-  const currentPage = ref(1);
+  // 分页 - 从 URL 读取初始页码
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialPage = parseInt(urlParams.get('page') || '1', 10);
+  const currentPage = ref(initialPage > 0 ? initialPage : 1);
   const pageSize = ref(30);
 
   // 选中的文件
   const selectedFiles = ref<Set<string>>(new Set());
+
+  // 监听页码变化，同步到 URL
+  watch(currentPage, (page) => {
+    const url = new URL(window.location.href);
+    if (page === 1) {
+      url.searchParams.delete('page');
+    } else {
+      url.searchParams.set('page', String(page));
+    }
+    window.history.replaceState({}, '', url);
+  });
 
   /**
    * 加载图片列表

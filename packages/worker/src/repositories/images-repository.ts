@@ -13,6 +13,7 @@ import type {
   ListType,
   FilterOption
 } from '@riku-hub/shared/types/images';
+import { buildLikePattern } from '../utils/sql';
 
 export class ImagesRepository {
   constructor(private db: D1Database) {}
@@ -55,7 +56,7 @@ export class ImagesRepository {
     // 搜索
     if (search) {
       query += ' AND (file_name LIKE ? OR id LIKE ?)';
-      const searchPattern = `%${search}%`;
+      const searchPattern = buildLikePattern(search, 'contains');
       bindings.push(searchPattern, searchPattern);
     }
 

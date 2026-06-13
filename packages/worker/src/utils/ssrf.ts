@@ -7,9 +7,10 @@
 
 import { formatError } from './error';
 import { API_ENDPOINTS } from '../config/api-endpoints';
+import { LIMITS } from '../config/limits';
 
-// 常量
-const DNS_QUERY_TIMEOUT_MS = 4_000;
+// 内存缓存（进程级别）
+const dnsCache = new Map<string, { addresses: string[]; expiresAt: number }>();
 
 // 类型定义
 interface Env {
@@ -63,14 +64,43 @@ export async function assertSafeUrl(_env: Env, url: URL): Promise<void> {
 }
 
 /**
- * 解析域名的所有 IP 地址（A 和 AAAA 记录）
+ * 解析域名的所有 IP 地址（A 和 AAAA 记录）- 带缓存
  */
 async function resolveAddresses(hostname: string): Promise<string[]> {
+  const cacheKey = hostname.toLowerCase();
+  const now = Date.now();
+
+  // 检查缓存
+  const cached = dnsCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.addresses;
+  }
+
+  // 执行 DNS 查询
   const [aRecords, aaaaRecords] = await Promise.all([
     resolveDnsType(hostname, 'A'),
     resolveDnsType(hostname, 'AAAA')
   ]);
-  return [...aRecords, ...aaaaRecords];
+  const addresses = [...aRecords, ...aaaaRecords];
+
+  // 更新缓存
+  dnsCache.set(cacheKey, {
+    addresses,
+    expiresAt: now + LIMITS.DNS_CACHE_TTL_MS
+  });
+
+  // 清理过期缓存（简单的 LRU）
+  if (dnsCache.size > LIMITS.DNS_CACHE_MAX_SIZE) {
+    const toDelete: string[] = [];
+    for (const [key, value] of dnsCache.entries()) {
+      if (value.expiresAt <= now || toDelete.length < LIMITS.DNS_CACHE_MAX_SIZE / 10) {
+        toDelete.push(key);
+      }
+    }
+    toDelete.forEach(key => dnsCache.delete(key));
+  }
+
+  return addresses;
 }
 
 /**
@@ -80,7 +110,7 @@ async function resolveAddresses(hostname: string): Promise<string[]> {
  */
 async function resolveDnsType(hostname: string, type: 'A' | 'AAAA'): Promise<string[]> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DNS_QUERY_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), LIMITS.DNS_QUERY_TIMEOUT_MS);
 
   try {
     const response = await fetch(

@@ -101,19 +101,22 @@ async function loadAutoRedirectSetting() {
   }
 }
 
-async function saveAutoRedirectSetting() {
+async function handleAutoRedirectChange(value: string | number | boolean) {
+  const boolValue = Boolean(value);
   savingAutoRedirect.value = true;
+
   try {
-    if (autoRedirectEnabled.value) {
+    if (boolValue) {
       await settingsApi.setSetting('auto_redirect_to_dashboard', 'true');
     } else {
       await settingsApi.deleteSetting('auto_redirect_to_dashboard');
     }
-    uiStore.showToast(autoRedirectEnabled.value ? '已启用自动跳转' : '已禁用自动跳转');
+    // 保存成功后才更新状态
+    autoRedirectEnabled.value = boolValue;
+    uiStore.showToast(boolValue ? '已启用自动跳转' : '已禁用自动跳转');
   } catch (error) {
     uiStore.showToast(error instanceof Error ? error.message : '保存设置失败');
-    // Revert the switch state on error
-    autoRedirectEnabled.value = !autoRedirectEnabled.value;
+    // 保持原状态不变，不需要手动回滚
   } finally {
     savingAutoRedirect.value = false;
   }
@@ -126,7 +129,8 @@ async function exportData() {
     const blob = new Blob([JSON.stringify(data.backup, null, 2)], { type: 'application/json;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `riku-hub-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    link.download = `riku-hub-backup-${timestamp}.json`;
     document.body.append(link);
     link.click();
     link.remove();
@@ -250,10 +254,10 @@ async function logout() {
             <p class="mt-1 text-xs text-gray-500">登录状态下访问主页时自动跳转到导航页面</p>
           </div>
           <ElSwitch
-            v-model="autoRedirectEnabled"
+            :model-value="autoRedirectEnabled"
             :loading="loadingAutoRedirect || savingAutoRedirect"
             :disabled="loadingAutoRedirect || savingAutoRedirect"
-            @change="saveAutoRedirectSetting"
+            @update:model-value="handleAutoRedirectChange"
           />
         </div>
       </div>

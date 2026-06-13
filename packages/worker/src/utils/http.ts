@@ -2,6 +2,27 @@
  * HTTP 工具函数
  */
 
+import { LIMITS } from '../config/limits';
+
+/**
+ * 创建带超时的 AbortController
+ *
+ * @param timeoutMs 超时时间（毫秒）
+ * @returns AbortController 和清理函数
+ */
+export function createTimeoutController(timeoutMs: number): {
+  controller: AbortController;
+  cleanup: () => void;
+} {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  return {
+    controller,
+    cleanup: () => clearTimeout(timeoutId)
+  };
+}
+
 export function isEnabledFlag(value: string | undefined): boolean {
   if (!value) {
     return false;
@@ -76,39 +97,51 @@ export async function readResponseTextWithLimit(
   maxBytes: number,
   controller?: AbortController
 ): Promise<string> {
-  if (!response.body) {
-    const text = await response.text();
-    const bytes = getByteLength(text);
-    if (bytes > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytes} 字节（限制 ${maxBytes}）`);
+  // 如果未提供 controller，创建默认超时控制器（30 秒）
+  let cleanup: (() => void) | undefined;
+  if (!controller) {
+    const timeout = createTimeoutController(LIMITS.SUBSCRIPTION_FETCH_TIMEOUT_MS);
+    controller = timeout.controller;
+    cleanup = timeout.cleanup;
+  }
+
+  try {
+    if (!response.body) {
+      const text = await response.text();
+      const bytes = getByteLength(text);
+      if (bytes > maxBytes) {
+        controller?.abort();
+        throw new Error(`响应过大: ${bytes} 字节（限制 ${maxBytes}）`);
+      }
+      return text;
     }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let bytesRead = 0;
+    let text = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+      bytesRead += value.byteLength;
+      if (bytesRead > maxBytes) {
+        controller?.abort();
+        throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+
+    text += decoder.decode();
     return text;
+  } finally {
+    cleanup?.();
   }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let bytesRead = 0;
-  let text = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    if (!value) {
-      continue;
-    }
-    bytesRead += value.byteLength;
-    if (bytesRead > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-
-  text += decoder.decode();
-  return text;
 }
 
 export async function readResponseBytesWithLimit(
@@ -116,43 +149,55 @@ export async function readResponseBytesWithLimit(
   maxBytes: number,
   controller?: AbortController
 ): Promise<Uint8Array> {
-  if (!response.body) {
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytes.byteLength} 字节（限制 ${maxBytes}）`);
-    }
-    return bytes;
+  // 如果未提供 controller，创建默认超时控制器（30 秒）
+  let cleanup: (() => void) | undefined;
+  if (!controller) {
+    const timeout = createTimeoutController(LIMITS.SUBSCRIPTION_FETCH_TIMEOUT_MS);
+    controller = timeout.controller;
+    cleanup = timeout.cleanup;
   }
 
-  const reader = response.body.getReader();
-  let bytesRead = 0;
-  const chunks: Uint8Array[] = [];
+  try {
+    if (!response.body) {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > maxBytes) {
+        controller?.abort();
+        throw new Error(`响应过大: ${bytes.byteLength} 字节（限制 ${maxBytes}）`);
+      }
+      return bytes;
+    }
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
+    const reader = response.body.getReader();
+    let bytesRead = 0;
+    const chunks: Uint8Array[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+      bytesRead += value.byteLength;
+      if (bytesRead > maxBytes) {
+        controller?.abort();
+        throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
+      }
+      chunks.push(value);
     }
-    if (!value) {
-      continue;
+
+    const result = new Uint8Array(bytesRead);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.byteLength;
     }
-    bytesRead += value.byteLength;
-    if (bytesRead > maxBytes) {
-      controller?.abort();
-      throw new Error(`响应过大: ${bytesRead} 字节（限制 ${maxBytes}）`);
-    }
-    chunks.push(value);
+
+    return result;
+  } finally {
+    cleanup?.();
   }
-
-  const result = new Uint8Array(bytesRead);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return result;
 }
 
 function getByteLength(text: string): number {

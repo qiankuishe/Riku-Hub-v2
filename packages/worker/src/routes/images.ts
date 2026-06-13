@@ -34,11 +34,17 @@ const images = new Hono<Bindings>();
  */
 images.get('/list', async (c) => {
   const userId = c.get('userId');
+
+  // 获取查询参数并进行类型安全的转换
+  const fileTypeParam = c.req.query('fileType') || 'all';
+  const sortByParam = c.req.query('sortBy') || 'dateDesc';
+  const filterParam = c.req.query('filter') || 'all';
+
   const params: ImageListParams = {
     limit: Number(c.req.query('limit')) || 100,
-    fileType: (c.req.query('fileType') as any) || 'all',
-    sortBy: (c.req.query('sortBy') as any) || 'dateDesc',
-    filter: (c.req.query('filter') as any) || 'all',
+    fileType: fileTypeParam as ImageListParams['fileType'],
+    sortBy: sortByParam as ImageListParams['sortBy'],
+    filter: filterParam as ImageListParams['filter'],
     search: c.req.query('search') || ''
   };
 
@@ -59,9 +65,9 @@ images.get('/list', async (c) => {
  */
 images.post('/upload', async (c) => {
   const userId = c.get('userId');
-  
+
   logger.debug('Upload request received', { userId, userIdType: typeof userId });
-  
+
   const formData = await c.req.formData();
   const file = formData.get('file') as File;
 
@@ -74,6 +80,38 @@ images.post('/upload', async (c) => {
   if (file.size > MAX_FILE_SIZE) {
     logger.warn('File size exceeds limit', { userId, fileName: file.name, fileSize: file.size, limit: MAX_FILE_SIZE });
     return c.json({ error: '文件大小超过 20MB 限制' }, 400);
+  }
+
+  // 验证文件类型（MIME 类型和扩展名）
+  const allowedMimeTypes = [
+    // 图片
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp', 'image/x-icon',
+    // 视频
+    'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo',
+    // 音频
+    'audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/mp4',
+    // 文档
+    'application/pdf', 'text/plain', 'application/zip', 'application/x-rar-compressed'
+  ];
+
+  const allowedExtensions = [
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico',
+    'mp4', 'webm', 'ogg', 'mov', 'avi',
+    'mp3', 'wav', 'flac', 'aac', 'm4a',
+    'pdf', 'txt', 'zip', 'rar'
+  ];
+
+  const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+  const mimeType = file.type.toLowerCase();
+
+  if (!allowedMimeTypes.includes(mimeType) && !allowedExtensions.includes(fileExt)) {
+    logger.warn('Invalid file type', { userId, fileName: file.name, mimeType, fileExt });
+    return c.json({ error: '不支持的文件类型' }, 400);
+  }
+
+  // 验证文件名长度
+  if (file.name.length > 255) {
+    return c.json({ error: '文件名过长（最多 255 个字符）' }, 400);
   }
 
   try {
@@ -94,7 +132,7 @@ images.post('/upload', async (c) => {
       fileType,
       telegramFileId
     };
-    
+
     const image = await repository.create(createData);
     logger.info('Image uploaded successfully', { userId, imageId: image.id, fileName: file.name, fileSize: file.size });
 

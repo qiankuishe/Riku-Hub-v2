@@ -35,6 +35,8 @@ import {
 import { getByteLength, getDefaultSnippetTitle, isSnippetType } from './utils/snippets';
 import { sleep, mapWithConcurrency } from './utils/async';
 import { getErrorStatusCode, formatError } from './utils/error';
+import { buildLikePattern } from './utils/sql';
+import { LIMITS } from './config/limits';
 import {
   isEnabledFlag,
   resolvePageAssetPath,
@@ -150,11 +152,6 @@ export interface Env {
 type Bindings = { Bindings: Env };
 
 const app = new Hono<Bindings>();
-
-const MAX_IMPORT_WRITE_CONCURRENCY = 16;
-const MAX_IMAGE_SNIPPET_BYTES = 350 * 1024;
-const MAX_FAVICON_BYTES = 64 * 1024;
-const FAVICON_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 const APP_KEYS = {
   subToken: 'config:sub-token',
@@ -311,7 +308,7 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-app.get('/app', (c) => c.redirect('/', 302));
+app.get('/app', (c) => c.redirect('/riku/nav', 302));
 app.get('/app/nav', (c) => c.redirect('/riku/nav', 302));
 app.get('/app/subscriptions', (c) => c.redirect('/riku/subscriptions', 302));
 app.get('/app/notes', (c) => c.redirect('/riku/notes', 302));
@@ -346,7 +343,7 @@ app.get('/api/clipboard/public', async (c) => {
   return c.json({ items });
 });
 
-app.use('/api/*', createAuthMiddleware(authController as any));
+app.use('/api/*', createAuthMiddleware(authController));
 
 app.get('/api/snippets/login-mapped', async (c) => {
   const snippets = await getLoginMappedSnippets(c.env);
@@ -468,7 +465,7 @@ mountSnippetsRoutes<Env>(app, {
     isSnippetType,
     getDefaultSnippetTitle,
     getByteLength,
-    maxImageSnippetBytes: MAX_IMAGE_SNIPPET_BYTES
+    maxImageSnippetBytes: LIMITS.MAX_IMAGE_SNIPPET
   }
 });
 
@@ -485,10 +482,75 @@ app.get('/i/:id/:filename?', async (c) => {
     : await repository.getByIdPublic(id);
 
   if (!image) {
-    return c.text('File not found', 404);
+    return c.html(`
+      <!DOCTYPE html>
+      <html lang="zh-CN">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>文件不存在 - Rik>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f5f5f5;
+            color: #1d1d1f;
+          }
+          .error-container {
+            text-align: center;
+            padding: 40px 20px;
+            max-width: 400px;
+          }
+          .error-code {
+            font-size: 72px;
+            font-weight: 700;
+            color: #000;
+            margin: 0;
+          }
+          .error-message {
+            font-size: 18px;
+            color: #6e6e73;
+            margin: 16px 0;
+          }
+          .error-detail {
+            font-size: 14px;
+            color: #86868b;
+            margin-top: 8px;
+          }
+          .back-link {
+            display: inline-block;
+            margin-top: 24px;
+            padding: 12px 24px;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+          }
+          .back-link:hover {
+            opacity: 0.8;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="error-container">
+          <h1 class="error-code">404</h1>
+          <p class="error-message">文件不存在</p>
+          <p class="error-detail">请检查链接是否正确，或联系管理员</p>
+          <a href="/" class="back-link">返回首页</a>
+        </div>
+      </body>
+      </html>
+    `, 404);
   }
 
-  return proxyTelegramFile(image.telegramFileId, image.fileName, c.env as any);
+  return proxyTelegramFile(image.telegramFileId, image.fileName, c.env);
 });
 
 app.notFound(async (c) => {
@@ -530,6 +592,15 @@ export { app };
 
 
 async function validateContent(env: Env, content: string): Promise<ValidationSummary> {
+  // 检查内容大小限制
+  const contentBytes = new TextEncoder().encode(content).length;
+  if (contentBytes > LIMITS.MAX_CONTENT_SIZE) {
+    throw createStatusError(
+      413,
+      `内容过大: ${(contentBytes / 1024 / 1024).toFixed(2)}MB (限制 ${LIMITS.MAX_CONTENT_SIZE / 1024 / 1024}MB)`
+    );
+  }
+
   const resolved = await resolveNodesFromInput(env, content);
   const { nodes, duplicateCount } = deduplicateNodes(resolved.nodes);
   return {
@@ -660,19 +731,45 @@ async function withSettingsImportLock<T>(env: Env, handler: () => Promise<T>): P
   const lockTtlSeconds = 180;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
 
-  const existingLock = await env.CACHE_KV.get(lockKey);
-  if (existingLock) {
-    const lockParts = existingLock.split('-');
-    const lockTime = lockParts.length > 1 ? Number.parseInt(lockParts[1], 10) : 0;
-    const isExpired = Date.now() - lockTime > lockTtlSeconds * 1000;
-    if (!isExpired) {
-      throw createStatusError(409, '设置导入正在进行中，请稍后重试');
+  // 尝试获取锁，最多重试 3 次
+  let acquired = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const existingLock = await env.CACHE_KV.get(lockKey);
+
+    if (existingLock) {
+      const lockParts = existingLock.split('-');
+      const lockTime = lockParts.length > 1 ? Number.parseInt(lockParts[1], 10) : 0;
+      const isExpired = Date.now() - lockTime > lockTtlSeconds * 1000;
+
+      if (!isExpired) {
+        // 锁未过期，直接拒绝
+        throw createStatusError(409, '设置导入正在进行中，请稍后重试');
+      }
+
+      // 锁已过期，尝试删除旧锁（清理）
+      await env.CACHE_KV.delete(lockKey);
+    }
+
+    // 尝试写入锁
+    await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtlSeconds });
+
+    // 添加短暂延迟让其他并发请求的写入可能完成
+    await sleep(50 + Math.random() * 50);
+
+    // 验证锁是否属于当前请求
+    const confirmed = await env.CACHE_KV.get(lockKey);
+    if (confirmed === lockValue) {
+      acquired = true;
+      break;
+    }
+
+    // 如果验证失败，说明被其他请求抢占，等待后重试
+    if (attempt < 2) {
+      await sleep(100 + Math.random() * 200);
     }
   }
 
-  await env.CACHE_KV.put(lockKey, lockValue, { expirationTtl: lockTtlSeconds });
-  const confirmed = await env.CACHE_KV.get(lockKey);
-  if (confirmed !== lockValue) {
+  if (!acquired) {
     throw createStatusError(409, '设置导入正在进行中，请稍后重试');
   }
 
@@ -934,11 +1031,29 @@ async function importSettingsBackupWithD1Transaction(env: Env, payload: Settings
 
     await db.prepare('COMMIT').run();
   } catch (error) {
+    // 尝试回滚事务
+    let rollbackFailed = false;
     try {
       await db.prepare('ROLLBACK').run();
-    } catch {
-      // rollback failure should not hide import error
+    } catch (rollbackError) {
+      rollbackFailed = true;
+      // 记录回滚失败（严重问题，数据库可能处于不一致状态）
+      await appendLog(
+        env,
+        'settings_import_rollback_failed',
+        `数据库回滚失败，可能数据不一致: import_error=${formatError(error)}, rollback_error=${formatError(rollbackError)}`
+      ).catch(() => {
+        // 连日志都写不进去，只能静默
+      });
     }
+
+    // 如果回滚失败，在错误消息中标注
+    if (rollbackFailed) {
+      const wrappedError = new Error(`导入失败且回滚失败（数据库可能不一致）: ${formatError(error)}`);
+      (wrappedError as any).status = 500;
+      throw wrappedError;
+    }
+
     throw error;
   }
 
@@ -977,6 +1092,10 @@ async function invalidateCache(env: Env): Promise<void> {
   });
 }
 
+// 日志失败计数器（用于监控）
+let logFailureCount = 0;
+let lastLogFailureReport = Date.now();
+
 async function appendLog(env: Env, action: string, detail?: string): Promise<void> {
   try {
     if (hasD1(env)) {
@@ -993,6 +1112,12 @@ async function appendLog(env: Env, action: string, detail?: string): Promise<voi
       )
         .bind(getMaxLogEntries(env))
         .run();
+
+      // 成功后重置失败计数
+      if (logFailureCount > 0) {
+        console.log(`[appendLog] Recovered after ${logFailureCount} failures`);
+        logFailureCount = 0;
+      }
       return;
     }
 
@@ -1005,8 +1130,47 @@ async function appendLog(env: Env, action: string, detail?: string): Promise<voi
     };
     logs.unshift(next);
     await env.APP_KV.put(APP_KEYS.logsRecent, JSON.stringify(logs.slice(0, getMaxLogEntries(env))));
-  } catch {
-    // logging should never block the primary workflow
+
+    // 成功后重置失败计数
+    if (logFailureCount > 0) {
+      console.log(`[appendLog] Recovered after ${logFailureCount} failures`);
+      logFailureCount = 0;
+    }
+  } catch (error) {
+    // 日志失败不应阻塞主流程，但记录失败次数
+    logFailureCount++;
+
+    // 每分钟最多报告一次，避免日志刷屏
+    const now = Date.now();
+    if (now - lastLogFailureReport > 60000) {
+      lastLogFailureReport = now;
+
+      if (typeof console !== 'undefined') {
+        console.error(`[appendLog] Log write failed (${logFailureCount} total failures):`, {
+          action,
+          detail: detail?.slice(0, 100), // 截断详情避免过长
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    // 失败次数过多时，尝试记录到错误日志（如果可用）
+    if (logFailureCount === 10 && hasD1(env)) {
+      try {
+        await env.DB.prepare(
+          'INSERT INTO app_logs (id, action, detail, created_at) VALUES (?, ?, ?, ?)'
+        )
+          .bind(
+            randomToken(6),
+            'log_system_failure',
+            `日志系统出现 ${logFailureCount} 次连续失败`,
+            new Date().toISOString()
+          )
+          .run();
+      } catch {
+        // 最终降级也失败，完全静默
+      }
+    }
   }
 }
 
@@ -1087,6 +1251,85 @@ async function getNavigationCategoryCount(env: Env): Promise<number> {
 
 async function getNavigationTree(env: Env): Promise<NavigationCategoryPayload[]> {
   await ensureNavigationSeeded(env);
+
+  // D1 优化：使用 JOIN 一次性查询所有数据
+  if (hasD1(env)) {
+    const query = `
+      SELECT
+        c.id AS category_id,
+        c.name AS category_name,
+        c.sort_order AS category_sort_order,
+        c.created_at AS category_created_at,
+        c.updated_at AS category_updated_at,
+        l.id AS link_id,
+        l.title AS link_title,
+        l.url AS link_url,
+        l.description AS link_description,
+        l.sort_order AS link_sort_order,
+        l.visit_count AS link_visit_count,
+        l.last_visited_at AS link_last_visited_at,
+        l.created_at AS link_created_at,
+        l.updated_at AS link_updated_at
+      FROM navigation_categories c
+      LEFT JOIN navigation_links l ON c.id = l.category_id
+      ORDER BY c.sort_order, l.sort_order
+    `;
+
+    const result = await env.DB.prepare(query).all<{
+      category_id: string;
+      category_name: string;
+      category_sort_order: number;
+      category_created_at: string;
+      category_updated_at: string;
+      link_id: string | null;
+      link_title: string | null;
+      link_url: string | null;
+      link_description: string | null;
+      link_sort_order: number | null;
+      link_visit_count: number | null;
+      link_last_visited_at: string | null;
+      link_created_at: string | null;
+      link_updated_at: string | null;
+    }>();
+
+    // 将扁平结果转换为树形结构
+    const categoryMap = new Map<string, NavigationCategoryPayload>();
+
+    for (const row of result.results || []) {
+      // 确保分类存在
+      if (!categoryMap.has(row.category_id)) {
+        categoryMap.set(row.category_id, {
+          id: row.category_id,
+          name: row.category_name,
+          sortOrder: row.category_sort_order,
+          createdAt: row.category_created_at,
+          updatedAt: row.category_updated_at,
+          links: []
+        });
+      }
+
+      // 添加链接（如果存在）
+      if (row.link_id) {
+        const category = categoryMap.get(row.category_id)!;
+        category.links.push({
+          id: row.link_id,
+          categoryId: row.category_id,
+          title: row.link_title!,
+          url: row.link_url!,
+          description: row.link_description || '',
+          sortOrder: row.link_sort_order!,
+          visitCount: row.link_visit_count || 0,
+          lastVisitedAt: row.link_last_visited_at || null,
+          createdAt: row.link_created_at!,
+          updatedAt: row.link_updated_at!
+        });
+      }
+    }
+
+    return Array.from(categoryMap.values());
+  }
+
+  // KV 回退：保持原有逻辑
   const categories = await getNavigationCategories(env);
   return Promise.all(
     categories.map(async (category) => ({
@@ -1504,6 +1747,15 @@ async function saveNoteRecord(env: Env, note: NoteRecord): Promise<NoteRecord> {
 }
 
 async function createNoteRecord(env: Env, title: string, content: string): Promise<NoteRecord> {
+  // 验证内容大小
+  const contentBytes = new TextEncoder().encode(content).length;
+  if (contentBytes > LIMITS.MAX_NOTE_CONTENT) {
+    throw createStatusError(
+      413,
+      `笔记内容过大: ${(contentBytes / 1024 / 1024).toFixed(2)}MB (限制 ${LIMITS.MAX_NOTE_CONTENT / 1024 / 1024}MB)`
+    );
+  }
+
   const now = new Date().toISOString();
   const note: NoteRecord = {
     id: randomToken(8),
@@ -1636,6 +1888,15 @@ async function createSnippetRecord(
   env: Env,
   payload: Pick<SnippetRecord, 'type' | 'title' | 'content'>
 ): Promise<SnippetRecord> {
+  // 验证内容大小
+  const contentBytes = new TextEncoder().encode(payload.content).length;
+  if (contentBytes > LIMITS.MAX_SNIPPET_CONTENT) {
+    throw createStatusError(
+      413,
+      `片段内容过大: ${(contentBytes / 1024 / 1024).toFixed(2)}MB (限制 ${LIMITS.MAX_SNIPPET_CONTENT / 1024 / 1024}MB)`
+    );
+  }
+
   const now = new Date().toISOString();
   const snippet: SnippetRecord = {
     id: randomToken(8),
@@ -1690,7 +1951,7 @@ async function getAllSnippets(
     }
     if (options?.query) {
       conditions.push('(LOWER(title) LIKE ? OR LOWER(content) LIKE ?)');
-      const needle = `%${options.query.toLowerCase()}%`;
+      const needle = buildLikePattern(options.query.toLowerCase(), 'contains');
       bindings.push(needle, needle);
     }
 
@@ -2000,7 +2261,7 @@ function normalizeClipboardBackup(records: ClipboardItemRecord[] | undefined): C
 
 async function replaceSources(env: Env, sources: SourceRecord[]): Promise<void> {
   const ordered = [...sources].sort((left, right) => left.sortOrder - right.sortOrder);
-  await mapWithConcurrency(ordered, MAX_IMPORT_WRITE_CONCURRENCY, async (source, index) =>
+  await mapWithConcurrency(ordered, LIMITS.MAX_IMPORT_WRITE_CONCURRENCY, async (source, index) =>
     saveSource(env, { ...source, sortOrder: index })
   );
   await saveSourceIndex(
@@ -2041,7 +2302,7 @@ async function replaceNavigation(env: Env, categories: NavigationCategoryPayload
 
 async function replaceNotes(env: Env, notes: NoteRecord[]): Promise<void> {
   const ordered = [...notes].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-  await mapWithConcurrency(ordered, MAX_IMPORT_WRITE_CONCURRENCY, async (note) => saveNoteRecord(env, note));
+  await mapWithConcurrency(ordered, LIMITS.MAX_IMPORT_WRITE_CONCURRENCY, async (note) => saveNoteRecord(env, note));
   await saveNoteIndex(
     env,
     ordered.map((note) => note.id)
@@ -2050,7 +2311,7 @@ async function replaceNotes(env: Env, notes: NoteRecord[]): Promise<void> {
 
 async function replaceSnippets(env: Env, snippets: SnippetRecord[]): Promise<void> {
   const ordered = [...snippets].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-  await mapWithConcurrency(ordered, MAX_IMPORT_WRITE_CONCURRENCY, async (snippet) => saveSnippetRecord(env, snippet));
+  await mapWithConcurrency(ordered, LIMITS.MAX_IMPORT_WRITE_CONCURRENCY, async (snippet) => saveSnippetRecord(env, snippet));
   await saveSnippetIndex(
     env,
     ordered.map((snippet) => snippet.id)
@@ -2135,7 +2396,7 @@ async function clearAllClipboard(env: Env): Promise<void> {
 
 async function replaceClipboardItems(env: Env, items: ClipboardItemRecord[]): Promise<void> {
   const ordered = [...items].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-  await mapWithConcurrency(ordered, MAX_IMPORT_WRITE_CONCURRENCY, async (item) => saveClipboardItem(env, item));
+  await mapWithConcurrency(ordered, LIMITS.MAX_IMPORT_WRITE_CONCURRENCY, async (item) => saveClipboardItem(env, item));
   await saveClipboardIndex(
     env,
     ordered.map((item) => item.id)

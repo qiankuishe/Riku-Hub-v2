@@ -34,6 +34,22 @@ const pageErrorMessage = ref('');
 const selectedCategoryId = ref<string | null>(null);
 const editMode = ref(false);
 
+// 检测是否为移动端
+const isMobile = ref(false);
+
+function checkMobile() {
+  isMobile.value = window.innerWidth <= 768 || 'ontouchstart' in window;
+}
+
+onMounted(() => {
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile);
+});
+
 const searchEngine = ref<SearchEngine>('google');
 const searchQuery = ref('');
 const localSearchResults = ref<LocalSearchItem[]>([]);
@@ -140,7 +156,7 @@ watch(searchQuery, () => {
   }
   searchTimer = window.setTimeout(() => {
     runLocalSearch();
-  }, 280);
+  }, 500); // 增加到 500ms 避免过于频繁
 });
 
 watch(searchEngine, (value) => {
@@ -364,6 +380,28 @@ function normalizeUrl(url: string) {
   return `https://${trimmed}`;
 }
 
+function validateUrl(url: string): string {
+  const normalized = normalizeUrl(url);
+  if (!normalized) {
+    return '链接不能为空';
+  }
+
+  try {
+    const urlObj = new URL(normalized);
+    // 检查协议
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      return '只支持 http:// 或 https:// 协议';
+    }
+    // 检查主机名
+    if (!urlObj.hostname || urlObj.hostname === 'localhost') {
+      return '请输入有效的域名';
+    }
+    return '';
+  } catch {
+    return '请输入有效的 URL 格式';
+  }
+}
+
 async function saveCategory() {
   const name = categoryFormName.value.trim();
   if (!name) {
@@ -389,6 +427,13 @@ async function saveCategory() {
 async function saveLink() {
   if (!linkForm.value.categoryId || !linkForm.value.title.trim() || !linkForm.value.url.trim()) {
     formErrorMessage.value = '分类、名称、链接不能为空';
+    return;
+  }
+
+  // 验证 URL 格式
+  const urlError = validateUrl(linkForm.value.url);
+  if (urlError) {
+    formErrorMessage.value = urlError;
     return;
   }
 
@@ -622,6 +667,11 @@ async function saveDragChanges() {
     return;
   }
 
+  // 保存当前状态，用于失败时恢复
+  const savedMoveLinks = JSON.parse(JSON.stringify(pendingMoveLinks.value));
+  const savedDragQueue = JSON.parse(JSON.stringify(dragChangeQueue.value));
+  const savedCategories = JSON.parse(JSON.stringify(categories.value));
+
   try {
     for (const move of pendingMoveLinks.value) {
       if (move.fromCategoryId !== move.toCategoryId) {
@@ -650,10 +700,25 @@ async function saveDragChanges() {
       void loadAll();
     }, 800);
   } catch (error) {
-    uiStore.showToast(error instanceof Error ? error.message : '保存失败');
-    resetPendingDragState();
-    await loadAll();
+    const errorMessage = error instanceof Error ? error.message : '保存失败';
+    uiStore.showToast(errorMessage);
+
+    // 保存失败：完整恢复之前的状态
+    pageErrorMessage.value = `保存失败: ${errorMessage}。点击"重试"再次保存，或"取消"放弃修改。`;
+    pendingMoveLinks.value = savedMoveLinks;
+    dragChangeQueue.value = savedDragQueue;
+    categories.value = savedCategories;
+
+    // 保持 pendingDragChanges.value = true，让用户可以重试
   }
+}
+
+// 新增：放弃未保存的修改
+function discardDragChanges() {
+  resetPendingDragState();
+  void loadAll();
+  pageErrorMessage.value = '';
+  uiStore.showToast('已放弃修改');
 }
 
 function handleEditModeToggle() {
@@ -762,9 +827,10 @@ async function moveCategoryDown(category: NavigationCategory) {
               <Icon icon="carbon:add-alt" class="mr-1" />
               新增站点
             </UiButton>
-            <UiButton 
-              size="small" 
-              :type="editMode ? 'primary' : 'default'" 
+            <UiButton
+              v-if="!isMobile"
+              size="small"
+              :type="editMode ? 'primary' : 'default'"
               :loading="editMode && saving"
               :disabled="saving"
               @click="handleEditButtonClick"
@@ -774,6 +840,9 @@ async function moveCategoryDown(category: NavigationCategory) {
               <Icon v-else icon="carbon:edit" class="mr-1" />
               {{ editMode ? (pendingDragChanges ? '保存' : '完成') : '编辑' }}
             </UiButton>
+            <ElTag v-else type="info" size="small">
+              移动端不支持拖拽编辑
+            </ElTag>
           </div>
         </div>
       </div>
@@ -869,6 +938,16 @@ async function moveCategoryDown(category: NavigationCategory) {
 
     <section v-else-if="pageErrorMessage" class="card">
       <ElAlert :closable="false" show-icon type="error" :title="pageErrorMessage" />
+      <div v-if="pendingDragChanges" class="mt-3 flex gap-2">
+        <UiButton type="primary" size="small" @click="saveDragChanges">
+          <Icon icon="carbon:restart" class="mr-1" />
+          重试
+        </UiButton>
+        <UiButton size="small" @click="discardDragChanges">
+          <Icon icon="carbon:close" class="mr-1" />
+          放弃修改
+        </UiButton>
+      </div>
     </section>
 
     <section v-else-if="!categories.length" class="card">

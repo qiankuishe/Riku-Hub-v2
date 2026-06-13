@@ -31,6 +31,7 @@ const deleteTarget = ref<Source | null>(null);
 
 let validateTimer = 0;
 let validateRunId = 0;
+let validateAbortController: AbortController | null = null;
 
 const cacheStatusMeta = computed(() => {
   const status = subInfo.value?.cacheStatus ?? 'missing';
@@ -50,7 +51,7 @@ watch(formContent, () => {
   clearValidateTimer();
   validateTimer = window.setTimeout(() => {
     void runValidate();
-  }, 300);
+  }, 500); // 增加到 500ms 减少频繁请求
 });
 
 watch(editorOpen, (open) => {
@@ -59,6 +60,11 @@ watch(editorOpen, (open) => {
   }
   validateRunId += 1;
   clearValidateTimer();
+  // 关闭对话框时取消正在进行的校验请求
+  if (validateAbortController) {
+    validateAbortController.abort();
+    validateAbortController = null;
+  }
   validating.value = false;
 });
 
@@ -69,6 +75,11 @@ onMounted(() => {
 onUnmounted(() => {
   validateRunId += 1;
   clearValidateTimer();
+  // 组件卸载时取消请求
+  if (validateAbortController) {
+    validateAbortController.abort();
+    validateAbortController = null;
+  }
 });
 
 async function loadPageData() {
@@ -151,8 +162,15 @@ async function runValidate() {
     return;
   }
 
+  // 取消之前的请求
+  if (validateAbortController) {
+    validateAbortController.abort();
+  }
+
   const runId = ++validateRunId;
+  validateAbortController = new AbortController();
   validating.value = true;
+
   try {
     const result = await sourcesApi.validate(content);
     if (runId !== validateRunId) {
@@ -160,6 +178,10 @@ async function runValidate() {
     }
     validation.value = result;
   } catch (error) {
+    // 忽略 AbortError，这是正常的取消操作
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
     if (runId !== validateRunId) {
       return;
     }
@@ -168,6 +190,7 @@ async function runValidate() {
   } finally {
     if (runId === validateRunId) {
       validating.value = false;
+      validateAbortController = null;
     }
   }
 }

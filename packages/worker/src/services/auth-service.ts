@@ -74,30 +74,31 @@ export class AuthService {
     await this.repository.deleteSession(token);
   }
 
-  async requireSession(request: Request): Promise<AuthSession | null> {
+  async requireSession(request: Request): Promise<{ session: AuthSession | null; invalidated: boolean }> {
     const token = getCookie(request, 'session');
     if (!token) {
-      return null;
+      return { session: null, invalidated: false };
     }
     const session = await this.repository.getSession(token);
     if (!session) {
-      return null;
+      return { session: null, invalidated: false };
     }
     const expectedHash = this.env.ADMIN_PASSWORD_HASH ?? '';
     if (expectedHash && session.passwordHash !== expectedHash) {
       await this.repository.deleteSession(session.token);
-      return null;
+      return { session: null, invalidated: true };
     }
     const expectedUser = (this.env.ADMIN_USERNAME ?? 'admin').trim();
     if (expectedUser && session.username !== expectedUser) {
       await this.repository.deleteSession(session.token);
-      return null;
+      return { session: null, invalidated: false };
     }
-    return session;
+    return { session, invalidated: false };
   }
 
   async isAuthenticated(request: Request): Promise<boolean> {
-    return Boolean(await this.requireSession(request));
+    const result = await this.requireSession(request);
+    return Boolean(result.session);
   }
 
   createSessionCookie(token: string): string {

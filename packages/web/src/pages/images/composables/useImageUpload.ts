@@ -12,7 +12,7 @@ const MAX_CONCURRENT = 3; // 最大并发上传数
 
 export function useImageUpload() {
   const uploading = ref(false);
-  const uploadProgress = ref<Map<string, number>>(new Map());
+  const uploadProgress = ref<{ current: number; total: number }>({ current: 0, total: 0 });
 
   /**
    * 上传单个文件
@@ -63,6 +63,7 @@ export function useImageUpload() {
     }
 
     uploading.value = true;
+    uploadProgress.value = { current: 0, total: validFiles.length };
     const success: ImageRecord[] = [];
     const failed: Array<{ file: File; error: string }> = [];
 
@@ -84,6 +85,8 @@ export function useImageUpload() {
               error: result.status === 'rejected' ? result.reason?.message || '上传失败' : '上传失败'
             });
           }
+          // 更新进度
+          uploadProgress.value.current++;
         });
       }
 
@@ -98,6 +101,7 @@ export function useImageUpload() {
       }
     } finally {
       uploading.value = false;
+      uploadProgress.value = { current: 0, total: 0 };
     }
 
     return { success, failed };

@@ -215,50 +215,104 @@ export function parseUri(uri: string): NormalizedNode | null {
 }
 
 function parseVmessUri(uri: string): VmessNode {
-  const json = JSON.parse(decodeBase64Loose(uri.slice(8))) as Record<string, string>;
-  return {
-    type: 'vmess',
-    name: json.ps || json.remarks || `VMess-${json.add}`,
-    server: json.add,
-    port: Number.parseInt(json.port, 10),
-    uuid: json.id,
-    alterId: Number.parseInt(json.aid || '0', 10),
-    cipher: json.scy || 'auto',
-    tls: json.tls === 'tls',
-    sni: json.sni || json.host,
-    network: (json.net as VmessNode['network']) || 'tcp',
-    wsPath: json.path || undefined,
-    wsHeaders: json.host ? { Host: json.host } : undefined
-  };
+  try {
+    const json = JSON.parse(decodeBase64Loose(uri.slice(8))) as Record<string, unknown>;
+
+    // 验证必需字段
+    if (!json || typeof json !== 'object') {
+      throw new Error('Invalid VMess JSON structure');
+    }
+
+    if (typeof json.add !== 'string' || !json.add) {
+      throw new Error('Missing or invalid VMess server address (add)');
+    }
+
+    if (!json.port || (typeof json.port !== 'string' && typeof json.port !== 'number')) {
+      throw new Error('Missing or invalid VMess port');
+    }
+
+    if (typeof json.id !== 'string' || !json.id) {
+      throw new Error('Missing or invalid VMess UUID (id)');
+    }
+
+    const port = typeof json.port === 'number' ? json.port : Number.parseInt(String(json.port), 10);
+    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+      throw new Error(`Invalid VMess port: ${json.port}`);
+    }
+
+    return {
+      type: 'vmess',
+      name: (typeof json.ps === 'string' && json.ps) ||
+            (typeof json.remarks === 'string' && json.remarks) ||
+            `VMess-${json.add}`,
+      server: json.add,
+      port,
+      uuid: json.id,
+      alterId: typeof json.aid === 'string' || typeof json.aid === 'number'
+        ? Number.parseInt(String(json.aid), 10)
+        : 0,
+      cipher: (typeof json.scy === 'string' && json.scy) || 'auto',
+      tls: json.tls === 'tls',
+      sni: (typeof json.sni === 'string' && json.sni) || (typeof json.host === 'string' && json.host) || undefined,
+      network: (typeof json.net === 'string' && json.net as VmessNode['network']) || 'tcp',
+      wsPath: (typeof json.path === 'string' && json.path) || undefined,
+      wsHeaders: typeof json.host === 'string' && json.host ? { Host: json.host } : undefined
+    };
+  } catch (error) {
+    throw new Error(`Failed to parse VMess URI: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 function parseVlessUri(uri: string): VlessNode {
-  const url = new URL(uri);
-  const params = url.searchParams;
-  const hostHeader = params.get('host') || params.get('Host');
-  return {
-    type: 'vless',
-    name: decodeURIComponent(url.hash.slice(1)) || `VLESS-${url.hostname}`,
-    server: url.hostname,
-    port: Number.parseInt(url.port, 10),
-    uuid: decodeURIComponent(url.username),
-    flow: params.get('flow') || undefined,
-    tls: params.get('security') === 'tls' || params.get('security') === 'reality',
-    sni: params.get('sni') || undefined,
-    skipCertVerify:
-      params.get('allowInsecure') === '1' || params.get('allow_insecure') === '1' || params.get('insecure') === '1',
-    network: (params.get('type') as VlessNode['network']) || 'tcp',
-    wsPath: params.get('path') || undefined,
-    wsHeaders: hostHeader ? { Host: hostHeader } : undefined,
-    grpcServiceName: params.get('serviceName') || undefined,
-    realityOpts:
-      params.get('security') === 'reality'
-        ? {
-            publicKey: params.get('pbk') || '',
-            shortId: params.get('sid') || undefined
-          }
-        : undefined
-  };
+  try {
+    const url = new URL(uri);
+    const params = url.searchParams;
+
+    // 验证必需字段
+    if (!url.hostname) {
+      throw new Error('Missing VLESS server hostname');
+    }
+
+    if (!url.port) {
+      throw new Error('Missing VLESS port');
+    }
+
+    const port = Number.parseInt(url.port, 10);
+    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+      throw new Error(`Invalid VLESS port: ${url.port}`);
+    }
+
+    if (!url.username) {
+      throw new Error('Missing VLESS UUID');
+    }
+
+    const hostHeader = params.get('host') || params.get('Host');
+    return {
+      type: 'vless',
+      name: decodeURIComponent(url.hash.slice(1)) || `VLESS-${url.hostname}`,
+      server: url.hostname,
+      port,
+      uuid: decodeURIComponent(url.username),
+      flow: params.get('flow') || undefined,
+      tls: params.get('security') === 'tls' || params.get('security') === 'reality',
+      sni: params.get('sni') || undefined,
+      skipCertVerify:
+        params.get('allowInsecure') === '1' || params.get('allow_insecure') === '1' || params.get('insecure') === '1',
+      network: (params.get('type') as VlessNode['network']) || 'tcp',
+      wsPath: params.get('path') || undefined,
+      wsHeaders: hostHeader ? { Host: hostHeader } : undefined,
+      grpcServiceName: params.get('serviceName') || undefined,
+      realityOpts:
+        params.get('security') === 'reality'
+          ? {
+              publicKey: params.get('pbk') || '',
+              shortId: params.get('sid') || undefined
+            }
+          : undefined
+    };
+  } catch (error) {
+    throw new Error(`Failed to parse VLESS URI: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 function parseShadowsocksUri(uri: string): ShadowsocksNode | null {

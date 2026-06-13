@@ -316,6 +316,20 @@ export async function mountProtectedPage(options: ProtectedPageOptions) {
   const currentRoute = getCurrentFullPath();
   rememberAppRoute(currentRoute);
 
+  // 显示加载状态（防止页面闪烁）
+  const loadingElement = document.getElementById('app');
+  if (loadingElement) {
+    loadingElement.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f5f5f5;">
+        <div style="text-align: center;">
+          <div style="width: 40px; height: 40px; border: 3px solid #e5e5e5; border-top-color: #000; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;"></div>
+          <p style="color: #666; font-size: 14px;">加载中...</p>
+        </div>
+      </div>
+      <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    `;
+  }
+
   try {
     const { authenticated } = await authApi.check();
     if (!authenticated) {
@@ -350,15 +364,22 @@ export async function mountProtectedPage(options: ProtectedPageOptions) {
 
 export async function mountLoginPage(component: Component) {
   const redirect = new URLSearchParams(window.location.search).get('redirect');
+
   try {
     const { authenticated } = await authApi.check();
     if (authenticated) {
       window.location.replace(resolveAppRoute(redirect));
       return;
     }
-  } catch {
-    // noop
+  } catch (error) {
+    // 区分网络错误和认证失败
+    if (error instanceof Error && error.message.includes('Failed to fetch')) {
+      // 网络错误：显示错误提示但继续渲染登录页
+      console.warn('网络连接失败，无法验证登录状态:', error);
+    }
+    // 其他错误或认证失败：直接渲染登录页
   }
+
   mount(component);
 }
 

@@ -52,11 +52,16 @@ const selectedNote = computed(() => notes.value.find((note) => note.id === selec
 const characterCount = computed(() => editContent.value.trim().length);
 const lineCount = computed(() => (editContent.value ? editContent.value.split(/\r?\n/).length : 0));
 
-watch(selectedNoteId, (nextId, previousId) => {
+watch(selectedNoteId, async (nextId, previousId) => {
   if (!previousId || previousId === nextId) {
     return;
   }
-  void flushPendingSaveFor(previousId, true);
+  // 切换笔记前必须保存，失败则提示用户
+  const saved = await flushPendingSaveFor(previousId, false);
+  if (!saved) {
+    // 保存失败，回滚选择
+    selectedNoteId.value = previousId;
+  }
 });
 
 watch(selectedNote, (note) => {
@@ -101,6 +106,7 @@ onMounted(async () => {
   uiStore.clearSecondaryNav();
   window.addEventListener('pagehide', handlePageHide);
   document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('keydown', handleKeydown);
   await loadAll();
   if (initialFocusId && notes.value.some((note) => note.id === initialFocusId)) {
     selectedNoteId.value = initialFocusId;
@@ -114,12 +120,28 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('pagehide', handlePageHide);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('keydown', handleKeydown);
   if (saveTimer) {
     window.clearTimeout(saveTimer);
     saveTimer = 0;
   }
   void flushPendingSave(true);
 });
+
+function handleKeydown(event: KeyboardEvent) {
+  // Ctrl+S / Cmd+S - 保存
+  if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+    event.preventDefault();
+    if (selectedNote.value) {
+      void flushPendingSave(false);
+    }
+  }
+
+  // Escape - 清空搜索
+  if (event.key === 'Escape' && searchQuery.value) {
+    searchQuery.value = '';
+  }
+}
 
 async function loadAll() {
   loading.value = true;
@@ -202,7 +224,10 @@ function queueSave() {
   }
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
-    void saveNow(payload, { silent: false });
+    void saveNow(payload, { silent: false }).catch(() => {
+      // 确保定时器被清理
+      saveTimer = 0;
+    });
   }, 2000);
 }
 
@@ -214,25 +239,57 @@ async function flushPendingSave(silent = true) {
   await flushPendingSaveFor(payload.noteId, silent);
 }
 
-async function flushPendingSaveFor(noteId: string, silent = true) {
+async function flushPendingSaveFor(noteId: string, silent = true): Promise<boolean> {
   const payload = pendingSavePayload;
   if (!payload || payload.noteId !== noteId) {
-    return;
+    return true;
   }
   if (saveTimer) {
     window.clearTimeout(saveTimer);
     saveTimer = 0;
   }
-  await saveNow(payload, { silent });
+  return await saveNow(payload, { silent });
 }
 
 function handlePageHide() {
-  void flushPendingSave(true);
+  // 页面关闭时必须同步保存未保存的内容
+  const payload = pendingSavePayload;
+  if (!payload) {
+    return;
+  }
+
+  if (saveTimer) {
+    window.clearTimeout(saveTimer);
+    saveTimer = 0;
+  }
+
+  try {
+    const blob = new Blob([JSON.stringify({
+      title: payload.title,
+      content: payload.content
+    })], { type: 'application/json' });
+
+    // sendBeacon 保证数据发送，即使页面已关闭
+    const sent = navigator.sendBeacon(`/api/notes/${payload.noteId}`, blob);
+
+    if (!sent) {
+      // 降级：同步 XMLHttpRequest（阻塞页面关闭确保保存）
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', `/api/notes/${payload.noteId}`, false); // false = 同步
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify({ title: payload.title, content: payload.content }));
+    }
+
+    pendingSavePayload = null;
+  } catch (error) {
+    console.error('Failed to save note on page hide:', error);
+  }
 }
 
 function handleVisibilityChange() {
   if (document.visibilityState === 'hidden') {
-    void flushPendingSave(true);
+    // 页面隐藏时使用 sendBeacon
+    handlePageHide();
   }
 }
 

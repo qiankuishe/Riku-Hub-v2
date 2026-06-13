@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
-import { ElInput, ElDropdown, ElDropdownMenu, ElDropdownItem, ElPagination, ElMessage, ElDialog } from 'element-plus';
+import { ElInput, ElDropdown, ElDropdownMenu, ElDropdownItem, ElPagination, ElMessage, ElDialog, ElMessageBox } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import { useImageList } from './composables/useImageList';
 import { useImageUpload } from './composables/useImageUpload';
@@ -40,7 +40,7 @@ const {
   refresh
 } = useImageList();
 
-const { uploading, handleFileSelect } = useImageUpload();
+const { uploading, uploadProgress, handleFileSelect } = useImageUpload();
 
 const {
   operating,
@@ -188,10 +188,30 @@ async function handleDelete(image: ImageRecord) {
 }
 
 async function handleBatchDelete() {
-  const count = await batchDelete(selectedImages.value);
-  if (count > 0) {
-    clearSelection();
-    await refresh();
+  if (selectedImages.value.length === 0) {
+    return;
+  }
+
+  // 显示确认对话框
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedImages.value.length} 个文件吗？此操作不可撤销。`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    );
+
+    const count = await batchDelete(selectedImages.value);
+    if (count > 0) {
+      clearSelection();
+      await refresh();
+    }
+  } catch {
+    // 用户取消操作
   }
 }
 
@@ -244,49 +264,96 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+let checkAbortController: AbortController | null = null;
+
 async function checkInvalidFiles() {
   if (images.value.length === 0) {
     ElMessage.warning('暂无文件可检测');
     return;
   }
 
-  const loadingMessage = ElMessage({
-    message: '正在检测失效文件...',
-    type: 'info',
-    duration: 0
-  });
+  // 创建 AbortController 用于取消检测
+  checkAbortController = new AbortController();
+  const signal = checkAbortController.signal;
+
+  let loadingMessage: any = null;
+  let checked = 0;
+  const total = images.value.length;
+
+  // 显示带进度的加载消息
+  const updateProgress = () => {
+    const percentage = Math.round((checked / total) * 100);
+    if (loadingMessage) {
+      loadingMessage.close();
+    }
+    loadingMessage = ElMessage({
+      message: `正在检测失效文件... ${checked}/${total} (${percentage}%)`,
+      type: 'info',
+      duration: 0
+    });
+  };
+
+  updateProgress();
 
   try {
     let invalidCount = 0;
     const batchSize = 10; // 每批检测10个文件
-    
+
     for (let i = 0; i < images.value.length; i += batchSize) {
+      // 检查是否已取消
+      if (signal.aborted) {
+        if (loadingMessage) loadingMessage.close();
+        ElMessage.info('检测已取消');
+        return;
+      }
+
       const batch = images.value.slice(i, i + batchSize);
+
+      // 添加短暂延迟，避免阻塞主线程
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const results = await Promise.allSettled(
         batch.map(async (image) => {
           try {
             const url = getFileUrl(image.id, image.shortId, image.fileName);
-            const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+            const response = await fetch(url, {
+              method: 'HEAD',
+              signal: AbortSignal.timeout(5000)
+            });
             return response.ok;
           } catch {
             return false;
           }
         })
       );
-      
+
+      checked += batch.length;
       invalidCount += results.filter(r => r.status === 'fulfilled' && !r.value).length;
+
+      // 更新进度
+      updateProgress();
     }
 
-    loadingMessage.close();
-    
+    if (loadingMessage) loadingMessage.close();
+
     if (invalidCount === 0) {
       ElMessage.success('所有文件都正常');
     } else {
       ElMessage.warning(`发现 ${invalidCount} 个失效文件`);
     }
   } catch (error) {
-    loadingMessage.close();
-    ElMessage.error('检测过程出错');
+    if (loadingMessage) loadingMessage.close();
+    if (!signal.aborted) {
+      ElMessage.error('检测过程出错');
+    }
+  } finally {
+    checkAbortController = null;
+  }
+}
+
+function cancelCheckInvalidFiles() {
+  if (checkAbortController) {
+    checkAbortController.abort();
   }
 }
 
@@ -312,7 +379,7 @@ onMounted(() => {
         </div>
         <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-mobile">
           <Icon icon="carbon:upload" class="mr-1" />
-          上传
+          {{ uploading ? `上传中 ${uploadProgress.current}/${uploadProgress.total}` : '上传' }}
         </UiButton>
       </div>
 
@@ -349,7 +416,7 @@ onMounted(() => {
 
         <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-desktop">
           <Icon icon="carbon:upload" class="mr-1" />
-          上传
+          {{ uploading ? `上传中 ${uploadProgress.current}/${uploadProgress.total}` : '上传' }}
         </UiButton>
 
         <div class="images-filters-group">

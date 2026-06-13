@@ -66,14 +66,14 @@ export function rememberAppRouteContainerScroll(route: string, containerKey: str
 
 export function buildLoginRedirectUrl(route?: string): string {
   if (typeof window === 'undefined') {
-    return '/login';
+    return '/riku/login';
   }
 
   const currentRoute = route ?? `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (!isAppRoutePath(currentRoute)) {
-    return '/login';
+    return '/riku/login';
   }
 
   rememberAppRoute(currentRoute);
-  return `/login?redirect=${encodeURIComponent(currentRoute)}`;
+  return `/riku/login?redirect=${encodeURIComponent(currentRoute)}`;
 }

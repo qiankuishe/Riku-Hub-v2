@@ -324,6 +324,23 @@ async function createSnippet() {
 async function readClipboardText() {
   clipboardBusy.value = 'text';
   try {
+    // 检查剪贴板支持
+    if (!navigator.clipboard) {
+      draftError.value = '浏览器不支持剪贴板读取，或当前环境不是 HTTPS';
+      return;
+    }
+
+    // 尝试查询权限
+    try {
+      const permission = await navigator.permissions.query({ name: 'clipboard-read' as PermissionName });
+      if (permission.state === 'denied') {
+        draftError.value = '剪贴板权限被拒绝。请在浏览器设置中允许此网站访问剪贴板。';
+        return;
+      }
+    } catch {
+      // 权限查询不支持，继续尝试读取
+    }
+
     const text = await navigator.clipboard.readText();
     if (!text.trim()) {
       draftError.value = '剪贴板文本为空';
@@ -337,7 +354,17 @@ async function readClipboardText() {
     draftError.value = '';
     uiStore.showToast('已读取剪贴板文本');
   } catch (error) {
-    draftError.value = error instanceof Error ? error.message : '读取失败';
+    if (error instanceof Error) {
+      if (error.name === 'NotAllowedError') {
+        draftError.value = '剪贴板权限被拒绝。请点击浏览器地址栏的权限图标，允许访问剪贴板。';
+      } else if (error.name === 'NotFoundError') {
+        draftError.value = '剪贴板为空或不包含文本';
+      } else {
+        draftError.value = error.message || '读取失败';
+      }
+    } else {
+      draftError.value = '读取失败';
+    }
   } finally {
     clipboardBusy.value = 'idle';
   }
@@ -346,6 +373,23 @@ async function readClipboardText() {
 async function readClipboardImage() {
   clipboardBusy.value = 'image';
   try {
+    // 检查剪贴板支持
+    if (!navigator.clipboard) {
+      draftError.value = '浏览器不支持剪贴板读取，或当前环境不是 HTTPS';
+      return;
+    }
+
+    // 尝试查询权限
+    try {
+      const permission = await navigator.permissions.query({ name: 'clipboard-read' as PermissionName });
+      if (permission.state === 'denied') {
+        draftError.value = '剪贴板权限被拒绝。请在浏览器设置中允许此网站访问剪贴板。';
+        return;
+      }
+    } catch {
+      // 权限查询不支持，继续尝试读取
+    }
+
     const clipboardItems = await navigator.clipboard.read();
     for (const item of clipboardItems) {
       const imageType = item.types.find((type) => type.startsWith('image/'));
@@ -371,7 +415,17 @@ async function readClipboardImage() {
     }
     draftError.value = '剪贴板中没有图片';
   } catch (error) {
-    draftError.value = error instanceof Error ? error.message : '读取图片失败';
+    if (error instanceof Error) {
+      if (error.name === 'NotAllowedError') {
+        draftError.value = '剪贴板权限被拒绝。请点击浏览器地址栏的权限图标，允许访问剪贴板。';
+      } else if (error.name === 'NotFoundError') {
+        draftError.value = '剪贴板为空或不包含图片';
+      } else {
+        draftError.value = error.message || '读取图片失败';
+      }
+    } else {
+      draftError.value = '读取图片失败';
+    }
   } finally {
     clipboardBusy.value = 'idle';
   }
@@ -566,10 +620,28 @@ function layoutMasonry() {
   rightColumn.value = right;
 }
 
-// 监听筛选变化，重新布局
+// 防抖的布局函数
+let layoutTimer: number | undefined;
+function debouncedLayoutMasonry() {
+  if (layoutTimer) {
+    window.clearTimeout(layoutTimer);
+  }
+  layoutTimer = window.setTimeout(() => {
+    layoutMasonry();
+  }, 300); // 300ms 防抖，避免频繁重排
+}
+
+// 监听筛选变化，使用防抖重新布局
 watch([searchQuery, filterType], async () => {
   await nextTick();
-  layoutMasonry();
+  debouncedLayoutMasonry();
+});
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (layoutTimer) {
+    window.clearTimeout(layoutTimer);
+  }
 });
 </script>
 
