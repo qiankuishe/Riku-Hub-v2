@@ -686,18 +686,23 @@ function getExcerpt(content: string) {
     grid-template-columns: 1fr !important;
     height: auto;
   }
-  
+
   .notes-editor-section {
     height: auto;
     min-height: 520px;
   }
-  
+
   .notes-list-section {
     height: 600px;
   }
-  
+
   .notes-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  /* 平板端也显示移动菜单按钮 */
+  .mobile-menu-btn {
+    display: flex;
   }
 }
 
@@ -708,10 +713,6 @@ function getExcerpt(content: string) {
 
   .notes-list-section {
     height: 500px;
-  }
-
-  .mobile-menu-btn {
-    display: flex;
   }
 
   .note-card {
