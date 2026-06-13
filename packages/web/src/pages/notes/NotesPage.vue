@@ -693,7 +693,9 @@ function getExcerpt(content: string) {
   }
 
   .notes-list-section {
-    height: 600px;
+    height: auto; /* 改为自动高度 */
+    min-height: 400px; /* 最小高度保证可用性 */
+    max-height: 70vh; /* 最大高度不超过视口的70% */
   }
 
   .notes-grid {
@@ -712,7 +714,8 @@ function getExcerpt(content: string) {
   }
 
   .notes-list-section {
-    height: 500px;
+    min-height: 350px;
+    max-height: 60vh;
   }
 
   .note-card {

@@ -1267,95 +1267,17 @@ onUnmounted(() => {
   .card {
     display: flex;
     flex-direction: column;
+    overflow-x: hidden; /* 防止横向溢出 */
+    max-width: 100vw; /* 确保不超过视口宽度 */
   }
 
-  /* 解除外层包裹，让子元素参与 .card 的 Flex 排序 */
-  .snippet-header,
-  .snippet-layout,
-  .masonry-container,
-  .masonry-column {
-    display: contents;
-  }
-
-  /* 1. 标题和菜单按钮区域排在第一位 */
-  .snippet-title-section {
-    order: 1;
-    width: 100%;
-    margin-bottom: 16px;
-  }
-
-  /* 2. 快速收集排在第二位 */
-  .quick-collect-card {
-    order: 2;
-    margin-bottom: 16px;
-  }
-
-  /* 3. 搜索和筛选区域排在第三位 */
-  .snippet-search-section {
-    order: 3;
-    width: 100%;
+  /* 保持原本容器结构，改用 flex 单列排版替代 display: contents，能完美保留宽度限制约束 */
+  .snippet-header {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    background: linear-gradient(135deg, rgba(240, 109, 35, 0.06) 0%, rgba(244, 137, 72, 0.06) 100%);
-    border: 1px solid rgba(240, 109, 35, 0.15);
-    border-radius: 16px;
+    width: 100%;
     margin-bottom: 16px;
-  }
-
-  /* 4. 加载/报错/空状态排在第四位 */
-  .card > .rounded-lg,
-  .card > .el-alert {
-    order: 4;
-    width: 100%;
-    margin-bottom: 12px;
-  }
-
-  /* 5. 具体内容卡片排在最后 */
-  .content-card:not(.quick-collect-card) {
-    order: 5;
-    margin-bottom: 12px;
-  }
-
-  /* 搜索框和数量一行 */
-  .snippet-search-row {
-    width: 100%;
-  }
-
-  .snippet-search-input {
-    flex: 1;
-    width: auto !important;
-    min-width: 0;
-  }
-
-  /* 类型筛选标签页 */
-  .snippet-type-tabs {
-    justify-content: space-between;
-    width: 100%;
-    flex-wrap: nowrap;
-    gap: 8px;
-  }
-
-  .snippet-type-tab {
-    flex: 1;
-    text-align: center;
-    padding: 6px 0;
-    font-size: 14px;
-    border-radius: 8px;
-  }
-
-  /* 快速收集按钮行 */
-  .snippet-actions-row {
-    gap: 6px;
-  }
-
-  .snippet-actions-left {
-    gap: 4px;
-  }
-
-  .mobile-menu-btn {
-    display: flex;
+    box-sizing: border-box;
   }
 
   .snippet-layout {
@@ -1364,9 +1286,86 @@ onUnmounted(() => {
     overflow: hidden;
   }
 
-  /* 强制文本换行 */
-  .content-card,
-  .snippet-card {
+  .masonry-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .masonry-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 1. 标题和菜单按钮区域 */
+  .snippet-title-section {
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 12px;
+  }
+
+  /* 2. 搜索和筛选区域 */
+  .snippet-search-section {
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: linear-gradient(135deg, rgba(240, 109, 35, 0.06) 0%, rgba(244, 137, 72, 0.06) 100%);
+    border: 1px solid rgba(240, 109, 35, 0.15);
+    border-radius: 16px;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+  }
+
+  /* 搜索框和数量一行 */
+  .snippet-search-row {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .snippet-search-input {
+    flex: 1;
+    width: auto !important;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* 类型筛选标签页 */
+  .snippet-type-tabs {
+    justify-content: space-between;
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+  }
+
+  .snippet-type-tab {
+    flex: 1;
+    text-align: center;
+    padding: 6px 0;
+    font-size: 14px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  /* 强制卡片换行防溢出 */
+  .content-card {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     overflow: hidden;
   }
 
@@ -1374,6 +1373,7 @@ onUnmounted(() => {
   .snippet-card * {
     word-break: break-word;
     overflow-wrap: break-word;
+    max-width: 100%;
   }
 
   /* 代码块特殊处理 */
@@ -1382,6 +1382,7 @@ onUnmounted(() => {
     white-space: pre-wrap;
     word-break: break-all;
     overflow-x: auto;
+    max-width: 100%;
   }
 
   /* 图片预览 */
