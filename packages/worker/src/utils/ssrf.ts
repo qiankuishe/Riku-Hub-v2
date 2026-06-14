@@ -92,11 +92,28 @@ async function resolveAddresses(hostname: string): Promise<string[]> {
   // 清理过期缓存（简单的 LRU）
   if (dnsCache.size > LIMITS.DNS_CACHE_MAX_SIZE) {
     const toDelete: string[] = [];
-    for (const [key, value] of dnsCache.entries()) {
-      if (value.expiresAt <= now || toDelete.length < LIMITS.DNS_CACHE_MAX_SIZE / 10) {
+    const entries = Array.from(dnsCache.entries());
+
+    // 第一步：删除所有过期的条目
+    for (const [key, value] of entries) {
+      if (value.expiresAt <= now) {
         toDelete.push(key);
       }
     }
+
+    // 第二步：如果删除过期条目后仍然超过限制，按过期时间排序删除最早的 10%
+    const remainingSize = dnsCache.size - toDelete.length;
+    if (remainingSize > LIMITS.DNS_CACHE_MAX_SIZE) {
+      const notExpired = entries
+        .filter(([key, value]) => value.expiresAt > now)
+        .sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+
+      const deleteCount = Math.ceil(LIMITS.DNS_CACHE_MAX_SIZE * 0.1);
+      for (let i = 0; i < deleteCount && i < notExpired.length; i++) {
+        toDelete.push(notExpired[i][0]);
+      }
+    }
+
     toDelete.forEach(key => dnsCache.delete(key));
   }
 

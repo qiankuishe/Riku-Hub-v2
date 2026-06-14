@@ -19,6 +19,30 @@ export class ImagesRepository {
   constructor(private db: D1Database) {}
 
   /**
+   * 生成唯一的短 ID（8位）
+   * 使用随机字符串并检查数据库唯一性，最多重试 5 次
+   */
+  private async generateUniqueShortId(): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      // 生成 8 位随机字符串（使用 UUID 去除连字符后的前 8 位）
+      const shortId = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+
+      // 检查是否已存在
+      const existing = await this.db
+        .prepare('SELECT 1 FROM images WHERE short_id = ?')
+        .bind(shortId)
+        .first();
+
+      if (!existing) {
+        return shortId;
+      }
+    }
+
+    // 5 次都冲突的概率极低（约 1/16^40），但为了安全还是抛出错误
+    throw new Error('无法生成唯一的短 ID，请重试');
+  }
+
+  /**
    * 获取图片列表
    */
   async list(userId: string, params: ImageListParams = {}): Promise<{ images: ImageRecord[]; total: number }> {
@@ -249,7 +273,7 @@ export class ImagesRepository {
    */
   async create(data: CreateImageData): Promise<ImageRecord> {
     const id = crypto.randomUUID();
-    const shortId = id.substring(0, 8); // 取前 8 位作为短 ID
+    const shortId = await this.generateUniqueShortId(); // 生成唯一的短 ID
     const now = Date.now();
 
     await this.db

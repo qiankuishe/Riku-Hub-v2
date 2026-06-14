@@ -22,6 +22,7 @@ const {
   sortOption,
   filterOption,
   searchQuery,
+  searchInput,
   currentPage,
   pageSize,
   selectedFiles,
@@ -40,7 +41,7 @@ const {
   refresh
 } = useImageList();
 
-const { uploading, uploadProgress, handleFileSelect } = useImageUpload();
+const { uploading, uploadProgress, handleFileSelect, cancelUpload } = useImageUpload();
 
 const {
   operating,
@@ -128,23 +129,9 @@ function generateRandomString(length: number): string {
   return result;
 }
 
-// 检查文件名是否已存在
-function isFileNameExists(fileName: string): boolean {
-  return images.value.some(img => img.fileName === fileName);
-}
-
-// 生成唯一文件名
+// 生成文件名（不检查重复，由后端自动处理冲突）
 function generateUniqueFileName(originalName: string): string {
-  let fileName = generateFileName(originalName);
-  let attempts = 0;
-  const maxAttempts = 10;
-  
-  while (isFileNameExists(fileName) && attempts < maxAttempts) {
-    fileName = generateFileName(originalName);
-    attempts++;
-  }
-  
-  return fileName;
+  return generateFileName(originalName);
 }
 
 // 方法
@@ -377,16 +364,16 @@ onMounted(() => {
             图床 <span class="text-sm font-normal text-gray-500 ml-2 whitespace-nowrap">{{ total }} 个文件</span>
           </h2>
         </div>
-        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-mobile">
-          <Icon icon="carbon:upload" class="mr-1" />
-          {{ uploading ? `上传中 ${uploadProgress.current}/${uploadProgress.total}` : '上传' }}
+        <UiButton type="primary" size="small" :loading="uploading" @click="uploading ? cancelUpload() : handleUploadClick()" class="upload-btn-mobile">
+          <Icon :icon="uploading ? 'carbon:stop-filled' : 'carbon:upload'" class="mr-1" />
+          {{ uploading ? `取消 (${uploadProgress.current}/${uploadProgress.total})` : '上传' }}
         </UiButton>
       </div>
 
       <div class="images-actions-area">
         <div class="images-search-group">
           <ElInput
-            v-model="searchQuery"
+            v-model="searchInput"
             clearable
             placeholder="搜索文件名..."
             size="small"
@@ -414,9 +401,9 @@ onMounted(() => {
           </ElDropdown>
         </div>
 
-        <UiButton type="primary" size="small" :loading="uploading" @click="handleUploadClick" class="upload-btn-desktop">
-          <Icon icon="carbon:upload" class="mr-1" />
-          {{ uploading ? `上传中 ${uploadProgress.current}/${uploadProgress.total}` : '上传' }}
+        <UiButton type="primary" size="small" :loading="uploading" @click="uploading ? cancelUpload() : handleUploadClick()" class="upload-btn-desktop">
+          <Icon :icon="uploading ? 'carbon:stop-filled' : 'carbon:upload'" class="mr-1" />
+          {{ uploading ? `取消 (${uploadProgress.current}/${uploadProgress.total})` : '上传' }}
         </UiButton>
 
         <div class="images-filters-group">

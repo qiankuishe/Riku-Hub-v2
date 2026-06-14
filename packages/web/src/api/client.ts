@@ -51,23 +51,23 @@ export async function request<T>(url: string, options?: RequestOptions): Promise
       }
       isRedirectingToLogin = true;
 
-      // 会话已过期，显示提示并跳转登录页
+      // 会话已过期，显示并跳转登录页
       const message = data.error || '登录已过期，请重新登录';
 
       // 尝试使用全局 toast（如果可用）
       try {
         const { useUiStore } = await import('../stores/ui');
         const uiStore = useUiStore();
-        uiStore.showToast(message);
+        uiStore.showToast(message, 800);
       } catch {
-        // 降级：使用原生 alert
-        alert(message);
+        // 降级：使用原生 alert（但不阻塞）
+        console.warn(message);
       }
 
-      // 延迟跳转，让用户看到提示
+      // 短暂延迟后立即跳转（确保 toast 显示）
       setTimeout(() => {
         window.location.href = buildLoginRedirectUrl();
-      }, 1000);
+      }, 800);
 
       // 抛出错误，中断后续处理
       throw new Error('会话已过期');

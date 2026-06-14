@@ -47,14 +47,16 @@ export const useUiStore = defineStore('ui', () => {
     applyTheme();
   }
 
-  function showToast(message: string) {
+  function showToast(message: string, duration = 1800) {
     toastMessage.value = message;
     if (toastTimer) {
       window.clearTimeout(toastTimer);
     }
-    toastTimer = window.setTimeout(() => {
-      toastMessage.value = '';
-    }, 1800);
+    if (duration > 0) {
+      toastTimer = window.setTimeout(() => {
+        toastMessage.value = '';
+      }, duration);
+    }
   }
 
   function hideToast() {

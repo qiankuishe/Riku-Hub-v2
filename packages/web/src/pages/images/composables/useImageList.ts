@@ -16,7 +16,8 @@ export function useImageList() {
   const fileType = ref<FileType | 'all'>('image');
   const sortOption = ref<SortOption>('dateDesc');
   const filterOption = ref<FilterOption>('all');
-  const searchQuery = ref('');
+  const searchInput = ref(''); // 用户输入
+  const searchQuery = ref(''); // 实际搜索值（防抖后）
 
   // 分页 - 从 URL 读取初始页码
   const urlParams = new URLSearchParams(window.location.search);
@@ -26,6 +27,20 @@ export function useImageList() {
 
   // 选中的文件
   const selectedFiles = ref<Set<string>>(new Set());
+
+  // 防抖定时器
+  let searchDebounceTimer: number | undefined;
+
+  // 监听搜索输入，防抖 300ms
+  watch(searchInput, (value) => {
+    if (searchDebounceTimer) {
+      window.clearTimeout(searchDebounceTimer);
+    }
+    searchDebounceTimer = window.setTimeout(() => {
+      searchQuery.value = value;
+      currentPage.value = 1;
+    }, 300);
+  });
 
   // 监听页码变化，同步到 URL
   watch(currentPage, (page) => {
@@ -207,6 +222,7 @@ export function useImageList() {
     fileType,
     sortOption,
     filterOption,
+    searchInput,
     searchQuery,
     currentPage,
     pageSize,
