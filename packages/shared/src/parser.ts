@@ -397,6 +397,13 @@ function parseHysteria2Uri(uri: string): Hysteria2Node {
   const normalized = uri.replace(/^hy2:\/\//i, 'hysteria2://');
   const url = new URL(normalized);
   const params = url.searchParams;
+  const pinSHA256 = params.get('pinSHA256') || params.get('pinsha256') || undefined;
+  // insecure=0 + pinSHA256 意味着服务器用自签证书+指纹锁定
+  // Clash/Mihomo 不支持 Hysteria2 的 pinSHA256，必须降级为 skip-cert-verify: true
+  const skipCertVerify =
+    params.get('insecure') === '1' ||
+    params.get('allowInsecure') === '1' ||
+    Boolean(pinSHA256);
   return {
     type: 'hysteria2',
     name: decodeURIComponent(url.hash.slice(1)) || `Hysteria2-${url.hostname}`,
@@ -406,9 +413,10 @@ function parseHysteria2Uri(uri: string): Hysteria2Node {
     obfs: params.get('obfs') || undefined,
     obfsPassword: params.get('obfs-password') || undefined,
     sni: params.get('sni') || url.hostname,
-    skipCertVerify: params.get('insecure') === '1' || params.get('allowInsecure') === '1',
+    skipCertVerify,
     fastOpen: params.get('fastopen') === '1' || params.get('fast-open') === '1' || undefined,
-    alpn: params.get('alpn')?.split(',') || undefined
+    alpn: params.get('alpn')?.split(',') || undefined,
+    pinSHA256
   };
 }
 
@@ -747,7 +755,8 @@ function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {
         skipCertVerify: Boolean(proxy['skip-cert-verify']),
         fastOpen: typeof proxy['fast-open'] === 'boolean' ? proxy['fast-open'] : undefined,
         ports: typeof proxy.ports === 'string' ? proxy.ports : typeof proxy.ports === 'number' ? String(proxy.ports) : undefined,
-        alpn: Array.isArray(proxy.alpn) ? proxy.alpn.map(String) : undefined
+        alpn: Array.isArray(proxy.alpn) ? proxy.alpn.map(String) : undefined,
+        pinSHA256: typeof proxy['pinSHA256'] === 'string' ? proxy['pinSHA256'] : undefined
       };
     case 'tuic':
       return {

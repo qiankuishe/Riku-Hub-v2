@@ -83,6 +83,7 @@ export interface Hysteria2Node extends ProxyNodeBase {
   fastOpen?: boolean;
   ports?: string;
   alpn?: string[];
+  pinSHA256?: string;
 }
 
 export interface TuicNode extends ProxyNodeBase {

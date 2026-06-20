@@ -364,7 +364,8 @@ function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | nu
         ...(node.obfs && { obfs: node.obfs }),
         ...(node.obfsPassword && { 'obfs-password': node.obfsPassword }),
         ...(node.sni && { sni: node.sni }),
-        'skip-cert-verify': Boolean(node.skipCertVerify),
+        // pinSHA256 表示服务器使用自签证书+指纹锁定，Clash不支持该参数，必须强制 skip-cert-verify: true
+        'skip-cert-verify': node.pinSHA256 ? true : Boolean(node.skipCertVerify),
         alpn: node.alpn || ['h3'],
         ...(node.fastOpen !== undefined && { 'fast-open': node.fastOpen }),
         ...(node.ports && { ports: node.ports })
