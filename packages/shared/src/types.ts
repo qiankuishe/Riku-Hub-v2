@@ -31,6 +31,8 @@ export interface VmessNode extends ProxyNodeBase {
   wsPath?: string;
   wsHeaders?: Record<string, string>;
   grpcServiceName?: string;
+  udp?: boolean;
+  tfo?: boolean;
 }
 
 export interface VlessNode extends ProxyNodeBase {
@@ -48,6 +50,9 @@ export interface VlessNode extends ProxyNodeBase {
     publicKey: string;
     shortId?: string;
   };
+  clientFingerprint?: string;
+  udp?: boolean;
+  tfo?: boolean;
 }
 
 export interface ShadowsocksNode extends ProxyNodeBase {
@@ -75,6 +80,9 @@ export interface Hysteria2Node extends ProxyNodeBase {
   obfsPassword?: string;
   sni?: string;
   skipCertVerify?: boolean;
+  fastOpen?: boolean;
+  ports?: string;
+  alpn?: string[];
 }
 
 export interface TuicNode extends ProxyNodeBase {
@@ -86,6 +94,8 @@ export interface TuicNode extends ProxyNodeBase {
   sni?: string;
   skipCertVerify?: boolean;
   udpRelayMode?: string;
+  disableSni?: boolean;
+  reduceRtt?: boolean;
 }
 
 export interface WireGuardNode extends ProxyNodeBase {

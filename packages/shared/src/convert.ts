@@ -170,6 +170,7 @@ function serializeNodeUri(node: NormalizedNode, warnings: AggregateWarning[]): s
         params.set('pbk', node.realityOpts.publicKey);
         if (node.realityOpts.shortId) params.set('sid', node.realityOpts.shortId);
       }
+      if (node.clientFingerprint) params.set('fp', node.clientFingerprint);
       return `vless://${node.uuid}@${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
     }
     case 'ss': {
@@ -196,6 +197,7 @@ function serializeNodeUri(node: NormalizedNode, warnings: AggregateWarning[]): s
       if (node.obfs) params.set('obfs', node.obfs);
       if (node.obfsPassword) params.set('obfs-password', node.obfsPassword);
       if (node.skipCertVerify) params.set('insecure', '1');
+      if (node.fastOpen) params.set('fastopen', '1');
       const query = params.toString();
       return `hysteria2://${encodeURIComponent(node.password)}@${node.server}:${node.port}${query ? `?${query}` : ''}#${encodeURIComponent(node.name)}`;
     }
@@ -205,6 +207,9 @@ function serializeNodeUri(node: NormalizedNode, warnings: AggregateWarning[]): s
       if (node.congestionControl) params.set('congestion_control', node.congestionControl);
       if (node.alpn?.length) params.set('alpn', node.alpn.join(','));
       if (node.udpRelayMode) params.set('udp_relay_mode', node.udpRelayMode);
+      if (node.skipCertVerify) params.set('allow_insecure', '1');
+      if (node.disableSni) params.set('disable_sni', '1');
+      if (node.reduceRtt) params.set('reduce_rtt', '1');
       const query = params.toString();
       return `tuic://${encodeURIComponent(node.uuid)}:${encodeURIComponent(node.password)}@${node.server}:${node.port}${query ? `?${query}` : ''}#${encodeURIComponent(node.name)}`;
     }
@@ -298,7 +303,9 @@ function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | nu
         'skip-cert-verify': Boolean(node.skipCertVerify),
         ...(node.network && { network: node.network }),
         ...(node.wsPath && { 'ws-opts': { path: node.wsPath, headers: node.wsHeaders } }),
-        ...(node.grpcServiceName && { 'grpc-opts': { 'grpc-service-name': node.grpcServiceName } })
+        ...(node.grpcServiceName && { 'grpc-opts': { 'grpc-service-name': node.grpcServiceName } }),
+        ...(node.udp !== undefined && { udp: node.udp }),
+        ...(node.tfo !== undefined && { tfo: node.tfo })
       };
     case 'vless':
       return {
@@ -319,7 +326,10 @@ function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | nu
             'public-key': node.realityOpts.publicKey,
             ...(node.realityOpts.shortId && { 'short-id': node.realityOpts.shortId })
           }
-        })
+        }),
+        ...(node.clientFingerprint && { 'client-fingerprint': node.clientFingerprint }),
+        ...(node.udp !== undefined && { udp: node.udp }),
+        ...(node.tfo !== undefined && { tfo: node.tfo })
       };
     case 'ss':
       return {
@@ -355,7 +365,9 @@ function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | nu
         ...(node.obfsPassword && { 'obfs-password': node.obfsPassword }),
         ...(node.sni && { sni: node.sni }),
         'skip-cert-verify': Boolean(node.skipCertVerify),
-        alpn: ['h3']
+        alpn: node.alpn || ['h3'],
+        ...(node.fastOpen !== undefined && { 'fast-open': node.fastOpen }),
+        ...(node.ports && { ports: node.ports })
       };
     case 'tuic':
       return {
@@ -369,7 +381,9 @@ function convertToClashProxy(node: NormalizedNode): Record<string, unknown> | nu
         alpn: node.alpn || ['h3'],
         ...(node.sni && { sni: node.sni }),
         'skip-cert-verify': Boolean(node.skipCertVerify),
-        'udp-relay-mode': node.udpRelayMode || 'native'
+        'udp-relay-mode': node.udpRelayMode || 'native',
+        ...(node.disableSni !== undefined && { 'disable-sni': node.disableSni }),
+        ...(node.reduceRtt !== undefined && { 'reduce-rtt': node.reduceRtt })
       };
     case 'wireguard':
       return convertWireGuardClash(node);

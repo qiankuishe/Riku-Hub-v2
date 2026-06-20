@@ -308,7 +308,8 @@ function parseVlessUri(uri: string): VlessNode {
               publicKey: params.get('pbk') || '',
               shortId: params.get('sid') || undefined
             }
-          : undefined
+          : undefined,
+      clientFingerprint: params.get('fp') || undefined
     };
   } catch (error) {
     throw new Error(`Failed to parse VLESS URI: ${error instanceof Error ? error.message : String(error)}`);
@@ -405,7 +406,9 @@ function parseHysteria2Uri(uri: string): Hysteria2Node {
     obfs: params.get('obfs') || undefined,
     obfsPassword: params.get('obfs-password') || undefined,
     sni: params.get('sni') || url.hostname,
-    skipCertVerify: params.get('insecure') === '1' || params.get('allowInsecure') === '1'
+    skipCertVerify: params.get('insecure') === '1' || params.get('allowInsecure') === '1',
+    fastOpen: params.get('fastopen') === '1' || params.get('fast-open') === '1' || undefined,
+    alpn: params.get('alpn')?.split(',') || undefined
   };
 }
 
@@ -424,7 +427,9 @@ function parseTuicUri(uri: string): TuicNode {
     sni: params.get('sni') || url.hostname,
     skipCertVerify:
       params.get('allow_insecure') === '1' || params.get('allowInsecure') === '1' || params.get('insecure') === '1',
-    udpRelayMode: params.get('udp_relay_mode') || undefined
+    udpRelayMode: params.get('udp_relay_mode') || undefined,
+    disableSni: params.get('disable_sni') === '1' || undefined,
+    reduceRtt: params.get('reduce_rtt') === '1' || undefined
   };
 }
 
@@ -665,7 +670,9 @@ function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {
         network: (proxy.network as VmessNode['network']) ?? 'tcp',
         wsPath: (proxy['ws-opts'] as Record<string, unknown> | undefined)?.path as string | undefined,
         wsHeaders: (proxy['ws-opts'] as Record<string, unknown> | undefined)?.headers as Record<string, string> | undefined,
-        grpcServiceName: (proxy['grpc-opts'] as Record<string, unknown> | undefined)?.['grpc-service-name'] as string | undefined
+        grpcServiceName: (proxy['grpc-opts'] as Record<string, unknown> | undefined)?.['grpc-service-name'] as string | undefined,
+        udp: proxy.udp === false ? false : undefined,
+        tfo: typeof proxy.tfo === 'boolean' ? proxy.tfo : undefined
       };
     case 'vless':
       return {
@@ -689,9 +696,14 @@ function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {
                 shortId:
                   typeof (proxy['reality-opts'] as Record<string, unknown>)['short-id'] === 'string'
                     ? String((proxy['reality-opts'] as Record<string, unknown>)['short-id'])
-                    : undefined
+                    : typeof (proxy['reality-opts'] as Record<string, unknown>)['short-id'] === 'number'
+                      ? String((proxy['reality-opts'] as Record<string, unknown>)['short-id'])
+                      : undefined
               }
-            : undefined
+            : undefined,
+        clientFingerprint: typeof proxy['client-fingerprint'] === 'string' ? proxy['client-fingerprint'] : undefined,
+        udp: proxy.udp === false ? false : undefined,
+        tfo: typeof proxy.tfo === 'boolean' ? proxy.tfo : undefined
       };
     case 'ss': {
       const clashSsPlugin = buildShadowsocksPlugin(
@@ -732,7 +744,10 @@ function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {
         obfs: typeof proxy.obfs === 'string' ? proxy.obfs : undefined,
         obfsPassword: typeof proxy['obfs-password'] === 'string' ? proxy['obfs-password'] : undefined,
         sni: typeof proxy.sni === 'string' ? proxy.sni : undefined,
-        skipCertVerify: Boolean(proxy['skip-cert-verify'])
+        skipCertVerify: Boolean(proxy['skip-cert-verify']),
+        fastOpen: typeof proxy['fast-open'] === 'boolean' ? proxy['fast-open'] : undefined,
+        ports: typeof proxy.ports === 'string' ? proxy.ports : typeof proxy.ports === 'number' ? String(proxy.ports) : undefined,
+        alpn: Array.isArray(proxy.alpn) ? proxy.alpn.map(String) : undefined
       };
     case 'tuic':
       return {
@@ -751,7 +766,9 @@ function convertClashProxy(proxy: ClashLikeProxy): NormalizedNode | null {
         alpn: Array.isArray(proxy.alpn) ? proxy.alpn.map(String) : undefined,
         sni: typeof proxy.sni === 'string' ? proxy.sni : undefined,
         skipCertVerify: Boolean(proxy['skip-cert-verify']),
-        udpRelayMode: typeof proxy['udp-relay-mode'] === 'string' ? proxy['udp-relay-mode'] : undefined
+        udpRelayMode: typeof proxy['udp-relay-mode'] === 'string' ? proxy['udp-relay-mode'] : undefined,
+        disableSni: typeof proxy['disable-sni'] === 'boolean' ? proxy['disable-sni'] : undefined,
+        reduceRtt: typeof proxy['reduce-rtt'] === 'boolean' ? proxy['reduce-rtt'] : undefined
       };
     case 'wireguard':
       return {
@@ -862,7 +879,10 @@ function convertSingboxOutbound(outbound: SingboxOutbound): NormalizedNode | nul
         obfs: (outbound.obfs as Record<string, unknown> | undefined)?.type as string | undefined,
         obfsPassword: (outbound.obfs as Record<string, unknown> | undefined)?.password as string | undefined,
         sni: (outbound.tls as Record<string, unknown> | undefined)?.server_name as string | undefined,
-        skipCertVerify: Boolean((outbound.tls as Record<string, unknown> | undefined)?.insecure)
+        skipCertVerify: Boolean((outbound.tls as Record<string, unknown> | undefined)?.insecure),
+        alpn: Array.isArray((outbound.tls as Record<string, unknown> | undefined)?.alpn)
+          ? ((outbound.tls as Record<string, unknown>).alpn as string[]).map(String)
+          : undefined
       };
     case 'tuic':
       return {
@@ -876,7 +896,9 @@ function convertSingboxOutbound(outbound: SingboxOutbound): NormalizedNode | nul
         alpn: Array.isArray(outbound.alpn) ? outbound.alpn.map(String) : undefined,
         sni: (outbound.tls as Record<string, unknown> | undefined)?.server_name as string | undefined,
         skipCertVerify: Boolean((outbound.tls as Record<string, unknown> | undefined)?.insecure),
-        udpRelayMode: outbound.udp_relay_mode as string | undefined
+        udpRelayMode: outbound.udp_relay_mode as string | undefined,
+        disableSni: Boolean(outbound.disable_sni) || undefined,
+        reduceRtt: Boolean(outbound.zero_rtt) || undefined
       };
     case 'wireguard':
       return {
