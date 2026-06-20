@@ -234,9 +234,24 @@ function convertShadowsocksPluginToClash(plugin?: string): Record<string, unknow
   if (!parsed) {
     return {};
   }
+  
+  let pluginOpts: Record<string, unknown> | undefined;
+  if (parsed.options) {
+    pluginOpts = {};
+    for (const [key, value] of Object.entries(parsed.options)) {
+      if (value === 'true' || value === '1') {
+        pluginOpts[key] = true;
+      } else if (value === 'false' || value === '0') {
+        pluginOpts[key] = false;
+      } else {
+        pluginOpts[key] = value;
+      }
+    }
+  }
+
   return {
     plugin: parsed.name,
-    ...(parsed.options && { 'plugin-opts': parsed.options })
+    ...(pluginOpts && { 'plugin-opts': pluginOpts })
   };
 }
 
